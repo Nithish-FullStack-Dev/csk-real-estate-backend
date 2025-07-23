@@ -1,0 +1,43 @@
+import Expense from "../modals/expense.js"; // Adjust path if needed
+
+// GET /api/expenses
+export const getAllExpenses = async (req, res) => {
+  try {
+    const expenses = await Expense.find()
+      .populate("accountant", "name email") // Optional: populate accountant details
+      .sort({ date: -1 });
+
+    res.status(200).json(expenses);
+  } catch (error) {
+    console.error("Failed to fetch expenses:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+// PUT /api/expenses/:id/owner-approval
+export const updateExpenseStatusByOwner = async (req, res) => {
+  const { id } = req.params;
+  const { status, notes } = req.body;
+
+  try {
+    const updatedExpense = await Expense.findByIdAndUpdate(
+      id,
+      {
+        status,
+        isApprovedByOwner: status === "Approved",
+        description: notes || "",
+      },
+      { new: true }
+    );
+
+    if (!updatedExpense) {
+      return res.status(404).json({ message: "Expense not found" });
+    }
+
+    res.status(200).json(updatedExpense);
+  } catch (error) {
+    console.error("Error updating expense:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
