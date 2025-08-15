@@ -13,9 +13,9 @@ import {
   getAllSalesPersons,
   getAllAgentPersons,
   getAllCustomer_Purchased,
+  getLoggedInUser,
 } from "../controller/userController.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
-import { getLoggedInUser } from "../../../../../real-estate/src/controller/userController.js";
 
 const router = express.Router();
 
