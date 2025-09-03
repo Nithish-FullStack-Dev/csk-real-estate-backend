@@ -92,26 +92,24 @@ export const updateCarAllocation = async (req, res) => {
       status,
       type,
       capacity,
-      assignedTo, // { agent: userId, assignedUntil: Date }
-      assignedBy, // Team lead ID
-      assignedAt, // Timestamp of assignment
-      actualReturnAt, // Timestamp of actual return (for unassign)
+      assignedTo,
+      assignedBy,
+      assignedAt,
+      actualReturnAt,
       fuelLevel,
       mileage,
       lastService,
       location,
       notes,
-      usageLogs, // Frontend sends the full updated array
-      previousAssignedAgentId, // Sent by frontend during unassignment
+      usageLogs,
+      previousAssignedAgentId,
     } = req.body;
 
     const vehicle = await CarAllocation.findById(id);
-
     if (!vehicle) {
       return res.status(404).json({ message: "Vehicle not found" });
     }
 
-    // --- Update Basic Vehicle Details ---
     vehicle.model = model;
     vehicle.licensePlate = licensePlate;
     vehicle.type = type;
@@ -121,74 +119,57 @@ export const updateCarAllocation = async (req, res) => {
     vehicle.lastService = lastService;
     vehicle.location = location;
     vehicle.notes = notes;
-    vehicle.status = status; // Update status based on frontend payload
+    vehicle.status = status;
 
-    // --- Handle Assignment Logic ---
     if (status === "assigned" && assignedTo && assignedTo.agent) {
-      // Validate agent existence
       const agentToAssign = await User.findById(assignedTo.agent);
       if (!agentToAssign) {
         return res.status(400).json({ message: "Assigned agent not found." });
       }
-
-      // Check if the agent is already assigned to another vehicle (excluding the current one)
       const isAgentAlreadyAssigned = await CarAllocation.findOne({
         "assignedTo.agent": assignedTo.agent,
         _id: { $ne: id },
       });
-
       if (isAgentAlreadyAssigned) {
         return res
           .status(400)
           .json({ message: "Agent is already assigned to another vehicle." });
       }
-
-      // Perform assignment
       vehicle.assignedTo = {
-        agent: assignedTo.agent, // Store only ID
+        agent: assignedTo.agent,
         assignedUntil: assignedTo.assignedUntil,
       };
       vehicle.assignedBy = assignedBy;
-      vehicle.assignedAt = assignedAt || new Date(); // Use provided or current date
-      vehicle.actualReturnAt = null; // Clear actualReturnAt on new assignment
-
-      // Update usageLogs array with the new full array from frontend
+      vehicle.assignedAt = assignedAt || new Date();
+      vehicle.actualReturnAt = null;
       vehicle.usageLogs = usageLogs;
     } else if (status === "available" && vehicle.status === "assigned") {
-      // --- Handle Unassignment ---
-      // This block runs when the vehicle was previously assigned and is now becoming 'available'
       vehicle.assignedTo = null;
       vehicle.assignedBy = null;
       vehicle.assignedAt = null;
-      vehicle.actualReturnAt = actualReturnAt || new Date(); // Record actual return time
-
-      // Update the actualReturnAt of the latest relevant usage log
+      vehicle.actualReturnAt = actualReturnAt || new Date();
       if (
         vehicle.usageLogs &&
         vehicle.usageLogs.length > 0 &&
         previousAssignedAgentId
       ) {
-        // Find the last log for the agent who was just unassigned, and where actualReturnAt is not yet set
         const logToUpdate = vehicle.usageLogs.findLast(
           (log) =>
             log.agent.toString() === previousAssignedAgentId &&
             !log.actualReturnAt
         );
-
         if (logToUpdate) {
-          logToUpdate.actualReturnAt = vehicle.actualReturnAt; // Use the same actualReturnAt
-          vehicle.markModified("usageLogs"); // Tell Mongoose the array element was modified
+          logToUpdate.actualReturnAt = vehicle.actualReturnAt;
+          vehicle.markModified("usageLogs");
         }
       }
     }
-    // If status is "maintenance" or "booked" and not "assigned", ensure assigned fields are cleared.
-    // If assignedTo is explicitly null from frontend, it will correctly set it to null.
-    // Otherwise, it retains its value if the status change doesn't imply unassignment.
 
-    const updatedVehicle = await vehicle.save();
-
-    // Populate the agent details for the response
-    await updatedVehicle.populate("assignedTo.agent").populate("assignedBy");
+    let updatedVehicle = await vehicle.save();
+    updatedVehicle = await updatedVehicle.populate([
+      { path: "assignedTo.agent" },
+      { path: "assignedBy" },
+    ]);
 
     res.status(200).json(updatedVehicle);
   } catch (error) {

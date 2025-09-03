@@ -44,6 +44,10 @@ import TeamLead from "./src/routes/TeamLeadRoutes.js";
 
 dotenv.config();
 
+// server.js (at the top, after imports)
+const tokenBlacklist = new Set(); // In-memory blacklist
+export { tokenBlacklist };
+
 // Create Express app and HTTP server
 const app = express();
 const server = http.createServer(app);
@@ -84,7 +88,7 @@ export { io, onlineUsers };
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-const allowedOrigins = ["http://localhost:8080"]; // add more if needed
+const allowedOrigins = ["http://localhost:8080", "http://localhost:8081"]; // add more if needed
 
 app.use(
   cors({

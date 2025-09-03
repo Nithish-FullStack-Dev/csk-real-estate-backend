@@ -3,6 +3,7 @@ import Role from "../modals/role.js";
 import bcrypt from "bcrypt";
 import csrf from "csurf";
 import jwt from "jsonwebtoken";
+import { tokenBlacklist } from "../../server.js";
 
 export const createUser = async (req, res) => {
   try {
@@ -98,27 +99,33 @@ export const loginUser = async (req, res) => {
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
-
     if (!isPasswordValid) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // ✅ Update lastLogin
-    user.lastLogin = Date.now();
-    await user.save(); // Save updated lastLogin
+    // Add this block: Invalidate previous token
+    if (user.currentToken) {
+      tokenBlacklist.add(user.currentToken);
+    }
 
+    // Generate new token
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET_KEY, {
-      expiresIn: "7d",
+      expiresIn: "15m", // Shorten from 7d for security (we'll add refresh later)
     });
+
+    // Save new token
+    user.currentToken = token;
+    user.lastLogin = Date.now();
+    await user.save();
 
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
-      maxAge: 7 * 2 * 60 * 60 * 1000,
+      maxAge: 15 * 60 * 1000, // Match expiration
     });
 
-    const { password: _, ...userData } = user.toObject();
+    const { password: _, currentToken: __, ...userData } = user.toObject();
 
     res.status(200).json({
       message: "Login successful",
