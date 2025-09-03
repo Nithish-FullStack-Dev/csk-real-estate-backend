@@ -1,10 +1,16 @@
 import jwt from "jsonwebtoken";
 import User from "../modals/user.js";
 import Role from "../modals/role.js";
+import { tokenBlacklist } from "../../server.js";
 
 export const authenticate = async (req, res, next) => {
-  const {token} = req.cookies;
+  const { token } = req.cookies;
   if (!token) return res.status(401).json({ message: "No token provided" });
+
+  // Add this block
+  if (tokenBlacklist.has(token)) {
+    return res.status(403).json({ message: "Token has been invalidated" });
+  }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
@@ -14,7 +20,10 @@ export const authenticate = async (req, res, next) => {
     req.user = user;
     next();
   } catch (err) {
-    res.status(401).json({ message: "Invalid token" });
+    if (err.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Token expired" });
+    }
+    return res.status(401).json({ message: "Invalid token" });
   }
 };
 
@@ -34,7 +43,9 @@ export const authorize = (page, action) => {
 export const authorizeRoles = (...allowedRoles) => {
   return (req, res, next) => {
     if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ message: "Access denied: insufficient role" });
+      return res
+        .status(403)
+        .json({ message: "Access denied: insufficient role" });
     }
     next();
   };
