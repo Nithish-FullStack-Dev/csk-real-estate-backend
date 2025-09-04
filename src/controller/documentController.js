@@ -71,17 +71,42 @@ export const getDocumentById = async (req, res) => {
 };
 
 //! UPDATE Document Metadata
+//! UPDATE Document (with optional file)
 export const updateDocument = async (req, res) => {
   try {
-    const updated = await Document.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
+    const { docName, docType, status, description, property } = req.body;
 
-    if (!updated)
+    // Base update object
+    const updateFields = { docName, docType, status, description, property };
+
+    // If a new file is uploaded
+    if (req.file) {
+      const cloudinaryUrl = await uploadOnCloudniary(req.file.path);
+      if (!cloudinaryUrl) {
+        return res.status(500).json({ message: "Cloud upload failed" });
+      }
+
+      updateFields.filePath = cloudinaryUrl;
+      updateFields.format = req.file.mimetype.split("/")[1]?.toUpperCase();
+      updateFields.size = `${(req.file.size / 1024 / 1024).toFixed(2)} MB`;
+    }
+
+    const updated = await Document.findByIdAndUpdate(
+      req.params.id,
+      updateFields,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    if (!updated) {
       return res.status(404).json({ message: "Document not found" });
+    }
 
-    res.status(200).json({ message: "Document updated", data: updated });
+    res
+      .status(200)
+      .json({ message: "Document updated successfully", data: updated });
   } catch (error) {
     res.status(500).json({ message: "Update failed", error: error.message });
   }

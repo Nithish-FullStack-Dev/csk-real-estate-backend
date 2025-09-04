@@ -14,7 +14,7 @@ const router = express.Router();
 router.post("/upload", upload.single("file"), uploadDocument);
 router.get("/getAllDocuments", getAllDocuments);
 router.get("/getDocumentById/:id", getDocumentById);
-router.put("/updateDocument/:id", updateDocument);
+router.put("/updateDocument/:id", upload.single("file"), updateDocument);
 router.delete("/deleteDocument/:id", deleteDocument);
 
 export default router;
