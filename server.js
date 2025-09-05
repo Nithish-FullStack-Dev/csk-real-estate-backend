@@ -41,6 +41,7 @@ import Commission from "./src/routes/commissionRoutes.js";
 import Customer from "./src/routes/customerRoutes.js";
 import Document from "./src/routes/documentRoutes.js";
 import TeamLead from "./src/routes/TeamLeadRoutes.js";
+import AgentSchedule from "./src/routes/agentScheduleRoutes.js";
 
 dotenv.config();
 
@@ -149,6 +150,7 @@ app.use("/api/commission", Commission);
 app.use("/api/customer", Customer);
 app.use("/api/document", Document);
 app.use("/api/teamLead", TeamLead);
+app.use("/api/agent-schedule", AgentSchedule);
 
 // Start the server
 server.listen(PORT, () => {
