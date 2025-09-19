@@ -4,44 +4,44 @@ const { Schema, model, Types } = mongoose;
 
 // Task Schema (for each task in a unit)
 const TaskSchema = new Schema({
-  contractor:{
+  contractor: {
     type: Types.ObjectId,
     ref: "User",
-    required: true
+    required: true,
   },
-  title:{
+  title: {
     type: String,
-    required: true
+    required: true,
   },
   statusForContractor: {
     type: String,
-    enum: ["In progress","completed","pending review"],
+    enum: ["In progress", "completed", "pending review"],
     required: true,
-    default: "In progress"
+    default: "In progress",
   },
   statusForSiteIncharge: {
     type: String,
-    enum: ["pending verification", "approved","rework","rejected"],
+    enum: ["pending verification", "approved", "rework", "rejected"],
     required: true,
-    default: "pending verification"
+    default: "pending verification",
   },
   deadline: {
     type: Date,
-    required: true
+    required: true,
   },
   progressPercentage: {
     type: Number,
     min: 0,
     max: 100,
-    default: 0
+    default: 0,
   },
   isApprovedByContractor: {
     type: Boolean,
-    default: false
+    default: false,
   },
   isApprovedBySiteManager: {
     type: Boolean,
-    default: false
+    default: false,
   },
   // isApprovedByAccountant: {
   //   type: Boolean,
@@ -49,48 +49,48 @@ const TaskSchema = new Schema({
   // },
   constructionPhase: {
     type: String,
-    default: ""
+    default: "",
   },
   contractorUploadedPhotos: {
     type: [String],
-    default: []
+    default: [],
   },
   siteInchargeUploadedPhotos: {
     type: [String],
-    default: []
+    default: [],
   },
   qualityAssessment: {
     type: String,
     enum: ["", "excellent", "good", "acceptable", "poor"],
-    default: ""
+    default: "",
   },
   verificationDecision: {
     type: String,
-    enum: ["approved","rework","rejected",""],
-    default:""
+    enum: ["approved", "Approve", "rework", "rejected", ""],
+    default: "",
   },
   submittedByContractorOn: {
     type: Date,
   },
   submittedBySiteInchargeOn: {
-    type: Date
+    type: Date,
   },
-  evidenceTitleByContractor:{
-    type: String
+  evidenceTitleByContractor: {
+    type: String,
   },
   noteBySiteIncharge: {
-    type: String
+    type: String,
   },
   priority: {
-    type: String
+    type: String,
   },
   description: {
-    type: String
+    type: String,
   },
   // noteByAccountant: {
   //   type: String
   // }
-},);
+});
 
 // Flexible Units Schema — Object of arrays of tasks
 const UnitSchema = new Schema(
@@ -102,66 +102,71 @@ const UnitSchema = new Schema(
 );
 
 // Project Schema
-const ProjectSchema = new Schema({
-  projectId: {
-    type: Types.ObjectId,
-    ref: "Property",
-    required: true
+const ProjectSchema = new Schema(
+  {
+    projectId: {
+      type: Types.ObjectId,
+      ref: "Property",
+      required: true,
+    },
+    contractors: {
+      type: [Types.ObjectId],
+      ref: "User",
+      required: true,
+    },
+    siteIncharge: {
+      type: Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    units: {
+      type: Map,
+      of: [TaskSchema], // map of unit name -> array of tasks
+      default: {},
+    },
+    deadline: {
+      type: Date,
+    },
+    priority: {
+      type: String,
+    },
+    type: {
+      type: String,
+    },
+    startDate: {
+      type: Date,
+    },
+    endDate: {
+      type: Date,
+    },
+    teamSize: {
+      type: Number,
+    },
+    estimatedBudget: {
+      type: Number,
+    },
+    description: {
+      type: String,
+    },
+    budget: {
+      type: Number,
+    },
+    status: {
+      type: String,
+    },
+    assignedContractors: {
+      type: Map,
+      of: [
+        {
+          type: Types.ObjectId,
+          ref: "User",
+        },
+      ],
+      default: {},
+    },
   },
-  contractors: {
-    type: [Types.ObjectId],
-    ref: "User",
-    required: true
-  },
-  siteIncharge: {
-    type: Types.ObjectId,
-    ref: "User",
-    required: true
-  },
-  units: {
-    type: Map,
-    of: [TaskSchema], // map of unit name -> array of tasks
-    default: {}
-  },
-  deadline: {
-    type: Date,
-  },
-  priority: {
-    type: String
-  },
-  type:{
-    type: String
-  },
-  startDate:{
-    type: Date
-  },
-  endDate:{
-    type: Date
-  },
-  teamSize:{
-    type: Number
-  },
-  estimatedBudget:{
-    type: Number
-  },
-  description:{
-    type: String
-  },
-  budget:{
-    type: Number
-  },
-  status:{
-    type: String
-  },
-  assignedContractors: {
-  type: Map,
-  of: [{
-    type: Types.ObjectId,
-    ref: "User"
-  }],
-  default: {}
-}
-}, { timestamps: true });
+  { timestamps: true }
+);
 
 const Project = model("Project", ProjectSchema);
 export default Project;

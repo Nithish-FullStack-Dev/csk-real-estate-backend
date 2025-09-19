@@ -4,7 +4,6 @@ import rolePermissions from "../modals/role.js";
 import mongoose from "mongoose";
 import QualityIssue from "../modals/qualityIssue.js";
 
-
 export const getUserProjects = async (req, res) => {
   try {
     const { _id, role } = req.user;
@@ -404,12 +403,16 @@ export const miniUpdateTaskByIdForContractor = async (req, res) => {
       !mongoose.Types.ObjectId.isValid(projectId) ||
       !mongoose.Types.ObjectId.isValid(taskId)
     ) {
-      return res.status(400).json({ success: false, message: "Invalid project or task ID" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid project or task ID" });
     }
 
     const project = await Project.findById(projectId);
     if (!project) {
-      return res.status(404).json({ success: false, message: "Project not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Project not found" });
     }
 
     let taskFound = false;
@@ -430,7 +433,9 @@ export const miniUpdateTaskByIdForContractor = async (req, res) => {
     }
 
     if (!taskFound) {
-      return res.status(404).json({ success: false, message: "Task not found in project" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Task not found in project" });
     }
 
     await project.save();
@@ -509,12 +514,10 @@ export const updateTaskByIdForSiteIncharge = async (req, res) => {
     }
 
     await project.save();
-    return res
-      .status(200)
-      .json({
-        success: true,
-        message: "Task updated successfully by Site Incharge",
-      });
+    return res.status(200).json({
+      success: true,
+      message: "Task updated successfully by Site Incharge",
+    });
   } catch (err) {
     console.error("Error updating task by site incharge:", err);
     return res.status(500).json({ success: false, message: "Server error" });
@@ -575,9 +578,9 @@ export const addContractorForSiteIncharge = async (req, res) => {
     }
 
     // 4. Append contractor._id to project.contractors if not already present
-if (!projectDoc.contractors.includes(contractor._id)) {
-  projectDoc.contractors.push(contractor._id);
-}
+    if (!projectDoc.contractors.includes(contractor._id)) {
+      projectDoc.contractors.push(contractor._id);
+    }
 
     // 5. Create the task
     const newTask = {
@@ -630,6 +633,7 @@ export const assignTaskToContractor = async (req, res) => {
       qualityIssueId,
       description,
     } = req.body;
+    console.log(unit);
 
     // 1. Validate contractor and project
     const contractor = await User.findById(contractorId);
@@ -668,7 +672,7 @@ export const assignTaskToContractor = async (req, res) => {
     const tasks = project.units.get(unit);
     tasks.push(newTask);
     project.units.set(unit, tasks);
-
+    console.log(project);
     // 5. Save the project
     await project.save();
 
@@ -688,19 +692,26 @@ export const assignTaskToContractor = async (req, res) => {
 
 export const createTaskForProjectUnit = async (req, res) => {
   try {
-    const { title, description, projectId, unit, phase, priority, deadline } = req.body;
+    const { title, description, projectId, unit, phase, priority, deadline } =
+      req.body;
 
     if (!title || !description || !projectId || !unit || !phase || !deadline) {
-      return res.status(400).json({ success: false, message: "Missing required fields" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing required fields" });
     }
 
     if (!mongoose.Types.ObjectId.isValid(projectId)) {
-      return res.status(400).json({ success: false, message: "Invalid projectId" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid projectId" });
     }
 
     const project = await Project.findById(projectId);
     if (!project) {
-      return res.status(404).json({ success: false, message: "Project not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Project not found" });
     }
 
     const newTask = {
@@ -724,16 +735,18 @@ export const createTaskForProjectUnit = async (req, res) => {
 
     await project.save();
 
-    return res.status(201).json({ success: true, message: "Task created successfully" });
+    return res
+      .status(201)
+      .json({ success: true, message: "Task created successfully" });
   } catch (error) {
     console.error("Error creating task:", error);
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-
 export const assignContractorToUnit = async (req, res) => {
   try {
+    console.log(req.body);
     const { projectId, unit, contractorId } = req.body;
 
     if (!projectId || !unit || !contractorId) {
@@ -741,8 +754,13 @@ export const assignContractorToUnit = async (req, res) => {
     }
 
     // Validate ObjectId
-    if (!mongoose.Types.ObjectId.isValid(projectId) || !mongoose.Types.ObjectId.isValid(contractorId)) {
-      return res.status(400).json({ message: "Invalid projectId or contractorId" });
+    if (
+      !mongoose.Types.ObjectId.isValid(projectId) ||
+      !mongoose.Types.ObjectId.isValid(contractorId)
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Invalid projectId or contractorId" });
     }
 
     const project = await Project.findById(projectId);
@@ -766,7 +784,9 @@ export const assignContractorToUnit = async (req, res) => {
 
     await project.save();
 
-    res.status(200).json({ message: "Contractor assigned successfully", project });
+    res
+      .status(200)
+      .json({ message: "Contractor assigned successfully", project });
   } catch (error) {
     console.error("Error assigning contractor:", error);
     res.status(500).json({ message: "Internal server error" });
