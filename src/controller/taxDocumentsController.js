@@ -1,8 +1,7 @@
 import TaxDocument from "../modals/taxDocuments.js";
 
-export const addDocument = async(req, res) => {
-
-   const accountantId = req.user._id;
+export const addDocument = async (req, res) => {
+  const accountantId = req.user._id;
   const { type, data } = req.body;
 
   if (!accountantId || !type || !data)
@@ -41,7 +40,7 @@ export const addDocument = async(req, res) => {
     console.error("Tax doc save error:", error);
     return res.status(500).json({ message: "Internal Server Error" });
   }
-}
+};
 
 export const getDocuments = async (req, res) => {
   try {
@@ -50,13 +49,18 @@ export const getDocuments = async (req, res) => {
     const taxDocs = await TaxDocument.findOne({ accountantId });
 
     if (!taxDocs) {
-      return res.status(200).json({ message: "No tax documents found for this accountant." });
+      return res
+        .status(200)
+        .json({ message: "No tax documents found for this accountant." });
     }
 
     return res.status(200).json({ success: true, taxDocuments: taxDocs });
   } catch (error) {
     console.error("Error fetching tax documents:", error);
-    return res.status(500).json({ success: false, message: "Server error while fetching documents." });
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching documents.",
+    });
   }
 };
 
@@ -70,8 +74,8 @@ export const updateTaxDocStatus = async (req, res) => {
       $or: [
         { "gstDocuments._id": docId },
         { "tdsDocuments._id": docId },
-        { "itrDocuments._id": docId }
-      ]
+        { "itrDocuments._id": docId },
+      ],
     });
 
     if (!taxDoc) {
@@ -125,7 +129,6 @@ export const updateTaxDocStatus = async (req, res) => {
 
     await taxDoc.save();
     res.status(200).json({ message: "Status updated successfully." });
-
   } catch (error) {
     console.error("Error updating status:", error);
     res.status(500).json({ message: "Server error while updating status." });
@@ -142,10 +145,7 @@ export const updateAuditStatus = async (req, res) => {
 
   try {
     const taxDoc = await TaxDocument.findOne({
-      $or: [
-        { "gstDocuments._id": docId },
-        { "itrDocuments._id": docId }
-      ]
+      $or: [{ "gstDocuments._id": docId }, { "itrDocuments._id": docId }],
     });
 
     if (!taxDoc) {
@@ -171,9 +171,11 @@ export const updateAuditStatus = async (req, res) => {
         }
       }
     }
-
+    console.log(updated);
     if (!updated) {
-      return res.status(400).json({ message: "Could not update audit status." });
+      return res
+        .status(400)
+        .json({ message: "Could not update audit status." });
     }
 
     await taxDoc.save();

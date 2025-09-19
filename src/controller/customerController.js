@@ -138,9 +138,15 @@ export const getCustomerByUser = async (req, res) => {
 
     const customer = await Customer.findOne({ user: userId })
       .populate("user")
-      .populate("properties.property")
       .populate("purchasedFrom")
-      .populate("properties.documents");
+      .populate("properties.documents")
+      .populate({
+        path: "properties.property",
+        populate: {
+          path: "customerInfo.agentId",
+          select: "name email phone",
+        },
+      });
 
     if (!customer) {
       return res.status(404).json({ message: "Customer not found" });
