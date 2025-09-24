@@ -323,3 +323,39 @@ export const verifyInvoiceByAccountant = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+export const getMonthlyRevenues = async (req, res) => {
+  try {
+    const year = parseInt(req.query.year) || new Date().getFullYear();
+    const revenues = await Invoice.aggregate([
+      {
+        $match: {
+          status: "paid",
+          paymentDate: {
+            $gte: new Date(year, 0, 1),
+            $lte: new Date(year, 11, 31, 23, 59, 59, 999),
+          },
+        },
+      },
+      {
+        $group: {
+          _id: { $month: "$paymentDate" },
+          total: { $sum: "$total" },
+        },
+      },
+      {
+        $sort: { _id: 1 },
+      },
+    ]);
+
+    const monthlyRevenues = Array(12).fill(0);
+    revenues.forEach((rev) => {
+      monthlyRevenues[rev._id - 1] = rev.total;
+    });
+
+    res.status(200).json(monthlyRevenues);
+  } catch (error) {
+    console.error("Error fetching monthly revenues:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};

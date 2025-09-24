@@ -17,7 +17,7 @@ export const getUserProjects = async (req, res) => {
       query.siteIncharge = _id;
     } else if (role === "contractor") {
       query.contractors = _id;
-    } else if (role === "accountant") {
+    } else if (role === "accountant" || role === "owner") {
       query = {};
     } else {
       return res.status(400).json({ error: "Unsupported role." });

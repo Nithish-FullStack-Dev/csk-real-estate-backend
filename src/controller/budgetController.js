@@ -7,10 +7,12 @@ export const getBudgetsByAccountant = async (req, res) => {
     const accountantId = req.user._id;
     const month = new Date().toISOString().slice(0, 7); // "2025-06"
 
-    const budgets = await Budget.find({ accountant: accountantId,month });
+    const budgets = await Budget.find({ accountant: accountantId, month });
 
     if (!budgets || budgets.length === 0) {
-      return res.status(404).json({ message: "No budgets found for this user." });
+      return res
+        .status(404)
+        .json({ message: "No budgets found for this user." });
     }
 
     res.status(200).json(budgets);
@@ -27,7 +29,10 @@ export const createBudget = async (req, res) => {
 
     const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
 
-    const existingBudget = await Budget.findOne({ accountant: accountantId, month: currentMonth });
+    const existingBudget = await Budget.findOne({
+      accountant: accountantId,
+      month: currentMonth,
+    });
 
     if (existingBudget) {
       // ✅ Only update planned budgets (don't touch spending data)
@@ -44,7 +49,9 @@ export const createBudget = async (req, res) => {
       });
 
       const updated = await existingBudget.save();
-      return res.status(200).json({ message: "Budget updated safely", budget: updated });
+      return res
+        .status(200)
+        .json({ message: "Budget updated safely", budget: updated });
     }
 
     // ✅ Create new budget if not found
@@ -66,7 +73,6 @@ export const createBudget = async (req, res) => {
 
     const saved = await newBudget.save();
     res.status(201).json({ message: "Budget created", budget: saved });
-
   } catch (error) {
     console.error("Error saving budget:", error);
     res.status(500).json({ message: "Failed to create or update budget" });
@@ -80,7 +86,15 @@ export const getMonthlyCashFlow = async (req, res) => {
     // Get first and last date of current month
     const now = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const lastDay = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999
+    );
 
     const pipeline = [
       {
@@ -126,18 +140,20 @@ export const getMonthlyCashFlow = async (req, res) => {
   }
 };
 
-
 export const addExpenseToPhase = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { category, amount, expenseName, date, description, proof } = req.body;
+    const { category, amount, expenseName, date, description, proof } =
+      req.body;
 
     const month = new Date().toISOString().slice(0, 7);
 
     const budget = await Budget.findOne({ accountant: userId, month });
 
     if (!budget) {
-      return res.status(404).json({ message: "No budget found for this month." });
+      return res
+        .status(404)
+        .json({ message: "No budget found for this month." });
     }
 
     const phase = budget.phases.find(
@@ -169,7 +185,8 @@ export const addExpenseToPhase = async (req, res) => {
     phase.actualSpend += Number(amount);
     phase.variance = phase.actualSpend - phase.budget;
     phase.utilization = (phase.actualSpend / phase.budget) * 100;
-    phase.status = phase.actualSpend > phase.budget ? "Over Budget" : "Within Budget";
+    phase.status =
+      phase.actualSpend > phase.budget ? "Over Budget" : "Within Budget";
 
     await budget.save();
 
@@ -180,13 +197,12 @@ export const addExpenseToPhase = async (req, res) => {
   }
 };
 
-
 export const getAllExpenses = async (req, res) => {
   try {
     const userId = req.user._id;
 
     // Optional: Filter only for this user's budget categories
-    const expenses = await Expense.find({accountant: userId})
+    const expenses = await Expense.find({ accountant: userId })
       .sort({ createdAt: -1 }) // latest first
       .limit(100); // or as needed
 
@@ -195,4 +211,74 @@ export const getAllExpenses = async (req, res) => {
     console.error("Failed to fetch expenses:", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
-}
+};
+
+export const getMonthlyRevenues = async (req, res) => {
+  try {
+    const year = parseInt(req.query.year) || new Date().getFullYear();
+    const revenues = await Invoice.aggregate([
+      {
+        $match: {
+          status: "paid",
+          issueDate: {
+            $gte: new Date(year, 0, 1),
+            $lte: new Date(year, 11, 31),
+          },
+        },
+      },
+      {
+        $group: {
+          _id: { $month: "$issueDate" },
+          total: { $sum: "$total" },
+        },
+      },
+      {
+        $sort: { _id: 1 },
+      },
+    ]);
+    const monthlyRevenues = Array(12).fill(0);
+    revenues.forEach((rev) => {
+      monthlyRevenues[rev._id - 1] = rev.total;
+    });
+    res.status(200).json(monthlyRevenues);
+  } catch (error) {
+    console.error("Error fetching monthly revenues:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const getQuarterlyTargets = async (req, res) => {
+  try {
+    const targets = await Budget.aggregate([
+      {
+        $group: {
+          _id: "$year",
+          quarters: {
+            $push: {
+              quarter: "$quarter",
+              revenueTarget: "$revenueTarget",
+            },
+          },
+        },
+      },
+      {
+        $sort: { _id: 1 },
+      },
+    ]);
+    const result = targets.map((yearData) => ({
+      year: yearData._id,
+      targets: Array(4)
+        .fill(0)
+        .map((_, index) => {
+          const quarter = yearData.quarters.find(
+            (q) => q.quarter === index + 1
+          );
+          return quarter ? quarter.revenueTarget : 0;
+        }),
+    }));
+    res.status(200).json(result);
+  } catch (error) {
+    console.error("Error fetching quarterly targets:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
