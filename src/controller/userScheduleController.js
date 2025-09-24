@@ -108,14 +108,18 @@ export const getUserSchedules = async (req, res) => {
       return res.status(400).json({ error: "User ID is required in params." });
     }
 
-    // ✅ Fetch schedules for the given user
     const schedules = await UserSchedule.find({ user: userId })
-      .sort({ startTime: 1 }) // optional: sort by earliest first
-      .select("-__v") // optional: exclude mongoose version key
+      .sort({ startTime: 1 })
+      .select("-__v")
       .populate({
-        path: "property", // field in UserSchedule referencing Property
-        select: "basicInfo.projectName", // only fetch projectName inside basicInfo
+        path: "property", // this is Project
+        select: "projectId", // only need the ref
+        populate: {
+          path: "projectId", // now go inside Property
+          select: "basicInfo.projectName", // get only projectName
+        },
       });
+
     res.status(200).json({ schedules });
   } catch (error) {
     console.error("Error fetching user schedules:", error);

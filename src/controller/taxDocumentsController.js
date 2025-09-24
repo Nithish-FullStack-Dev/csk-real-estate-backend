@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import TaxDocument from "../modals/taxDocuments.js";
 
 export const addDocument = async (req, res) => {
@@ -144,8 +145,10 @@ export const updateAuditStatus = async (req, res) => {
   }
 
   try {
+    const objectId = new mongoose.Types.ObjectId(docId);
+
     const taxDoc = await TaxDocument.findOne({
-      $or: [{ "gstDocuments._id": docId }, { "itrDocuments._id": docId }],
+      $or: [{ "gstDocuments._id": objectId }, { "itrDocuments._id": objectId }],
     });
 
     if (!taxDoc) {
@@ -171,7 +174,6 @@ export const updateAuditStatus = async (req, res) => {
         }
       }
     }
-    console.log(updated);
     if (!updated) {
       return res
         .status(400)
