@@ -62,7 +62,11 @@ export const createOpenPlot = async (req, res) => {
 // FETCH all Open Plots
 export const getAllOpenPlot = async (req, res) => {
   try {
-    const plots = await OpenPlot.find().sort({ createdAt: -1 });
+    const plots = await OpenPlot.find()
+      .sort({ createdAt: -1 })
+      .populate("customerId", "name email") // only return name & email
+      .populate("agentId", "name email"); // only return name & email
+
     res.status(200).json({ success: true, plots });
   } catch (error) {
     console.error("Error fetching open plots:", error);
@@ -77,13 +81,17 @@ export const getAllOpenPlot = async (req, res) => {
 export const getOpenPlotById = async (req, res) => {
   try {
     const { id } = req.params;
-    const openPlot = await OpenPlot.findById(id);
+    const openPlot = await OpenPlot.findById(id)
+      .populate("customerId", "name email")
+      .populate("agentId", "name email");
+
     if (!openPlot) {
-      return res.status(404).json({ message: "open plot not found" });
+      return res.status(404).json({ message: "Open plot not found" });
     }
+
     res.status(200).json(openPlot);
   } catch (error) {
-    console.error("Error fetching open plots:", error);
+    console.error("Error fetching open plot:", error);
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -133,9 +141,11 @@ export const updateOpenPlot = async (req, res) => {
   }
 
   try {
-    const updatedPlot = await OpenPlot.findByIdAndUpdate(id, req.body, {
+    let updatedPlot = await OpenPlot.findByIdAndUpdate(id, req.body, {
       new: true,
-    });
+    })
+      .populate("customerId", "name email")
+      .populate("agentId", "name email");
 
     if (!updatedPlot) {
       return res.status(404).json({ message: "Open Plot not found" });

@@ -73,9 +73,9 @@ const openPlotSchema = new mongoose.Schema(
       enum: ["Available", "Sold", "Reserved", "Blocked", "Under Dispute"],
       required: true,
     },
-    customerName: { type: String }, // Optional
+    customerId: { type: mongoose.Schema.Types.ObjectId, ref: "Customer" },
+    agentId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     customerContact: { type: String }, // Optional
-    agentName: { type: String }, // Optional
 
     // Location & Images
     googleMapsLink: { type: String }, // Optional
@@ -97,4 +97,3 @@ const OpenPlot =
   mongoose.models.OpenPlot || mongoose.model("OpenPlot", openPlotSchema);
 
 export default OpenPlot;
-

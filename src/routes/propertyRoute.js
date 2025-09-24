@@ -17,13 +17,7 @@ const router = express.Router();
 const csrfProtection = csrf({ cookie: true });
 
 // ✅ Routes that require authentication + CSRF + Authorization
-router.post(
-  "/addProperty",
-  csrfProtection,
-  authenticate,
-  authorize("Properties", "create"),
-  createProperty
-);
+router.post("/addProperty", csrfProtection, authenticate, createProperty);
 
 router.put("/updateProperty/:id", updateProperty);
 

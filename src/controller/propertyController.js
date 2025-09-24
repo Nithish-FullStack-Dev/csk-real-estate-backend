@@ -40,15 +40,13 @@ export const getPropertyById = async (req, res) => {
 
 export const updateProperty = async (req, res) => {
   try {
-    const { memNo } = req.params;
+    const { id } = req.params;
     const updatedData = req.body;
 
     // 1. Update the Property
-    const existingProperty = await Property.findOneAndUpdate(
-      { "basicInfo.membershipNumber": memNo },
-      updatedData,
-      { new: true }
-    );
+    const existingProperty = await Property.findByIdAndUpdate(id, updatedData, {
+      new: true,
+    });
 
     if (!existingProperty) {
       return res.status(404).json({ message: "Property not found" });
@@ -129,7 +127,14 @@ export const deleteProperty = async (req, res) => {
 
 export const getProperties = async (req, res) => {
   try {
-    const properties = await Property.find();
+    const properties = await Property.find()
+      .populate("constructionDetails.contractor", "name email")
+      .populate("constructionDetails.siteIncharge", "name email")
+      .populate({
+        path: "customerInfo.customerId",
+        populate: { path: "user", select: "name email" }, // customer name & email
+      })
+      .populate("customerInfo.agentId", "name email");
     res.status(200).json(properties);
   } catch (error) {
     console.error("Error fetching properties:", error);

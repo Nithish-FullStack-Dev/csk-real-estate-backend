@@ -28,7 +28,6 @@ const basicInfoSchema = new mongoose.Schema({
 
 const customerInfoSchema = new mongoose.Schema({
   customerId: { type: mongoose.Schema.Types.ObjectId, ref: "Customer" },
-  customerName: String,
   customerStatus: {
     type: String,
     enum: ["Open", "Purchased", "Inquiry", "Blocked"],
