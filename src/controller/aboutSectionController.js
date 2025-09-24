@@ -2,15 +2,27 @@ import AboutSection from "../modals/aboutSectionModal.js";
 
 export const addAboutSection = async (req, res) => {
   try {
-    const { mainTitle, paragraph1, paragraph2, image, stats, values } =
-      req.body;
+    const {
+      mainTitle,
+      paragraph1,
+      paragraph2,
+      image,
+      stats,
+      values,
+      team,
+      teamTitle,
+      teamDes,
+      thumbnail,
+      videoUrl,
+      gallery,
+      galleryTitle,
+      galleryDes,
+    } = req.body;
 
-    // Validate required fields
     if (!mainTitle) {
       return res.status(400).json({ message: "Main title is required" });
     }
 
-    // Create and save new document
     const aboutData = new AboutSection({
       mainTitle,
       paragraph1,
@@ -18,6 +30,14 @@ export const addAboutSection = async (req, res) => {
       image,
       stats,
       values,
+      teamTitle,
+      teamDes,
+      team, // ✅ new
+      thumbnail,
+      videoUrl,
+      gallery,
+      galleryDes,
+      galleryTitle,
     });
 
     const savedAbout = await aboutData.save();
@@ -43,9 +63,9 @@ export const getAllAboutSection = async (req, res) => {
     }
     res.json(aboutSection);
   } catch (error) {
-    console.error("Error adding About section:", error);
+    console.error("Error fetching About section:", error);
     res.status(500).json({
-      message: "Failed to add About section",
+      message: "Failed to fetch About section",
       error: error.message,
     });
   }
@@ -53,13 +73,13 @@ export const getAllAboutSection = async (req, res) => {
 
 export const updateAboutSection = async (req, res) => {
   try {
-    const { id } = req.params; // Get ID from URL
-    const updateData = req.body; // New data from frontend
+    const { id } = req.params;
+    const updateData = req.body; // should include stats, values, team, etc.
 
     const updatedSection = await AboutSection.findByIdAndUpdate(
       id,
       updateData,
-      { new: true } // Return updated document
+      { new: true }
     );
 
     if (!updatedSection) {
