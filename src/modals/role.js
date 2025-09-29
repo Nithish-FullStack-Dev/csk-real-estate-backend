@@ -1,9 +1,15 @@
 import mongoose from "mongoose";
 
 const rolePermissionSchema = new mongoose.Schema({
-  name: { type: String, required: true, unique: true },
-  description: { type: String }, 
-  color: { type: String },  
+  name: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+    trim: true,
+  },
+  description: { type: String },
+  color: { type: String },
   permissions: [
     {
       module: String,
@@ -19,6 +25,6 @@ const rolePermissionSchema = new mongoose.Schema({
   ],
 });
 
-const rolePermissions = mongoose.model("role",rolePermissionSchema);
+const rolePermissions = mongoose.model("role", rolePermissionSchema);
 
 export default rolePermissions;
