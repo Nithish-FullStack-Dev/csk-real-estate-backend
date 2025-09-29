@@ -89,7 +89,7 @@ export { io, onlineUsers };
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-const allowedOrigins = ["http://localhost:8080", "http://localhost:8081"]; // add more if needed
+const allowedOrigins = ["http://localhost:8080", "http://localhost:8081","https://csk-frontend-chi.vercel.app","https://csk.bestofall.in"]; // add more if needed
 
 app.use(
   cors({
