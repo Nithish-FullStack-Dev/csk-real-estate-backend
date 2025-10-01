@@ -1,38 +1,45 @@
 import Role from "../modals/role.js"; // Adjust path if needed
 
 export const addOrUpdateRolePermissions = async (req, res) => {
-  const { name, permissions } = req.body;
-
-  if (!name || !permissions) {
-    return res
-      .status(400)
-      .json({ message: "Name and permissions are required." });
-  }
-
   try {
-    // Check if name already exists for a different role
-    const existingRole = await Role.findOne({ name });
-    if (existingRole) {
-      // Update existing role
-      existingRole.permissions = permissions;
-      await existingRole.save();
+    const { name, permissions, description, color } = req.body;
+
+    if (!name || !permissions || !Array.isArray(permissions)) {
       return res
-        .status(200)
-        .json({ message: "Role permissions updated", role: existingRole });
+        .status(400)
+        .json({
+          message: "Name and permissions are required and must be an array",
+        });
     }
 
-    // Create new role
-    const newRole = new Role({ name, permissions });
-    await newRole.save();
-    return res.status(201).json({ message: "New role created", role: newRole });
+    // Find existing role by name
+    let role = await Role.findOne({ name });
+
+    if (role) {
+      // Update existing role
+      role.permissions = permissions;
+      if (description) role.description = description;
+      if (color) role.color = color;
+      await role.save();
+    } else {
+      // Create new role
+      role = new Role({
+        name,
+        description: description || "",
+        color: color || "",
+        permissions,
+      });
+      await role.save();
+    }
+
+    return res
+      .status(200)
+      .json({ message: "Role permissions saved successfully", role });
   } catch (error) {
     console.error("Error saving role permissions:", error);
-
-    if (error.code === 11000) {
-      return res.status(400).json({ message: "Role name already exists." });
-    }
-
-    return res.status(500).json({ message: "Server error", error });
+    return res
+      .status(500)
+      .json({ message: "Error saving role permissions", error: error.message });
   }
 };
 
@@ -139,7 +146,10 @@ export const updateRolesOFUsers = async (req, res) => {
 
 export const getRoles = async (req, res) => {
   try {
-    const roles = await Role.find({}, "name description color"); // fetch only needed fields
+    const roles = await Role.find(
+      {},
+      "name description color permissions"
+    ).lean(); // fetch only needed fields
     res.status(200).json(roles);
   } catch (error) {
     console.error("Error fetching roles:", error);
@@ -169,22 +179,27 @@ export const clearRoleMeta = async (req, res) => {
   }
 };
 
+// Get role permissions by role name
 export const getRolePermissions = async (req, res) => {
-  const { roleName } = req.params;
   try {
-    const role = await Role.findOne(
-      { name: roleName },
-      "name permissions" // only return these two fields
-    );
+    const { roleName } = req.params;
 
-    if (!role) {
-      return res.status(404).json({ message: "Role not found" });
-    }
+    if (!roleName)
+      return res.status(400).json({ message: "roleName is required" });
 
-    res.status(200).json(role);
+    const role = await Role.findOne({ name: roleName });
+
+    if (!role) return res.status(404).json({ message: "Role not found" });
+
+    return res.status(200).json({ permissions: role.permissions });
   } catch (error) {
     console.error("Error fetching role permissions:", error);
-    res.status(500).json({ message: "Failed to fetch role permissions" });
+    return res
+      .status(500)
+      .json({
+        message: "Error fetching role permissions",
+        error: error.message,
+      });
   }
 };
 
