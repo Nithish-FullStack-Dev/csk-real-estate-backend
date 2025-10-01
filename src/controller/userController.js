@@ -120,6 +120,7 @@ export const loginUser = async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+      path: "/",
     });
 
     const { password: _, currentToken: __, ...userData } = user.toObject();
