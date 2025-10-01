@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../modals/user.js";
 import Role from "../modals/role.js";
-import { tokenBlacklist } from "../../server.js";
+import { tokenBlacklist } from "../utils/tokenBlacklist.js";
 
 export const authenticate = async (req, res, next) => {
   const { token } = req.cookies;

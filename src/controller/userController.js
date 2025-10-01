@@ -3,7 +3,7 @@ import Role from "../modals/role.js";
 import bcrypt from "bcrypt";
 import csrf from "csurf";
 import jwt from "jsonwebtoken";
-import { tokenBlacklist } from "../../server.js";
+import { tokenBlacklist } from "../utils/tokenBlacklist.js";
 
 export const createUser = async (req, res) => {
   try {
