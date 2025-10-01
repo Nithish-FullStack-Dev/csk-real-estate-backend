@@ -45,10 +45,6 @@ import AgentSchedule from "./src/routes/agentScheduleRoutes.js";
 
 dotenv.config();
 
-// server.js (at the top, after imports)
-const tokenBlacklist = new Set(); // In-memory blacklist
-export { tokenBlacklist };
-
 // Create Express app and HTTP server
 const app = express();
 const server = http.createServer(app);
@@ -89,7 +85,12 @@ export { io, onlineUsers };
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-const allowedOrigins = ["http://localhost:8080", "http://localhost:8081","https://csk-frontend-chi.vercel.app","https://csk.bestofall.in"]; // add more if needed
+const allowedOrigins = [
+  "http://localhost:8080",
+  "http://localhost:8081",
+  "https://csk-frontend-chi.vercel.app",
+  "https://csk.bestofall.in",
+]; // add more if needed
 
 app.use(
   cors({
@@ -101,6 +102,8 @@ app.use(
       }
     },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
   })
 );
 
@@ -108,7 +111,13 @@ app.use(express.json());
 app.use(cookieParser());
 
 // CSRF middleware setup (store token in cookies)
-const csrfProtection = csrf({ cookie: true });
+const csrfProtection = csrf({
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production", // true on HTTPS
+    sameSite: "none", // allow cross-site cookie
+  },
+});
 
 // Public route to fetch CSRF token
 app.get("/api/csrf-token", csrfProtection, (req, res) => {

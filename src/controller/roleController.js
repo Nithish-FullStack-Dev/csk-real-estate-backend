@@ -242,3 +242,26 @@ export const resetRolePermissions = async (req, res) => {
       .json({ message: "Failed to reset role permissions" });
   }
 };
+
+export const getRoleByUser = async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user) {
+      return res.status(404).json({ message: "Logged in user not found" });
+    }
+
+    const role = await Role.findOne({ name: user.role }).lean();
+
+    if (!role) {
+      return res.status(404).json({ message: "Role not found" });
+    }
+
+    return res.status(200).json({
+      message: "Role fetched successfully",
+      role,
+    });
+  } catch (error) {
+    console.error("Error fetching role:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};

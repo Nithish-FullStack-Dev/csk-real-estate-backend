@@ -10,7 +10,9 @@ import {
   deleteRole,
   updateRole,
   resetRolePermissions,
+  getRoleByUser,
 } from "../controller/roleController.js";
+import { authenticate } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
@@ -18,6 +20,7 @@ router.post("/addRole", addOrUpdateRolePermissions);
 router.post("/createRole", createRole);
 router.delete("/deleteRole/:id", deleteRole);
 router.put("/updateRole/:id", updateRole);
+router.get("/getRoleByUser", authenticate, getRoleByUser);
 
 router.post("/updateUserRole", updateRolesOFUsers);
 router.get("/roles", getRoles);

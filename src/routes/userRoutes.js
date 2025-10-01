@@ -16,13 +16,13 @@ import {
   getLoggedInUser,
 } from "../controller/userController.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
-import { tokenBlacklist } from "../../server.js";
 import csrf from "csurf";
+import { tokenBlacklist } from "../utils/tokenBlacklist.js";
 
 const router = express.Router();
 const csrfProtection = csrf({ cookie: true });
 
-router.post("/addUser", csrfProtection, createUser);
+router.post("/addUser", createUser);
 router.get("/getUsers", authenticate, getAllUsers);
 router.get("/getLoggedInUser", authenticate, getLoggedInUser);
 router.get("/getRole/:userId", getUserWithRole);
