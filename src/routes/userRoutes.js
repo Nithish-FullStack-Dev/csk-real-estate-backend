@@ -43,7 +43,13 @@ router.post("/logout", authenticate, (req, res) => {
   if (token) {
     tokenBlacklist.add(token); // Add this
   }
-  res.clearCookie("token");
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+    path: "/",
+    domain: process.env.NODE_ENV === "production" ? ".bestofall.in" : undefined,
+  });
   res.status(200).json({ message: "Logged out successfully" });
 });
 

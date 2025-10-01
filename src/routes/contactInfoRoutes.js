@@ -10,6 +10,7 @@ const router = express.Router();
 
 router.get("/contactInfo", getContactInfo);
 router.post("/updateContactInfo", updateContactInfo);
+
 router.post("/send-email", async (req, res) => {
   const { name, email, subject, message } = req.body;
 
@@ -18,7 +19,10 @@ router.post("/send-email", async (req, res) => {
   }
 
   try {
-    // 1️⃣ Create transporter
+    // Respond immediately
+    res.status(200).json({ message: "Email is being processed" });
+
+    // Send email asynchronously
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
@@ -27,10 +31,9 @@ router.post("/send-email", async (req, res) => {
       },
     });
 
-    // 2️⃣ Send email
     await transporter.sendMail({
-      from: `"${name}" <${email}>`, // sender
-      to: process.env.EMAIL_USER, // your admin email
+      from: `"${name}" <${email}>`,
+      to: process.env.EMAIL_USER,
       subject: `[Contact Form] ${subject}`,
       html: `
         <h3>New Contact Form Submission From CSK Realtors</h3>
@@ -40,11 +43,8 @@ router.post("/send-email", async (req, res) => {
         <p><strong>Message:</strong><br/>${message}</p>
       `,
     });
-
-    res.status(200).json({ message: "Email sent successfully" });
   } catch (error) {
     console.error("Error sending email:", error);
-    res.status(500).json({ message: "Failed to send email" });
   }
 });
 
