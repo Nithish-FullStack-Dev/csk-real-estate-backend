@@ -21,38 +21,38 @@ router.get(
 router.post(
   "/add",
   authenticate,
-  authorizeRoles("accountant", "owner"),
+  authorizeRoles("accountant", "owner", "admin"),
   createBudget
 );
 router.get(
   "/cashflow",
   authenticate,
-  authorizeRoles("accountant", "owner"),
+  authorizeRoles("accountant", "owner", "admin"),
   getMonthlyCashFlow
 );
 router.post(
   "/expense",
   authenticate,
-  authorizeRoles("accountant", "owner"),
+  authorizeRoles("accountant", "owner", "admin"),
   addExpenseToPhase
 );
 router.get(
   "/expenses/all",
   authenticate,
-  authorizeRoles("accountant", "owner"),
+  authorizeRoles("accountant", "owner", "admin"),
   getAllExpenses
 );
 router.get(
   "/revenues",
   authenticate,
-  authorizeRoles("owner"),
+  authorizeRoles("owner", "admin"),
   getMonthlyRevenues
 );
 
 router.get(
   "/targets",
   authenticate,
-  authorizeRoles("owner"),
+  authorizeRoles("owner", "admin"),
   getQuarterlyTargets
 );
 
