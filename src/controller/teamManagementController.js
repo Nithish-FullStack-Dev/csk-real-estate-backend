@@ -46,6 +46,17 @@ export const getAllAgentsByTeamLead = async (req, res) => {
   }
 };
 
+export const getAllTeamMembers = async (req, res) => {
+  try {
+    const teamMembers = await TeamManagement.find()
+      .populate("agentId")
+      .populate("teamLeadId");
+    res.status(200).json(teamMembers);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch team members", error });
+  }
+}
+
 // 3. UPDATE TEAM AGENT BY ID
 export const updateTeamAgentById = async (req, res) => {
   try {

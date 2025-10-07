@@ -3,6 +3,7 @@ import {
   addTeamMember,
   deleteTeamAgentById,
   getAllAgentsByTeamLead,
+  getAllTeamMembers,
   getTeamAgentById,
   getUnassignedAgents,
   updateTeamAgentById,
@@ -14,6 +15,7 @@ const router = express.Router();
 router.post("/addTeamMember", addTeamMember);
 router.get("/unassigned", getUnassignedAgents);
 router.get("/getAllTeam/:id", authenticate, getAllAgentsByTeamLead);
+router.get("/getAllTeamMembers", getAllTeamMembers);
 router.get("/getAgentById/:id", getTeamAgentById);
 router.patch("/updateTeam/:id", updateTeamAgentById);
 router.delete("/deleteTeam/:id", deleteTeamAgentById);
