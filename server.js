@@ -44,6 +44,7 @@ import TeamLead from "./src/routes/TeamLeadRoutes.js";
 import AgentSchedule from "./src/routes/agentScheduleRoutes.js";
 import BuildingRoute from "./src/routes/building.route.js";
 import FloorRoute from "./src/routes/floor.route.js";
+import PropertyUnit from "./src/routes/propertyunit.route.js";
 
 dotenv.config();
 
@@ -164,6 +165,7 @@ app.use("/api/teamLead", TeamLead);
 app.use("/api/agent-schedule", AgentSchedule);
 app.use("/api/building", BuildingRoute);
 app.use("/api/floor", FloorRoute);
+app.use("/api/unit", PropertyUnit);
 
 // Start the server
 server.listen(PORT, () => {

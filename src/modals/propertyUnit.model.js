@@ -2,8 +2,8 @@ import mongoose from "mongoose";
 const { Schema } = mongoose;
 
 const propertyDocumentSchema = new Schema({
-  title: { type: String, required: true },
-  fileUrl: { type: String, required: true },
+  title: { type: String },
+  fileUrl: { type: String },
   mimeType: { type: String },
   visibility: {
     type: String,
