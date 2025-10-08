@@ -60,10 +60,10 @@ export const createBuilding = asyncHandler(async (req, res) => {
     completionDate,
     description,
     municipalPermission,
-    thumbnailUrl: thumbnailUrl?.url || "",
+    thumbnailUrl: thumbnailUrl || "",
     // priceRange,
     googleMapsLocation,
-    brochureUrl: brochureUrl?.url || "",
+    brochureUrl: brochureUrl || "",
   });
 
   const createdBuilding = await Building.findById(building._id);
