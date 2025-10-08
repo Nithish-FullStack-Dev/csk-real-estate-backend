@@ -1,5 +1,8 @@
 import e, { Router } from "express";
-import { createBuilding } from "../controller/building.controller.js";
+import {
+  createBuilding,
+  getAllBuildings,
+} from "../controller/building.controller.js";
 import { upload } from "../middlewares/multer.js";
 
 export const router = Router();
@@ -18,5 +21,7 @@ router.post(
   ]),
   createBuilding
 );
+
+router.get("/getAllBuildings", getAllBuildings);
 
 export default router;

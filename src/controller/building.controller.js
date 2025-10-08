@@ -74,3 +74,33 @@ export const createBuilding = asyncHandler(async (req, res) => {
       new ApiResponse(200, createdBuilding, "Building Created Successfully")
     );
 });
+
+export const getAllBuildings = asyncHandler(async (req, res) => {
+  const buildings = await Building.aggregate([
+    {
+      $project: {
+        _id: 1,
+        projectName: 1,
+        location: 1,
+        propertyType: 1,
+        totalUnits: 1,
+        availableUnits: 1,
+        soldUnits: 1,
+        constructionStatus: 1,
+        completionDate: 1,
+        thumbnailUrl: 1,
+        municipalPermission: 1,
+        brochureUrl: 1,
+        description: 1,
+      },
+    },
+  ]);
+
+  if (!buildings || buildings.length === 0) {
+    throw new ApiError(404, "No buildings found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, buildings, "Buildings fetched successfully"));
+});
