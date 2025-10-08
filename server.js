@@ -42,6 +42,7 @@ import Customer from "./src/routes/customerRoutes.js";
 import Document from "./src/routes/documentRoutes.js";
 import TeamLead from "./src/routes/TeamLeadRoutes.js";
 import AgentSchedule from "./src/routes/agentScheduleRoutes.js";
+import BuildingRoute from "./src/routes/building.route.js";
 
 dotenv.config();
 
@@ -160,6 +161,7 @@ app.use("/api/customer", Customer);
 app.use("/api/document", Document);
 app.use("/api/teamLead", TeamLead);
 app.use("/api/agent-schedule", AgentSchedule);
+app.use("/api/building", BuildingRoute);
 
 // Start the server
 server.listen(PORT, () => {

@@ -22,7 +22,7 @@ export const uploadOnCloudniary = async (localFilePath) => {
     console.log("Cloudinary URL:", response.secure_url);
     return response.secure_url;
   } catch (error) {
-    console.error("❌ Cloudinary upload failed:", error);
+    console.error("Cloudinary upload failed:", error);
 
     // ✅ Try to delete the temp file even on failure
     if (fs.existsSync(localFilePath)) {

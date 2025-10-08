@@ -30,7 +30,7 @@ const buildingSchema = new Schema(
       default: "Planned",
     },
     completionDate: { type: Date },
-    priceRange: priceRangeSchema,
+    // priceRange: priceRangeSchema,
     thumbnailUrl: { type: String },
     images: { type: [String], default: [] },
     description: { type: String },
