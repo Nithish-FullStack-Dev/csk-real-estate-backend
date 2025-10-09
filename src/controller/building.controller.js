@@ -105,6 +105,19 @@ export const getAllBuildings = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, buildings, "Buildings fetched successfully"));
 });
 
+export const getBuildingById = asyncHandler(async (req, res) => {
+  const { _id } = req.params;
+  if (!_id)
+    throw new ApiError(400, `Building ID not received properly: ${_id}`);
+
+  const building = await Building.findById(_id);
+  if (!building) throw new ApiError(404, "Building not found");
+
+  return res
+    .status(201)
+    .json(new ApiResponse(200, building, "Building fetched successfully"));
+});
+
 export const updateBuilding = asyncHandler(async (req, res) => {
   const { _id } = req.params;
   const body = req.body;

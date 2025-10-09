@@ -3,6 +3,7 @@ import {
   createBuilding,
   deleteBuilding,
   getAllBuildings,
+  getBuildingById,
   updateBuilding,
 } from "../controller/building.controller.js";
 import { upload } from "../middlewares/multer.js";
@@ -25,6 +26,7 @@ router.post(
 );
 
 router.get("/getAllBuildings", getAllBuildings);
+router.get("/getBuildingById/:_id", getBuildingById);
 
 router.patch(
   "/updateBuilding/:_id",
