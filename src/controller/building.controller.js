@@ -104,3 +104,67 @@ export const getAllBuildings = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, buildings, "Buildings fetched successfully"));
 });
+
+export const updateBuilding = asyncHandler(async (req, res) => {
+  const { _id } = req.params;
+  const body = req.body;
+
+  if (!_id) {
+    throw new ApiError(400, "Building ID (_id) is required");
+  }
+
+  const existingBuilding = await Building.findById(_id);
+  if (!existingBuilding) {
+    throw new ApiError(404, "Building not found");
+  }
+
+  let thumbnailUrl = existingBuilding.thumbnailUrl;
+  let brochureUrl = existingBuilding.brochureUrl;
+
+  const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
+  const brochureLocalPath = getFilePath(req.files, "brochureUrl");
+
+  if (thumbnailLocalPath) {
+    const uploadedThumbnail = await uploadFile(thumbnailLocalPath, "Thumbnail");
+    if (!uploadedThumbnail)
+      throw new ApiError(500, "Failed to upload new thumbnail");
+    thumbnailUrl = uploadedThumbnail;
+  }
+
+  if (brochureLocalPath) {
+    const uploadedBrochure = await uploadFile(brochureLocalPath, "Brochure");
+    if (!uploadedBrochure)
+      throw new ApiError(500, "Failed to upload new brochure");
+    brochureUrl = uploadedBrochure;
+  }
+
+  const updatedData = {
+    ...body,
+    thumbnailUrl,
+    brochureUrl,
+  };
+
+  const updatedBuilding = await Building.findByIdAndUpdate(_id, updatedData, {
+    new: true,
+    runValidators: true,
+  });
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, updatedBuilding, "Building updated successfully")
+    );
+});
+
+export const deleteBuilding = asyncHandler(async (req, res) => {
+  const { _id } = req.params;
+  const deletedBuilding = await Building.findByIdAndDelete(_id);
+
+  if (!deletedBuilding) throw new ApiError(404, "Building not found.");
+
+  return res
+    .status(201)
+    .json(
+      new ApiResponse(200, deletedBuilding, "Building Deleted Successfully")
+    );
+});

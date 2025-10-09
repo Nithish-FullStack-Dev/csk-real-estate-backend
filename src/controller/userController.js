@@ -137,9 +137,7 @@ export const loginUser = async (req, res) => {
 };
 
 export const updateUser = async (req, res) => {
-  console.log(req.body);
   const { updatedUser } = req.body;
-  console.log(updatedUser);
   try {
     const result = await User.findByIdAndUpdate(updatedUser._id, updatedUser, {
       new: true,

@@ -1,7 +1,9 @@
-import e, { Router } from "express";
+import { Router } from "express";
 import {
   createBuilding,
+  deleteBuilding,
   getAllBuildings,
+  updateBuilding,
 } from "../controller/building.controller.js";
 import { upload } from "../middlewares/multer.js";
 
@@ -23,5 +25,22 @@ router.post(
 );
 
 router.get("/getAllBuildings", getAllBuildings);
+
+router.patch(
+  "/updateBuilding/:_id",
+  upload.fields([
+    {
+      name: "thumbnailUrl",
+      maxCount: 1,
+    },
+    {
+      name: "brochureUrl",
+      maxCount: 1,
+    },
+  ]),
+  updateBuilding
+);
+
+router.delete("/deleteBuilding", deleteBuilding);
 
 export default router;
