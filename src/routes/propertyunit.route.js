@@ -1,6 +1,12 @@
 import { Router } from "express";
 import { upload } from "../middlewares/multer.js";
-import { createUnit } from "../controller/propertyunit.controller.js";
+import {
+  createUnit,
+  deleteUnit,
+  getUnit,
+  getUnitsByFloorIdAndBuildingId,
+  updateUnit,
+} from "../controller/propertyunit.controller.js";
 
 const router = Router();
 
