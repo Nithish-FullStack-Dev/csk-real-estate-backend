@@ -43,6 +43,6 @@ router.patch(
   updateBuilding
 );
 
-router.delete("/deleteBuilding", deleteBuilding);
+router.delete("/deleteBuilding/:_id", deleteBuilding);
 
 export default router;
