@@ -17,6 +17,10 @@ router.post(
       name: "thumbnailUrl",
       maxCount: 1,
     },
+    {
+      name: "documents",
+      maxCount: 5,
+    },
   ]),
   createUnit
 );
