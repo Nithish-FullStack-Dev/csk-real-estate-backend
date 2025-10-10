@@ -15,4 +15,20 @@ router.post(
   createUnit
 );
 
+router.get(
+  "/getUnitsByFloorIdAndBuildingId/:buildingId/:floorId",
+  getUnitsByFloorIdAndBuildingId
+);
+router.get("/getUnit/:unitId", getUnit);
+
+router.patch(
+  "/updateUnit/:unitId",
+  upload.fields([
+    { name: "thumbnailUrl", maxCount: 1 },
+    { name: "documents", maxCount: 5 },
+  ]),
+  updateUnit
+);
+
+router.delete("/deleteUnit/:unitId", deleteUnit);
 export default router;
