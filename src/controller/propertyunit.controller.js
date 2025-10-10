@@ -5,6 +5,7 @@ import ApiError from "../utils/ApiError.js";
 import { getFilePath } from "../utils/getFilePath.js";
 import { uploadFile } from "../utils/uploadFile.js";
 import ApiResponse from "../utils/ApiResponse.js";
+import mongoose from "mongoose";
 
 export const createUnit = asyncHandler(async (req, res) => {
   const { buildingId, floorId } = req.body;
