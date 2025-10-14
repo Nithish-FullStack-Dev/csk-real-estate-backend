@@ -5,18 +5,20 @@ import User from "../modals/user.js";
 export const createTeamLeadMapping = async (req, res) => {
   try {
     const { salesId, teamLeadId, performance, status } = req.body;
-
-    const exists = await TeamLeads.findOne({ salesId });
+    console.log("body", req.body);
+    const exists = await TeamLeads.findOne({ teamLeadId });
     if (exists) {
-      return res.status(400).json({ error: "Sales agent already mapped." });
+      return res.status(400).json({ error: "Team Lead already mapped." });
     }
+    console.log("existing", exists);
 
     const newEntry = new TeamLeads({
       salesId,
-      teamLeadId: teamLeadId || null,
-      performance: performance || {},
-      status: status || "active",
+      teamLeadId,
+      performance,
+      status,
     });
+    console.log("newEntry", newEntry);
 
     await newEntry.save();
     res.status(201).json(newEntry);
@@ -123,12 +125,14 @@ export const getUnassignedTeamLead = async (req, res) => {
   try {
     // Step 1: Get all agent IDs already assigned to a team
     const assignedteamLeadIds = await TeamLeads.distinct("teamLeadId");
+    console.log("Assigned Team Lead IDs:", assignedteamLeadIds);
 
     // Step 2: Find agents (role: 'agent') who are NOT assigned
     const unassignedteamLead = await User.find({
       role: "team_lead",
       _id: { $nin: assignedteamLeadIds },
-    }).select("-password"); // Exclude password field for safety
+    }).select("-password");
+    console.log("unassignedteamLead", unassignedteamLead);
 
     res.status(200).json({
       success: true,
