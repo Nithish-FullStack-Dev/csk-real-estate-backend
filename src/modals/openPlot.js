@@ -87,6 +87,7 @@ const openPlotSchema = new mongoose.Schema(
 
     roadWidthFt: { type: Number },
     landmarkNearby: { type: String },
+     brochureUrl: { type: String, default: null },
   },
   {
     timestamps: true, // Adds createdAt and updatedAt fields
