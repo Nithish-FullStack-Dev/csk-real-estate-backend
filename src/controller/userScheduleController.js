@@ -1,30 +1,16 @@
 import UserSchedule from "../modals/userSchedule.js"; // Adjust path as needed
 import User from "../modals/user.js";
 import mongoose from "mongoose";
+import asyncHandler from "../utils/asyncHandler.js";
+import Building from "../modals/building.model.js";
+import ApiResponse from "../utils/ApiResponse.js";
+import ApiError from "../utils/ApiError.js";
+import FloorUnit from "../modals/floorUnit.model.js";
 
 export const createUserSchedule = async (req, res) => {
   try {
     const userId = req.user._id;
-    console.log(req.body);
-    console.log(userId);
     const {
-      title,
-      type,
-      clientId, // Only _id of the client passed in request
-      property,
-      startTime,
-      endTime,
-      location,
-      notes,
-      date,
-      status,
-    } = req.body;
-
-    // ✅ Validate basic required fields
-    // Basic validations
-    console.log("Validation Check:");
-    console.log({
-      userId,
       title,
       type,
       clientId,
@@ -32,17 +18,11 @@ export const createUserSchedule = async (req, res) => {
       startTime,
       endTime,
       location,
+      notes,
       date,
-    });
-
-    console.log(
-      "isValid(clientId):",
-      mongoose.Types.ObjectId.isValid(clientId)
-    );
-    console.log(
-      "isValid(property):",
-      mongoose.Types.ObjectId.isValid(property)
-    );
+      status,
+      unit,
+    } = req.body;
 
     if (
       !userId ||
@@ -60,14 +40,12 @@ export const createUserSchedule = async (req, res) => {
         .json({ error: "Missing or invalid required fields." });
     }
 
-    // ✅ Fetch client details from DB
     const client = await User.findById(clientId).select("name avatar");
 
     if (!client) {
       return res.status(404).json({ error: "Client not found" });
     }
 
-    // ✅ Build and save the schedule
     const schedule = new UserSchedule({
       user: userId,
       title,
@@ -86,6 +64,7 @@ export const createUserSchedule = async (req, res) => {
       notes,
       date,
       status: status || "pending",
+      unit,
     });
 
     const saved = await schedule.save();
@@ -112,14 +91,15 @@ export const getUserSchedules = async (req, res) => {
       .sort({ startTime: 1 })
       .select("-__v")
       .populate({
-        path: "property", // this is Project
-        select: "projectId", // only need the ref
-        populate: {
-          path: "projectId", // now go inside Property
-          select: "basicInfo.projectName", // get only projectName
-        },
+        path: "property",
+        model: "Building",
+        select: "projectName location propertyType",
+      })
+      .populate({
+        path: "unit",
+        model: "FloorUnit",
+        select: "floorNumber unitType totalSubUnits availableSubUnits",
       });
-
     res.status(200).json({ schedules });
   } catch (error) {
     console.error("Error fetching user schedules:", error);
@@ -127,67 +107,94 @@ export const getUserSchedules = async (req, res) => {
   }
 };
 
-export const updateSchedule = async (req, res) => {
-  const scheduleId = req.params.id;
-  console.log(scheduleId);
-  const {
-    title,
-    clientId,
-    propertyId,
-    type,
-    startTime,
-    endTime,
-    location,
-    notes,
-    date,
-    status,
-  } = req.body;
-
-  // const clientId = client?._id;
-  // const propertyId = property?._id;
-  console.log(req.body);
-  // 🔍 Validate
-  if (
-    !mongoose.Types.ObjectId.isValid(scheduleId) ||
-    !title ||
-    !type ||
-    !mongoose.Types.ObjectId.isValid(clientId) ||
-    !mongoose.Types.ObjectId.isValid(propertyId) ||
-    !startTime ||
-    !endTime ||
-    !location ||
-    !date
-  ) {
-    return res.status(400).json({ error: "Missing or invalid fields." });
+export const getBuildingNameForDropDown = asyncHandler(async (req, res) => {
+  const buildings = await Building.aggregate([
+    {
+      $project: {
+        _id: 1,
+        projectName: 1,
+      },
+    },
+  ]);
+  if (!buildings || buildings.length === 0) {
+    throw new ApiError(404, "No buildings found");
   }
+  return res
+    .status(200)
+    .json(new ApiResponse(200, buildings, "Buildings fetched successfully"));
+});
 
+export const getUnitsNameForDropDown = asyncHandler(async (req, res) => {
+  const units = await FloorUnit.find().select(
+    "buildingId floorNumber unitType"
+  );
+
+  const message = units.length
+    ? "units fetched successfully"
+    : "No units found for this building";
+
+  return res.status(200).json(new ApiResponse(200, units, message));
+});
+
+export const updateSchedule = async (req, res) => {
   try {
-    const client = await User.findById(clientId).select("name avatar");
+    const scheduleId = req.params.id;
+    const {
+      title,
+      type,
+      client,
+      property,
+      unit,
+      startTime,
+      endTime,
+      location,
+      notes,
+      date,
+      status,
+    } = req.body;
 
-    if (!client) {
-      return res.status(404).json({ error: "Client not found" });
+    // Validation
+    if (
+      !scheduleId ||
+      !title ||
+      !type ||
+      !client?._id ||
+      !property?._id ||
+      !unit?._id ||
+      !startTime ||
+      !endTime ||
+      !location ||
+      !date
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Missing or invalid required fields." });
     }
+
+    // Prepare update data
+    const updateData = {
+      title,
+      type,
+      client: {
+        _id: client._id,
+        name: client.name,
+        avatar:
+          client.avatar ||
+          "https://cdn-icons-png.flaticon.com/512/847/847969.png", // fallback avatar
+      },
+      property: property._id,
+      unit: unit._id,
+      startTime,
+      endTime,
+      location,
+      notes,
+      date,
+      status,
+    };
 
     const updatedSchedule = await UserSchedule.findByIdAndUpdate(
       scheduleId,
-      {
-        title,
-        client: {
-          _id: client._id,
-          name: client.name,
-          avatar:
-            client.avatar ||
-            "https://cdn-icons-png.flaticon.com/512/847/847969.png", // fallback
-        },
-        property: propertyId,
-        type,
-        startTime,
-        endTime,
-        location,
-        notes,
-        date,
-        status,
-      },
+      updateData,
       { new: true }
     );
 
@@ -195,7 +202,10 @@ export const updateSchedule = async (req, res) => {
       return res.status(404).json({ error: "Schedule not found." });
     }
 
-    res.json({ message: "Schedule updated successfully", updatedSchedule });
+    res.json({
+      message: "Schedule updated successfully",
+      updatedSchedule,
+    });
   } catch (error) {
     console.error("Update error:", error);
     res.status(500).json({ error: "Internal server error" });

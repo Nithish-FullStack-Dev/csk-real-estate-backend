@@ -32,7 +32,12 @@ const userScheduleSchema = new Schema(
     },
     property: {
       type: Types.ObjectId,
-      ref: "Project",
+      ref: "Building",
+      required: true,
+    },
+    unit: {
+      type: Types.ObjectId,
+      ref: "FloorUnit",
       required: true,
     },
     date: {
