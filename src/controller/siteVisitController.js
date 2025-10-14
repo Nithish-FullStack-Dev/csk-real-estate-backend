@@ -49,7 +49,8 @@ export const getSiteVisitById = async (req, res) => {
           model: "Property",
         },
       })
-      .populate("vehicleId");
+      .populate("vehicleId")
+      .sort({ createdAt: -1 });
 
     res.status(200).json(siteVisits);
   } catch (error) {

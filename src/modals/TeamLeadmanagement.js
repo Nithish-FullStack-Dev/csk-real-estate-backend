@@ -17,7 +17,6 @@ const TeamLeadManagement = new mongoose.Schema(
     salesId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      unique: true,
     },
     performance: { type: PerformanceSchema, default: {} },
     status: {
