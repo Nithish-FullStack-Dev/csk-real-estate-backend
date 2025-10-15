@@ -25,7 +25,11 @@ export const saveLead = async (req, res) => {
 
 export const getAllLeads = async (req, res) => {
   try {
-    const leads = await Lead.find().populate("property").populate("addedBy");
+    const leads = await Lead.find()
+      .populate("property", "projectName location propertyType")
+      .populate("floorUnit", "floorNumber unitType")
+      .populate("unit", "plotNo propertyType")
+      .populate("addedBy");
     res.status(200).json({ message: "Leads fetched successfully", leads });
   } catch (error) {
     console.error("Error fetching leads:", error.message);
@@ -39,7 +43,9 @@ export const getLeadsByUserId = async (req, res) => {
     const userId = req.user._id; // ✅ Get from middleware
 
     const leads = await Lead.find({ addedBy: userId })
-      .populate("property")
+      .populate("property", "projectName location propertyType")
+      .populate("floorUnit", "floorNumber unitType")
+      .populate("unit", "plotNo propertyType")
       .populate("addedBy");
     res.status(200).json(leads);
   } catch (error) {
@@ -56,8 +62,8 @@ export const updateLeadById = async (req, res) => {
     const leadData = { ...req.body, lastContact: new Date() };
 
     const updatedLead = await Lead.findByIdAndUpdate(id, leadData, {
-      new: true, // returns the updated document
-      runValidators: true, // ensures schema validation
+      new: true,
+      runValidators: true,
     });
 
     if (!updatedLead) {

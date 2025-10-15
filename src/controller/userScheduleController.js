@@ -126,7 +126,7 @@ export const getBuildingNameForDropDown = asyncHandler(async (req, res) => {
 
 export const getUnitsNameForDropDown = asyncHandler(async (req, res) => {
   const units = await FloorUnit.find().select(
-    "buildingId floorNumber unitType"
+    "_id buildingId floorNumber unitType"
   );
 
   const message = units.length

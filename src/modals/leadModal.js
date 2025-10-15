@@ -26,7 +26,17 @@ const leadSchema = new mongoose.Schema(
     source: { type: String, default: "" },
     property: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Property",
+      ref: "Building",
+      required: true,
+    },
+    floorUnit: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "FloorUnit",
+      required: true,
+    },
+    unit: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "PropertyUnit",
       required: true,
     },
     lastContact: {

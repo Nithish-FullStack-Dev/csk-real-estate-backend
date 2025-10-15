@@ -3,6 +3,7 @@ import { upload } from "../middlewares/multer.js";
 import {
   createUnit,
   deleteUnit,
+  getAvailableUnitsByFloorIdAndBuildingIdForDropDown,
   getUnit,
   getUnitsByFloorIdAndBuildingId,
   getUnitsByFloorIdAndBuildingIdForDropDown,
@@ -29,6 +30,11 @@ router.post(
 router.get(
   "/getUnitsByFloorIdAndBuildingId/:buildingId/:floorId",
   getUnitsByFloorIdAndBuildingId
+);
+
+router.get(
+  "/getAvailableUnitsByFloorIdAndBuildingIdForDropDown/:buildingId/:floorId",
+  getAvailableUnitsByFloorIdAndBuildingIdForDropDown
 );
 
 router.get(

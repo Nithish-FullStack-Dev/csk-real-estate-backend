@@ -101,7 +101,7 @@ export const getAllFloorsByBuildingIdForDropDown = asyncHandler(
 
     const floors = await FloorUnit.find({
       buildingId: new mongoose.Types.ObjectId(buildingId),
-    }).select("floorNumber unitType");
+    }).select("_id floorNumber unitType");
 
     const message = floors.length
       ? "Floors retrieved successfully"
