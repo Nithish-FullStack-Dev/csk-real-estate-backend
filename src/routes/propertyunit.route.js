@@ -5,6 +5,7 @@ import {
   deleteUnit,
   getUnit,
   getUnitsByFloorIdAndBuildingId,
+  getUnitsByFloorIdAndBuildingIdForDropDown,
   updateUnit,
 } from "../controller/propertyunit.controller.js";
 
@@ -29,6 +30,12 @@ router.get(
   "/getUnitsByFloorIdAndBuildingId/:buildingId/:floorId",
   getUnitsByFloorIdAndBuildingId
 );
+
+router.get(
+  "/getUnitsByFloorIdAndBuildingIdForDropDown/:buildingId/:floorId",
+  getUnitsByFloorIdAndBuildingIdForDropDown
+);
+
 router.get("/getUnit/:unitId", getUnit);
 
 router.patch(

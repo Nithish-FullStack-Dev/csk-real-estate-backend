@@ -87,3 +87,26 @@ export const deleteFloorById = asyncHandler(async (req, res) => {
     .status(201)
     .json(new ApiResponse(200, deletedFloor, "Floor Deleted Successfully"));
 });
+
+export const getAllFloorsByBuildingIdForDropDown = asyncHandler(
+  async (req, res) => {
+    const { buildingId } = req.params;
+
+    if (!buildingId) {
+      throw new ApiError(
+        400,
+        `Building ID not received properly: ${buildingId}`
+      );
+    }
+
+    const floors = await FloorUnit.find({
+      buildingId: new mongoose.Types.ObjectId(buildingId),
+    }).select("floorNumber unitType");
+
+    const message = floors.length
+      ? "Floors retrieved successfully"
+      : "No floors added yet";
+
+    return res.status(200).json(new ApiResponse(200, floors, message));
+  }
+);

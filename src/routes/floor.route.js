@@ -3,6 +3,7 @@ import {
   createFloor,
   deleteFloorById,
   getAllFloorsByBuildingId,
+  getAllFloorsByBuildingIdForDropDown,
   updateFloorById,
 } from "../controller/floor.controller.js";
 import { upload } from "../middlewares/multer.js";
@@ -12,6 +13,10 @@ const router = Router();
 router.post("/createFloor", upload.none(), createFloor);
 
 router.get("/getAllFloorsByBuildingId/:buildingId", getAllFloorsByBuildingId);
+router.get(
+  "/getAllFloorsByBuildingIdForDropDown/:buildingId",
+  getAllFloorsByBuildingIdForDropDown
+);
 router.patch("/updateFloorById/:_id", upload.none(), updateFloorById);
 router.delete("/deleteFloorById/:_id", deleteFloorById);
 

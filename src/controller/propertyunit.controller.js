@@ -183,3 +183,24 @@ export const getUnit = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, unit, "Unit retrieved successfully"));
 });
+
+export const getUnitsByFloorIdAndBuildingIdForDropDown = asyncHandler(
+  async (req, res) => {
+    const { buildingId, floorId } = req.params;
+
+    if (!buildingId || !floorId) {
+      throw new ApiError(400, "Building ID or Floor ID missing");
+    }
+
+    const units = await PropertyUnitModel.find({
+      buildingId: new mongoose.Types.ObjectId(buildingId),
+      floorId: new mongoose.Types.ObjectId(floorId),
+    }).select("plotNo propertyType");
+
+    const message = units.length
+      ? "Units retrieved successfully"
+      : "No Units added yet";
+
+    res.status(200).json(new ApiResponse(200, units, message));
+  }
+);
