@@ -5,11 +5,9 @@ export const addOrUpdateRolePermissions = async (req, res) => {
     const { name, permissions, description, color } = req.body;
 
     if (!name || !permissions || !Array.isArray(permissions)) {
-      return res
-        .status(400)
-        .json({
-          message: "Name and permissions are required and must be an array",
-        });
+      return res.status(400).json({
+        message: "Name and permissions are required and must be an array",
+      });
     }
 
     // Find existing role by name
@@ -194,12 +192,10 @@ export const getRolePermissions = async (req, res) => {
     return res.status(200).json({ permissions: role.permissions });
   } catch (error) {
     console.error("Error fetching role permissions:", error);
-    return res
-      .status(500)
-      .json({
-        message: "Error fetching role permissions",
-        error: error.message,
-      });
+    return res.status(500).json({
+      message: "Error fetching role permissions",
+      error: error.message,
+    });
   }
 };
 
@@ -230,7 +226,6 @@ export const getRolesWithUserCount = async (req, res) => {
     }));
 
     res.json(rolesWithCounts);
-    //console.log(rolesWithCounts);
   } catch (error) {
     console.error("Error fetching roles with user count", error);
     res.status(500).json({ error: "Internal server error" });

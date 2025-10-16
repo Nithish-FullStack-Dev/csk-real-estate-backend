@@ -5,13 +5,11 @@ import OpenPlot from "../modals/openPlot.js";
 export const createOpenPlot = async (req, res) => {
   try {
     const data = req.body;
-    console.log("Received data for new plot:", data);
 
     // 1. Check if memNo already exists
     const existingPlot = await OpenPlot.findOne({ memNo: data.memNo });
 
     if (existingPlot) {
-      console.log(`Duplicate memNo detected: ${data.memNo}`);
       return res.status(409).json({
         // 409 Conflict status code for duplicate resource
         success: false,
@@ -29,7 +27,6 @@ export const createOpenPlot = async (req, res) => {
     const newPlot = new OpenPlot(data);
     await newPlot.save();
 
-    console.log("New plot created successfully:", newPlot);
     res.status(201).json({ success: true, plot: newPlot });
   } catch (error) {
     console.error("Error creating open plot:", error);
@@ -152,7 +149,6 @@ export const updateOpenPlot = async (req, res) => {
     }
 
     res.status(200).json(updatedPlot);
-    console.log("Updated Open Plot:", updatedPlot);
   } catch (error) {
     console.error("Error updating Open Plot:", error);
     res.status(500).json({

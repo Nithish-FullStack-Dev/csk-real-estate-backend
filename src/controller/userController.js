@@ -9,8 +9,6 @@ export const createUser = async (req, res) => {
   try {
     const { name, email, password, roleName, status, phone, avatar } = req.body;
 
-    console.log(req.body);
-    console.log("Reached create user ");
     const hashedPassword = await bcrypt.hash(password, 10);
 
     if (!name || !email || !roleName) {
@@ -160,7 +158,6 @@ export const updateUser = async (req, res) => {
 
 export const resetPassword = async (req, res) => {
   try {
-    console.log(req.body);
     const { id, password } = req.body;
 
     if (!id || !password) {
@@ -183,7 +180,6 @@ export const resetPassword = async (req, res) => {
     }
 
     res.json({ message: "Password reset successfully." });
-    console.log("DONE");
   } catch (error) {
     console.error("Reset password error:", error);
     res.status(500).json({ message: "Server error" });
@@ -192,7 +188,7 @@ export const resetPassword = async (req, res) => {
 
 export const deleteUser = async (req, res) => {
   const { userId } = req.params;
-  console.log(userId);
+
   try {
     const deletedUser = await User.findByIdAndDelete(userId);
 

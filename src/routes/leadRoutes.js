@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  deleteLeadById,
   getAllLeads,
   getAvailableProperties,
   getClosedLeads,
@@ -17,5 +18,6 @@ router.get("/getClosedLeads", getClosedLeads);
 router.get("/getLeadsById", authenticate, getLeadsByUserId);
 router.get("/getLeadProp", getAvailableProperties);
 router.put("/updateLead/:id", authenticate, updateLeadById);
+router.delete("/deleteLead/:id", authenticate, deleteLeadById);
 
 export default router;

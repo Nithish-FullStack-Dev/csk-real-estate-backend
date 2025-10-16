@@ -1,6 +1,9 @@
 import Lead from "../modals/leadModal.js";
 import Property from "../modals/propertyModel.js";
 import Commission from "../modals/commissionsModal.js";
+import asyncHandler from "../utils/asyncHandler.js";
+import ApiError from "../utils/ApiError.js";
+import ApiResponse from "../utils/ApiResponse.js";
 
 export const saveLead = async (req, res) => {
   try {
@@ -76,6 +79,17 @@ export const updateLeadById = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+export const deleteLeadById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  if (!id) throw new ApiError(400, "Lead id missing");
+
+  const lead = await Lead.findByIdAndDelete(id);
+
+  if (!lead) throw new ApiError(404, "Lead not found");
+
+  res.status(200).json(new ApiResponse(200, lead, "Lead deleted successfully"));
+});
 
 //* GET all available properties (you can customize filters)
 export const getAvailableProperties = async (req, res) => {
