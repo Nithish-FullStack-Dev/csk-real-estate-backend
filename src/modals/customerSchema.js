@@ -16,12 +16,21 @@ const customerSchema = new Schema(
       required: true,
     },
 
-    // --- Property Purchase Details ---
     properties: [
       {
         property: {
           type: Types.ObjectId,
-          ref: "Property",
+          ref: "Building",
+          required: true,
+        },
+        floorUnit: {
+          type: Types.ObjectId,
+          ref: "FloorUnit",
+          required: true,
+        },
+        unit: {
+          type: Types.ObjectId,
+          ref: "PropertyUnit",
           required: true,
         },
         bookingDate: {

@@ -20,13 +20,34 @@ export const getAllSiteVisits = async (req, res) => {
     const siteVisits = await SiteVisit.find()
       .populate({
         path: "clientId",
-        populate: {
-          path: "property",
-          model: "Property",
-        },
+        model: "Lead",
+        select: "_id name email propertyStatus",
+        populate: [
+          {
+            path: "property",
+            model: "Building",
+            select: "_id projectName location propertyType",
+          },
+          {
+            path: "floorUnit",
+            model: "FloorUnit",
+            select: "_id floorNumber unitType",
+          },
+          {
+            path: "unit",
+            model: "PropertyUnit",
+            select: "_id plotNo propertyType totalAmount",
+          },
+          {
+            path: "addedBy",
+            model: "User",
+            select: "name email role avatar",
+          },
+        ],
       })
       .populate("vehicleId")
-      .populate("bookedBy");
+      .populate("bookedBy", "name email role")
+      .sort({ createdAt: -1 });
 
     res.status(200).json(siteVisits);
   } catch (error) {
@@ -44,12 +65,33 @@ export const getSiteVisitById = async (req, res) => {
     const siteVisits = await SiteVisit.find({ bookedBy })
       .populate({
         path: "clientId",
-        populate: {
-          path: "property",
-          model: "Property",
-        },
+        model: "Lead",
+        select: "_id name email propertyStatus",
+        populate: [
+          {
+            path: "property",
+            model: "Property",
+            select: "_id projectName location propertyType",
+          },
+          {
+            path: "floorUnit",
+            model: "FloorUnit",
+            select: "_id floorNumber unitType",
+          },
+          {
+            path: "unit",
+            model: "PropertyUnit",
+            select: "_id plotNo propertyType totalAmount",
+          },
+          {
+            path: "addedBy",
+            model: "User",
+            select: "name email role avatar",
+          },
+        ],
       })
       .populate("vehicleId")
+      .populate("bookedBy", "name email role")
       .sort({ createdAt: -1 });
 
     res.status(200).json(siteVisits);
@@ -106,9 +148,35 @@ export const getSiteVisitOfAgents = async (req, res) => {
       .populate({
         path: "bookedBy",
         match: { role: "agent" },
-        select: "name email role", // Optional: pick fields
+        select: "name email role",
       })
-      .populate("clientId")
+      .populate({
+        path: "clientId",
+        model: "Lead",
+        select: "_id name email propertyStatus",
+        populate: [
+          {
+            path: "property",
+            model: "Property",
+            select: "_id projectName location propertyType",
+          },
+          {
+            path: "floorUnit",
+            model: "FloorUnit",
+            select: "_id floorNumber unitType",
+          },
+          {
+            path: "unit",
+            model: "PropertyUnit",
+            select: "_id plotNo propertyType totalAmount",
+          },
+          {
+            path: "addedBy",
+            model: "User",
+            select: "name email role avatar",
+          },
+        ],
+      })
       .populate("vehicleId");
 
     // Filter out those site visits where bookedBy is null (i.e., not an agent)

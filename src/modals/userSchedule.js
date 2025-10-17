@@ -17,27 +17,23 @@ const userScheduleSchema = new Schema(
       required: true,
     },
     client: {
-      _id: {
-        type: Types.ObjectId,
-        ref: "User",
-        required: true,
-      },
-      name: {
-        type: String,
-        required: true,
-      },
-      avatar: {
-        type: String,
-      },
+      type: Types.ObjectId,
+      ref: "User",
+      required: true,
     },
     property: {
       type: Types.ObjectId,
       ref: "Building",
       required: true,
     },
-    unit: {
+    floorUnit: {
       type: Types.ObjectId,
       ref: "FloorUnit",
+      required: true,
+    },
+    unit: {
+      type: Types.ObjectId,
+      ref: "PropertyUnit",
       required: true,
     },
     date: {

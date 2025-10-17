@@ -1,6 +1,7 @@
 import Customer from "../modals/customerSchema.js";
 import Property from "../modals/propertyModel.js"; // Ensure this import is correct
 import User from "../modals/user.js"; // Ensure this import is correct
+import ApiResponse from "../utils/ApiResponse.js";
 
 export const createCustomer = async (req, res) => {
   try {
@@ -19,11 +20,22 @@ export const createCustomer = async (req, res) => {
     }
 
     for (const prop of properties) {
-      if (!prop.property || !prop.bookingDate || !prop.finalPrice) {
-        return res.status(400).json({
-          message:
-            "Each property entry must have property, bookingDate, and finalPrice",
-        });
+      if (
+        !prop.property ||
+        !prop.bookingDate ||
+        !prop.finalPrice ||
+        !prop.floorUnit ||
+        !prop.unit
+      ) {
+        return res
+          .status(400)
+          .json(
+            new ApiResponse(
+              400,
+              prop,
+              "Each property entry must have property, bookingDate, and finalPrice"
+            )
+          );
       }
     }
 
@@ -45,9 +57,11 @@ export const createCustomer = async (req, res) => {
 export const getAllCustomers = async (req, res) => {
   try {
     const customers = await Customer.find()
-      .populate("user")
-      .populate("purchasedFrom")
-      .populate("properties.property")
+      .populate("user", "_id name email avatar phone")
+      .populate("properties.floorUnit", "_id floorNumber unitType")
+      .populate("properties.unit", "_id plotNo propertyType")
+      .populate("purchasedFrom", "_id name email role")
+      .populate("properties.property", "_id projectName location propertyType")
       .populate("properties.documents");
     res.status(200).json({ data: customers }); // Wrap in data object to match frontend expectation
   } catch (error) {
@@ -59,9 +73,11 @@ export const getAllCustomers = async (req, res) => {
 export const getCustomerById = async (req, res) => {
   try {
     const customer = await Customer.findById(req.params.id)
-      .populate("user")
-      .populate("purchasedFrom")
-      .populate("properties.property")
+      .populate("user", "_id name email avatar phone")
+      .populate("properties.floorUnit", "_id floorNumber unitType")
+      .populate("properties.unit", "_id plotNo propertyType")
+      .populate("purchasedFrom", "_id name email role")
+      .populate("properties.property", "_id projectName location propertyType")
       .populate("properties.documents");
 
     if (!customer) {
@@ -137,9 +153,19 @@ export const getCustomerByUser = async (req, res) => {
     }
 
     const customer = await Customer.findOne({ user: userId })
-      .populate("user")
-      .populate("purchasedFrom")
-      .populate("properties.documents")
+      .populate("user", "_id name email avatar phone")
+      .populate("properties.unit", "_id plotNo propertyType")
+      .populate("purchasedFrom", "_id name email role")
+      .populate("properties.documents", "_id docName filePath status")
+      .populate({
+        path: "properties.unit",
+        model: "PropertyUnit",
+        populate: {
+          path: "agentId",
+          model: "User",
+          select: "name email phone",
+        },
+      })
       .populate({
         path: "properties.property",
         populate: {
@@ -163,16 +189,16 @@ export const getPurchasedProperties = async (req, res) => {
   try {
     const customers = await Customer.find({
       "properties.0": { $exists: true },
-    }).populate("properties.property", "basicInfo");
+    }).populate("properties.unit", "status");
 
     const result = [];
 
     customers.forEach((customer) => {
       customer.properties.forEach((p) => {
-        if (p.property) {
+        if (p.unit) {
           result.push({
-            _id: p.property._id,
-            basicInfo: p.property.basicInfo,
+            _id: p.unit._id,
+            status: p.unit.status,
           });
         }
       });

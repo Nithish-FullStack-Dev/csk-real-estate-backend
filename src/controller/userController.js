@@ -50,8 +50,9 @@ export const getAllUsers = async (req, res) => {
   try {
     const loggedInUserId = req.user._id;
 
-    // Fetch all users except the logged-in user
-    const users = await User.find({ _id: { $ne: loggedInUserId } });
+    const users = await User.find({ _id: { $ne: loggedInUserId } }).select(
+      "_id name email role avatar status lastLogin phone"
+    );
 
     res.status(200).json({ users });
   } catch (error) {

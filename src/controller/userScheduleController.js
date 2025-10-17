@@ -1,12 +1,13 @@
-import UserSchedule from "../modals/userSchedule.js"; // Adjust path as needed
-import User from "../modals/user.js";
 import mongoose from "mongoose";
-import asyncHandler from "../utils/asyncHandler.js";
+import UserSchedule from "../modals/userSchedule.js";
+import User from "../modals/user.js";
 import Building from "../modals/building.model.js";
+import FloorUnit from "../modals/floorUnit.model.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
-import FloorUnit from "../modals/floorUnit.model.js";
+import asyncHandler from "../utils/asyncHandler.js";
 
+// ✅ CREATE Schedule
 export const createUserSchedule = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -15,34 +16,38 @@ export const createUserSchedule = async (req, res) => {
       type,
       clientId,
       property,
+      floorUnit,
+      unit,
+      date,
       startTime,
       endTime,
       location,
       notes,
-      date,
       status,
-      unit,
     } = req.body;
 
+    // Validation
     if (
       !userId ||
       !title ||
-      !mongoose.Types.ObjectId.isValid(clientId) ||
+      !type ||
+      !clientId ||
       !property ||
-      !mongoose.Types.ObjectId.isValid(property) ||
+      !floorUnit ||
+      !unit ||
+      !date ||
       !startTime ||
       !endTime ||
-      !location ||
-      !date
+      !location
     ) {
       return res
         .status(400)
         .json({ error: "Missing or invalid required fields." });
     }
 
-    const client = await User.findById(clientId).select("name avatar");
-
-    if (!client) {
+    // Check client existence
+    const clientExists = await User.findById(clientId);
+    if (!clientExists) {
       return res.status(404).json({ error: "Client not found" });
     }
 
@@ -50,21 +55,16 @@ export const createUserSchedule = async (req, res) => {
       user: userId,
       title,
       type,
-      client: {
-        _id: client._id,
-        name: client.name,
-        avatar:
-          client.avatar ||
-          "https://cdn-icons-png.flaticon.com/512/847/847969.png", // fallback
-      },
+      client: clientId, // ✅ simplified
       property,
+      floorUnit,
+      unit,
+      date,
       startTime,
       endTime,
       location,
       notes,
-      date,
       status: status || "pending",
-      unit,
     });
 
     const saved = await schedule.save();
@@ -84,38 +84,96 @@ export const getUserSchedules = async (req, res) => {
     const userId = req.user._id;
 
     if (!userId) {
-      return res.status(400).json({ error: "User ID is required in params." });
+      return res.status(400).json({ error: "User ID is required." });
     }
 
     const schedules = await UserSchedule.find({ user: userId })
       .sort({ startTime: 1 })
       .select("-__v")
-      .populate({
-        path: "property",
-        model: "Building",
-        select: "projectName location propertyType",
-      })
-      .populate({
-        path: "unit",
-        model: "FloorUnit",
-        select: "floorNumber unitType totalSubUnits availableSubUnits",
-      });
-    res.status(200).json({ schedules });
+      .populate("client", "name avatar")
+      .populate("property", "_id projectName location propertyType")
+      .populate("floorUnit", "_id floorNumber unitType")
+      .populate("unit", "_id plotNo propertyType status");
+
+    res
+      .status(200)
+      .json(new ApiResponse(200, schedules, "Schedules fetched successfully"));
   } catch (error) {
-    console.error("Error fetching user schedules:", error);
+    console.error("Error fetching schedules:", error);
     res.status(500).json({ error: "Server error while fetching schedules" });
   }
 };
 
+// ✅ UPDATE Schedule
+export const updateSchedule = asyncHandler(async (req, res) => {
+  const scheduleId = req.params.id;
+  const {
+    title,
+    type,
+    client,
+    property,
+    floorUnit,
+    unit,
+    date,
+    startTime,
+    endTime,
+    location,
+    notes,
+    status,
+  } = req.body;
+
+  if (
+    !scheduleId ||
+    !title ||
+    !type ||
+    !client ||
+    !property ||
+    !floorUnit ||
+    !unit ||
+    !date ||
+    !startTime ||
+    !endTime ||
+    !location
+  ) {
+    return res
+      .status(400)
+      .json(new ApiResponse(400, null, "Missing or invalid required fields."));
+  }
+
+  const updateData = {
+    title,
+    type,
+    client,
+    property,
+    floorUnit,
+    unit,
+    date,
+    startTime,
+    endTime,
+    location,
+    notes,
+    status,
+  };
+
+  const updatedSchedule = await UserSchedule.findByIdAndUpdate(
+    scheduleId,
+    updateData,
+    { new: true }
+  );
+
+  if (!updatedSchedule) {
+    return res.status(404).json({ error: "Schedule not found." });
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, updatedSchedule, "Schedule updated successfully")
+    );
+});
+
 export const getBuildingNameForDropDown = asyncHandler(async (req, res) => {
-  const buildings = await Building.aggregate([
-    {
-      $project: {
-        _id: 1,
-        projectName: 1,
-      },
-    },
-  ]);
+  const buildings = await Building.find().select("_id projectName");
   if (!buildings || buildings.length === 0) {
     throw new ApiError(404, "No buildings found");
   }
@@ -130,84 +188,8 @@ export const getUnitsNameForDropDown = asyncHandler(async (req, res) => {
   );
 
   const message = units.length
-    ? "units fetched successfully"
+    ? "Units fetched successfully"
     : "No units found for this building";
 
   return res.status(200).json(new ApiResponse(200, units, message));
 });
-
-export const updateSchedule = async (req, res) => {
-  try {
-    const scheduleId = req.params.id;
-    const {
-      title,
-      type,
-      client,
-      property,
-      unit,
-      startTime,
-      endTime,
-      location,
-      notes,
-      date,
-      status,
-    } = req.body;
-
-    // Validation
-    if (
-      !scheduleId ||
-      !title ||
-      !type ||
-      !client?._id ||
-      !property?._id ||
-      !unit?._id ||
-      !startTime ||
-      !endTime ||
-      !location ||
-      !date
-    ) {
-      return res
-        .status(400)
-        .json({ error: "Missing or invalid required fields." });
-    }
-
-    // Prepare update data
-    const updateData = {
-      title,
-      type,
-      client: {
-        _id: client._id,
-        name: client.name,
-        avatar:
-          client.avatar ||
-          "https://cdn-icons-png.flaticon.com/512/847/847969.png", // fallback avatar
-      },
-      property: property._id,
-      unit: unit._id,
-      startTime,
-      endTime,
-      location,
-      notes,
-      date,
-      status,
-    };
-
-    const updatedSchedule = await UserSchedule.findByIdAndUpdate(
-      scheduleId,
-      updateData,
-      { new: true }
-    );
-
-    if (!updatedSchedule) {
-      return res.status(404).json({ error: "Schedule not found." });
-    }
-
-    res.json({
-      message: "Schedule updated successfully",
-      updatedSchedule,
-    });
-  } catch (error) {
-    console.error("Update error:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-};
