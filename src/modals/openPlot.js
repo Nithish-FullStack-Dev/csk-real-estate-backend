@@ -3,9 +3,9 @@ import mongoose from "mongoose";
 const openPlotSchema = new mongoose.Schema(
   {
     // Basic Plot Information
-    memNo: { type: String, required: true, unique: true },
-    projectName: { type: String, required: true },
-    plotNo: { type: String, required: true },
+    memNo: { type: String, unique: true },
+    projectName: { type: String },
+    plotNo: { type: String },
     facing: {
       type: String,
       enum: [
@@ -18,13 +18,11 @@ const openPlotSchema = new mongoose.Schema(
         "South-East",
         "South-West",
       ],
-      required: true,
     },
-    extentSqYards: { type: Number, required: true },
+    extentSqYards: { type: Number },
     plotType: {
       type: String,
       enum: ["Residential", "Commercial", "Agricultural", "Industrial"],
-      required: true,
     },
     approval: {
       type: String,
@@ -36,14 +34,13 @@ const openPlotSchema = new mongoose.Schema(
         "Unapproved",
         "Other",
       ],
-      required: true,
     },
     isCornerPlot: { type: Boolean, default: false },
     isGatedCommunity: { type: Boolean, default: false },
 
     // Financial Details
-    pricePerSqYard: { type: Number, required: true },
-    totalAmount: { type: Number, required: true },
+    pricePerSqYard: { type: Number },
+    totalAmount: { type: Number },
     bookingAmount: { type: Number, default: 0 }, // Often a specific default
     amountReceived: { type: Number, default: 0 }, // Often a specific default
     // balanceAmount is typically calculated, but can be stored if needed.
@@ -62,16 +59,14 @@ const openPlotSchema = new mongoose.Schema(
         "Delayed",
         "Cancelled",
       ],
-      required: true,
     },
     listedDate: { type: Date, default: Date.now, required: true }, // Set required based on Zod
-    availableFrom: { type: Date, required: true }, // Set required based on Zod
+    availableFrom: { type: Date }, // Set required based on Zod
 
     // Availability & Customer Details
     availabilityStatus: {
       type: String,
       enum: ["Available", "Sold", "Reserved", "Blocked", "Under Dispute"],
-      required: true,
     },
     customerId: { type: mongoose.Schema.Types.ObjectId, ref: "Customer" },
     agentId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
@@ -87,7 +82,7 @@ const openPlotSchema = new mongoose.Schema(
 
     roadWidthFt: { type: Number },
     landmarkNearby: { type: String },
-     brochureUrl: { type: String, default: null },
+    brochureUrl: { type: String, default: null },
   },
   {
     timestamps: true, // Adds createdAt and updatedAt fields
