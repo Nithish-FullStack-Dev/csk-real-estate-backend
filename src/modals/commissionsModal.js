@@ -1,11 +1,10 @@
 import mongoose from "mongoose";
 
-// Commission schema
 const CommissionSchema = new mongoose.Schema(
   {
     clientId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Lead", // Reference to Lead model
+      ref: "Lead",
       required: true,
     },
     commissionAmount: {

@@ -208,7 +208,6 @@ export const getUnitsByFloorIdAndBuildingIdForDropDown = asyncHandler(
 export const getAvailableUnitsByFloorIdAndBuildingIdForDropDown = asyncHandler(
   async (req, res) => {
     const { buildingId, floorId } = req.params;
-
     if (!buildingId || !floorId) {
       throw new ApiError(400, "Building ID or Floor ID missing");
     }
@@ -216,7 +215,7 @@ export const getAvailableUnitsByFloorIdAndBuildingIdForDropDown = asyncHandler(
     const units = await PropertyUnitModel.find({
       buildingId: new mongoose.Types.ObjectId(buildingId),
       floorId: new mongoose.Types.ObjectId(floorId),
-      status: { $in: ["Available Under Construction"] },
+      status: { $in: ["Available", "Under Construction"] },
     }).select("_id plotNo propertyType status");
 
     const message = units.length

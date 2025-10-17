@@ -15,14 +15,27 @@ export const getAllCommissions = async (req, res) => {
   try {
     const commissions = await Commission.find().populate({
       path: "clientId",
+      model: "Lead",
       populate: [
         {
           path: "property",
-          model: "Property",
+          model: "Building",
+          select: "_id projectName location propertyType",
+        },
+        {
+          path: "floorUnit",
+          model: "FloorUnit",
+          select: "_id floorNumber unitType",
+        },
+        {
+          path: "unit",
+          model: "PropertyUnit",
+          select: "_id plotNo propertyType totalAmount",
         },
         {
           path: "addedBy",
           model: "User",
+          select: "name email role avatar",
         },
       ],
     });
@@ -37,10 +50,22 @@ export const getCommissionById = async (req, res) => {
   try {
     const commission = await Commission.findById(req.params.id).populate({
       path: "clientId",
+      model: "Lead",
       populate: [
         {
           path: "property",
-          model: "Property",
+          model: "Building",
+          select: "_id projectName location propertyType",
+        },
+        {
+          path: "floorUnit",
+          model: "FloorUnit",
+          select: "_id floorNumber unitType",
+        },
+        {
+          path: "unit",
+          model: "PropertyUnit",
+          select: "_id plotNo propertyType totalAmount",
         },
         {
           path: "addedBy",
