@@ -11,28 +11,33 @@ const InvoiceItemSchema = new Schema({
     required: true,
   },
   rate: { type: Number, required: true },
-  taxRate: { type: Number, required: true }, // For item-level tax if needed
-  amount: { type: Number, required: true }, // quantity * rate (+ tax if applied)
+  taxRate: { type: Number, required: true },
+  amount: { type: Number, required: true },
 });
 
 const InvoiceSchema = new Schema(
   {
     project: {
       type: Types.ObjectId,
-      ref: "Project",
+      ref: "Building",
       required: true,
     },
-    unit:{
-      type:String,
-      required:true
+    unit: {
+      type: String,
+      ref: "PropertyUnit",
+      required: true,
     },
-    invoiceNumber:{
-      type:String
+    floorUnit: {
+      type: Types.ObjectId,
+      ref: "FloorUnit",
+      required: true,
+    },
+    invoiceNumber: {
+      type: String,
     },
     task: {
-      type: Types.ObjectId,
-      ref: "Task",
-      default: null, // optional
+      type: Boolean,
+      default: false, // optional
     },
     user: {
       type: Types.ObjectId,
@@ -74,36 +79,36 @@ const InvoiceSchema = new Schema(
     },
     status: {
       type: String,
-      enum: ["draft", "pending", "approved", "rejected","paid"],
+      enum: ["draft", "pending", "approved", "rejected", "paid"],
       default: "pending",
     },
     isApprovedByAccountant: {
       type: Boolean,
-      default: false
+      default: false,
     },
     noteByAccountant: {
-      type: String
-    },
-    paymentMethod:{
-      type: [String]
-    },
-    paymentDate:{
-      type: Date
-    },
-    createdBy:{
       type: String,
-      enum : ["contractor","accountant"],
-      required:true
+    },
+    paymentMethod: {
+      type: [String],
+    },
+    paymentDate: {
+      type: Date,
+    },
+    createdBy: {
+      type: String,
+      enum: ["contractor", "accountant"],
+      required: true,
     },
     reconciliationHistory: [
       {
-        item : {type: String},
+        item: { type: String },
         amount: { type: Number, required: true },
         paidOn: { type: Date, default: Date.now },
         method: { type: String },
-        note: { type: String }
-      }
-    ]
+        note: { type: String },
+      },
+    ],
   },
   {
     timestamps: true,

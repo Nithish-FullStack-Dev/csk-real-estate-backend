@@ -20,7 +20,7 @@ router.post(
 router.get(
   "/",
   authenticate,
-  authorizeRoles("contractor", "accountant", "owner"),
+  authorizeRoles("contractor", "accountant", "owner", "admin"),
   getAllInvoices
 );
 router.get(

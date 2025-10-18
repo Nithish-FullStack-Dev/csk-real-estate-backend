@@ -11,6 +11,10 @@ export const createInvoice = async (req, res) => {
       role = "contractor";
     } else if (req.user.role === "accountant") {
       role = "accountant";
+    } else if (req.user.role === "admin") {
+      role = "admin";
+    } else if (req.user.role === "owner") {
+      role = "owner";
     }
     const {
       project,
@@ -22,6 +26,7 @@ export const createInvoice = async (req, res) => {
       cgst,
       notes,
       unit,
+      floorUnit,
     } = req.body;
 
     console.log(req.body);
@@ -51,6 +56,7 @@ export const createInvoice = async (req, res) => {
       total,
       unit,
       createdBy: role,
+      floorUnit,
     });
 
     // Step 2: Save to generate _id
@@ -126,7 +132,6 @@ export const getAllInvoices = async (req, res) => {
     const role = req.user.role;
 
     let invoices;
-    3;
 
     // Filter invoices based on role
     if (role === "contractor") {
@@ -138,20 +143,42 @@ export const getAllInvoices = async (req, res) => {
           { user: userId }, // invoices made by this accountant
         ],
       }).sort({ issueDate: -1 });
+    } else if (role === "owner") {
+      invoices = await Invoice.find({
+        $or: [
+          { createdBy: "contractor" },
+          { user: userId }, // invoices made by this accountant
+        ],
+      }).sort({ issueDate: -1 });
+    } else if (role === "admin") {
+      invoices = await Invoice.find({
+        $or: [
+          { createdBy: "contractor" },
+          { user: userId }, // invoices made by this accountant
+        ],
+      }).sort({ issueDate: -1 });
     }
 
     // Populate project → property.basicInfo
     await Promise.all(
       invoices.map(async (invoice) => {
-        await invoice.populate({
-          path: "project",
-          populate: {
-            path: "projectId",
-            model: "Property",
-            select: "basicInfo",
+        await invoice.populate([
+          {
+            path: "project",
+            model: "Building",
+            select: "_id projectName propertyType constructionStatus soldUnits",
           },
-          select: "projectId units",
-        });
+          {
+            path: "floorUnit",
+            model: "FloorUnit",
+            select: "_id floorNumber unitType",
+          },
+          {
+            path: "unit",
+            model: "PropertyUnit",
+            select: "_id plotNo propertyType",
+          },
+        ]);
 
         // Now add `taskObject` only if `invoice.task` is present
         if (invoice.task && invoice.project?.units) {
