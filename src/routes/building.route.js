@@ -4,6 +4,9 @@ import {
   deleteBuilding,
   getAllBuildings,
   getBuildingById,
+  getCompletedBuilding,
+  getOngoingBuilding,
+  getUpcomingBuilding,
   updateBuilding,
 } from "../controller/building.controller.js";
 import { upload } from "../middlewares/multer.js";
@@ -44,5 +47,7 @@ router.patch(
 );
 
 router.delete("/deleteBuilding/:_id", deleteBuilding);
-
+router.get("/getUpcomingBuilding", getUpcomingBuilding);
+router.get("/getOngoingBuilding", getOngoingBuilding);
+router.get("/getCompletedBuilding", getCompletedBuilding);
 export default router;
