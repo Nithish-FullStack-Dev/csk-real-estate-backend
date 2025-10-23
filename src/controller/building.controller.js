@@ -181,3 +181,60 @@ export const deleteBuilding = asyncHandler(async (req, res) => {
       new ApiResponse(200, deletedBuilding, "Building Deleted Successfully")
     );
 });
+
+export const getUpcomingBuilding = asyncHandler(async (req, res) => {
+  const upcomingProperties = await Building.find({
+    constructionStatus: "Planned",
+  });
+
+  if (!upcomingProperties) {
+    throw new ApiError(404, "No upcoming properties found");
+  }
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        upcomingProperties,
+        "Upcoming properties fetched successfully"
+      )
+    );
+});
+
+export const getOngoingBuilding = asyncHandler(async (req, res) => {
+  const upcomingProperties = await Building.find({
+    constructionStatus: "Under Construction",
+  });
+
+  if (!upcomingProperties) {
+    throw new ApiError(404, "No Ongoing properties found");
+  }
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        upcomingProperties,
+        "Ongoing properties fetched successfully"
+      )
+    );
+});
+
+export const getCompletedBuilding = asyncHandler(async (req, res) => {
+  const upcomingProperties = await Building.find({
+    constructionStatus: "Completed",
+  });
+
+  if (!upcomingProperties) {
+    throw new ApiError(404, "No Completed properties found");
+  }
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        upcomingProperties,
+        "Completed properties fetched successfully"
+      )
+    );
+});
