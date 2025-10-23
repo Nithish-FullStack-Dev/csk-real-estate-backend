@@ -3,6 +3,9 @@ import User from "../modals/user.js";
 import rolePermissions from "../modals/role.js";
 import mongoose from "mongoose";
 import QualityIssue from "../modals/qualityIssue.js";
+import asyncHandler from "../utils/asyncHandler.js";
+import ApiResponse from "../utils/ApiResponse.js";
+import e from "express";
 
 export const getUserProjects = async (req, res) => {
   try {
@@ -17,61 +20,20 @@ export const getUserProjects = async (req, res) => {
       query.siteIncharge = _id;
     } else if (role === "contractor") {
       query.contractors = _id;
-    } else if (role === "accountant" || role === "owner") {
+    } else if (["accountant", "owner", "admin"].includes(role)) {
       query = {};
     } else {
       return res.status(400).json({ error: "Unsupported role." });
     }
 
-    const projects = await Project.find(query).populate("projectId").lean(); // `name` = Property ref
+    const projects = await Project.find(query)
+      .populate("projectId", "_id projectName")
+      .populate("floorUnit", "_id floorNumber unitType")
+      .populate("unit", "_id propertyType plotNo")
+      .populate("contractors", "_id name email")
+      .populate("siteIncharge", "_id name email");
 
-    const formattedProjects = projects.map((project) => {
-      const units = project.units || new Map();
-      let totalUnits = 0;
-      let completedUnits = 0;
-      let totalTasks = 0;
-      let completedTasks = 0;
-
-      for (const [unitName, tasks] of Object.entries(units)) {
-        totalUnits++;
-        let unitTasksCompleted = 0;
-
-        tasks.forEach((task) => {
-          totalTasks++;
-          const isComplete =
-            task.isApprovedBySiteManager && task.isApprovedByAccountant;
-          if (isComplete) {
-            completedTasks++;
-            unitTasksCompleted++;
-          }
-        });
-
-        if (unitTasksCompleted === tasks.length && tasks.length > 0) {
-          completedUnits++;
-        }
-      }
-
-      return {
-        projectTitle: project.projectId?.basicInfo?.projectName || "Untitled",
-        deadline: project.deadline,
-        priority: project.priority || "normal", // Assuming "priority" field exists
-        unitsCompleted: completedUnits,
-        totalUnits,
-        tasksCompleted: completedTasks,
-        totalTasks,
-        _id: project._id,
-        unitNames: Object.keys(project.units || {}),
-        startDate: project.startDate,
-        endDate: project.endDate,
-        estimatedBudget: project.estimatedBudget,
-        status: project.status || "Open",
-        description: project.description || "No description provided",
-        type: project.type || "General", // Assuming "type" field exists
-        teamSize: project.teamSize || 0, // Assuming "teamSize" field exists
-      };
-    });
-
-    return res.status(200).json(formattedProjects);
+    return res.status(200).json(projects);
   } catch (error) {
     console.error("Error fetching project data:", error);
     return res
@@ -96,6 +58,7 @@ export const createProject = async (req, res) => {
 export const getUserTasks = async (req, res) => {
   try {
     const { role, _id } = req.user;
+
     const priorityOrder = {
       high: 3,
       medium: 2,
@@ -103,7 +66,7 @@ export const getUserTasks = async (req, res) => {
       unspecified: 0,
     };
 
-    if (!["site_incharge", "contractor"].includes(role)) {
+    if (!["site_incharge", "contractor", "owner", "admin"].includes(role)) {
       return res.status(400).json({ error: "Invalid role" });
     }
 
@@ -115,19 +78,20 @@ export const getUserTasks = async (req, res) => {
     if (role === "site_incharge") {
       query.siteIncharge = _id;
     } else if (role === "contractor") {
-      query.contractors = _id; // contractor exists in array of contractors
+      query.contractors = _id;
     }
 
     const projects = await Project.find(query)
-      .populate("projectId") // Property
-      .populate("contractors", "name") // names of contractors
+      .populate("projectId", "_id projectName")
+      .populate("floorUnit", "_id floorNumber unitType")
+      .populate("unit", "_id propertyType plotNo")
+      .populate("contractors", "_id name")
       .lean();
 
     const taskList = [];
 
     for (const project of projects) {
-      const projectName =
-        project.projectId?.basicInfo?.projectName || "Unnamed Project";
+      const projectName = project.projectId?.projectName || "Unnamed Project";
 
       const contractorMap = Array.isArray(project.contractors)
         ? project.contractors.reduce((acc, c) => {
@@ -136,10 +100,14 @@ export const getUserTasks = async (req, res) => {
           }, {})
         : {};
 
-      const units = project.units || {};
-      for (const [unitName, tasks] of Object.entries(units)) {
+      const unitsMap = project.units || {};
+      const floorNumber = project.floorUnit.floorNumber;
+      const unitType = project.floorUnit.unitType;
+
+      for (const [unitName, tasks] of Object.entries(unitsMap)) {
         for (const task of tasks) {
           const taskContractorId = task.contractor?.toString();
+
           if (role === "site_incharge") {
             if (
               task.isApprovedByContractor &&
@@ -148,6 +116,8 @@ export const getUserTasks = async (req, res) => {
               taskList.push({
                 taskTitle: task.title || "Untitled Task",
                 projectName,
+                floorNumber,
+                unitType,
                 unit: unitName,
                 contractorName:
                   contractorMap[taskContractorId] || "Unknown Contractor",
@@ -180,18 +150,35 @@ export const getUserTasks = async (req, res) => {
                 _id: task._id,
               });
             }
+          } else if (["owner", "admin"].includes(role)) {
+            taskList.push({
+              taskTitle: task.title || "Untitled Task",
+              projectName,
+              unit: unitName,
+              constructionPhase: task.constructionPhase,
+              status: task.statusForContractor || "In progress",
+              deadline: task.deadline,
+              progress: task.progressPercentage,
+              priority: task.priority || "unspecified",
+              contractorUploadedPhotos: task.contractorUploadedPhotos || [],
+              projectId: project._id,
+              contractorId: task.contractor,
+              contractorName:
+                contractorMap[taskContractorId] || "Unknown Contractor",
+              _id: task._id,
+            });
           }
         }
       }
     }
 
-    // ⏫ Sort by priority
+    // Sort by priority
     taskList.sort((a, b) => {
       const aPriority =
         priorityOrder[(a.priority || "unspecified").toLowerCase()] || 0;
       const bPriority =
         priorityOrder[(b.priority || "unspecified").toLowerCase()] || 0;
-      return aPriority - bPriority;
+      return bPriority - aPriority; // high first
     });
 
     res.status(200).json(taskList);
@@ -203,33 +190,44 @@ export const getUserTasks = async (req, res) => {
 
 export const getContractorsForSiteIncharge = async (req, res) => {
   try {
-    const siteInchargeId = req.user._id;
+    const { role, _id } = req.user;
 
-    if (!mongoose.Types.ObjectId.isValid(siteInchargeId)) {
-      return res.status(400).json({ message: "Invalid Site Incharge ID" });
+    if (role !== "site_incharge") {
+      return res
+        .status(403)
+        .json({ error: "Access denied. Only site incharges allowed." });
     }
 
-    // Step 1: Find all projects for this site incharge
-    const projects = await Project.find({ siteIncharge: siteInchargeId })
-      .populate("projectId", "basicInfo.projectName")
+    if (!mongoose.Types.ObjectId.isValid(_id)) {
+      return res.status(400).json({ error: "Invalid Site Incharge ID" });
+    }
+
+    // Fetch all projects for this site incharge
+    const projects = await Project.find({ siteIncharge: _id })
+      .populate("projectId", "_id projectName")
+      .populate("floorUnit", "_id floorNumber unitType")
+      .populate("unit", "_id propertyType plotNo")
       .populate(
         "contractors",
-        "name email phone status company specialization _id"
-      ) // preload contractor details
+        "_id name email phone status company specialization"
+      )
       .lean();
 
     const contractorMap = new Map();
 
     for (const project of projects) {
-      const projectName =
-        project.projectId?.basicInfo?.projectName || "Unnamed Project";
+      const projectName = project.projectId?.projectName || "Unnamed Project";
+      const floorNumber = project.floorUnit?.floorNumber;
+      const unitType = project.floorUnit?.unitType;
       const units = project.units || {};
 
       for (const contractor of project.contractors || []) {
         const contractorId = contractor._id.toString();
 
+        // Initialize contractor if not seen
         if (!contractorMap.has(contractorId)) {
           contractorMap.set(contractorId, {
+            _id: contractor._id,
             name: contractor.name,
             company: contractor.company || "N/A",
             specialization: contractor.specialization || "General",
@@ -238,41 +236,62 @@ export const getContractorsForSiteIncharge = async (req, res) => {
             email: contractor.email || "N/A",
             status: contractor.status || "active",
             projects: new Set(),
-            completedTasks: 0,
             totalTasks: 0,
-            _id: contractor._id,
+            completedTasks: 0,
+            projectDetails: [],
           });
         }
 
         const contractorStats = contractorMap.get(contractorId);
         contractorStats.projects.add(projectName);
 
-        // Go through units and count tasks assigned to this contractor
-        for (const taskArray of Object.values(units)) {
+        // Analyze tasks per unit
+        for (const [unitName, taskArray] of Object.entries(units)) {
           for (const task of taskArray) {
             if (task.contractor?.toString() === contractorId) {
               contractorStats.totalTasks++;
               if (task.status === "approved") {
                 contractorStats.completedTasks++;
               }
+
+              // Push task details for UI (optional)
+              contractorStats.projectDetails.push({
+                projectName,
+                unit: unitName,
+                floorNumber,
+                unitType,
+                taskTitle: task.title || "Untitled Task",
+                status: task.status,
+                priority: task.priority || "unspecified",
+              });
             }
           }
         }
       }
     }
 
-    // Convert Set to Array for each contractor's project list
+    // Finalize contractor data
     const finalContractors = Array.from(contractorMap.values()).map(
       (contractor) => ({
         ...contractor,
         projects: Array.from(contractor.projects),
+        completionRate:
+          contractor.totalTasks > 0
+            ? (
+                (contractor.completedTasks / contractor.totalTasks) *
+                100
+              ).toFixed(1)
+            : "0.0",
       })
     );
+
+    // Sort contractors by completion rate (optional)
+    finalContractors.sort((a, b) => b.completedTasks - a.completedTasks);
 
     res.status(200).json(finalContractors);
   } catch (error) {
     console.error("Error fetching contractors for site incharge:", error);
-    res.status(500).json({ message: "Server error", error });
+    res.status(500).json({ error: "Server error fetching contractors" });
   }
 };
 
@@ -289,33 +308,80 @@ export const getContractorTasksUnderSiteIncharge = async (req, res) => {
     const siteInchargeId = req.user._id;
     const contractorId = req.params.contractorId;
 
+    if (
+      !mongoose.Types.ObjectId.isValid(siteInchargeId) ||
+      !mongoose.Types.ObjectId.isValid(contractorId)
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Invalid Site Incharge or Contractor ID" });
+    }
+
+    // Find all projects assigned to both this site incharge and the contractor
     const projects = await Project.find({
       siteIncharge: siteInchargeId,
       contractors: contractorId,
-    }).populate("projectId", "basicInfo.projectName");
+    })
+      .populate("projectId", "_id projectName")
+      .populate("floorUnit", "_id floorNumber unitType")
+      .populate("unit", "_id propertyType plotNo")
+      .populate("contractors", "_id name email phone company specialization")
+      .lean();
 
-    const tasks = [];
+    const contractorTasks = [];
 
     for (const project of projects) {
-      for (const [unitName, unitTasks] of project.units.entries()) {
-        unitTasks.forEach((task) => {
-          if (task.contractor.toString() === contractorId) {
-            tasks.push({
+      const projectName = project.projectId?.projectName || "Unnamed Project";
+      const floorNumber = project.floorUnit?.floorNumber;
+      const unitType = project.floorUnit?.unitType;
+      const units = project.units || {};
+
+      // Loop through units and gather tasks
+      for (const [unitName, taskArray] of Object.entries(units)) {
+        for (const task of taskArray) {
+          if (task.contractor?.toString() === contractorId) {
+            contractorTasks.push({
+              _id: task._id,
+              taskTitle: task.title || "Untitled Task",
+              description: task.description || "",
               projectId: project._id,
-              projectName:
-                project.projectId?.basicInfo?.projectName || "Unnamed Project",
+              projectName,
+              floorNumber,
+              unitType,
               unit: unitName,
-              ...task.toObject(),
+              constructionPhase: task.constructionPhase,
+              status: task.status,
+              priority: task.priority || "unspecified",
+              progressPercentage: task.progressPercentage || 0,
+              deadline: task.deadline,
+              submittedByContractorOn: task.submittedByContractorOn || null,
+              submittedBySiteInchargeOn: task.submittedBySiteInchargeOn || null,
+              contractorUploadedPhotos: task.contractorUploadedPhotos || [],
             });
           }
-        });
+        }
       }
     }
 
-    return res.status(200).json({ tasks });
+    // Sort tasks by priority (high → low → medium → low → unspecified)
+    const priorityOrder = { high: 3, medium: 2, low: 1, unspecified: 0 };
+    contractorTasks.sort((a, b) => {
+      const aPriority =
+        priorityOrder[(a.priority || "unspecified").toLowerCase()] || 0;
+      const bPriority =
+        priorityOrder[(b.priority || "unspecified").toLowerCase()] || 0;
+      return bPriority - aPriority;
+    });
+
+    res.status(200).json({ tasks: contractorTasks });
   } catch (error) {
-    console.error("Error fetching contractor tasks:", error);
-    return res.status(500).json({ message: "Server error" });
+    console.error(
+      "Error fetching contractor tasks under site incharge:",
+      error
+    );
+    res
+      .status(500)
+      .json({ message: "Server error fetching contractor tasks", error });
   }
 };
 
@@ -792,3 +858,17 @@ export const assignContractorToUnit = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
+export const projectDropDownData = asyncHandler(async (req, res) => {
+  const projects = await Project.find({})
+    .select("_id projectId")
+    .populate("projectId", "_id projectName");
+  let message;
+  if (!projects || projects.length === 0) {
+    message = "No projects found";
+  } else {
+    message = "Projects fetched successfully";
+  }
+
+  res.status(200).json(new ApiResponse(201, projects, message));
+});

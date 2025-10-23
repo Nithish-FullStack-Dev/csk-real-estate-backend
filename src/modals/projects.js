@@ -106,13 +106,22 @@ const ProjectSchema = new Schema(
   {
     projectId: {
       type: Types.ObjectId,
-      ref: "Property",
+      ref: "Building",
+      required: true,
+    },
+    floorUnit: {
+      type: Types.ObjectId,
+      ref: "FloorUnit",
+      required: true,
+    },
+    unit: {
+      type: Types.ObjectId,
+      ref: "PropertyUnit",
       required: true,
     },
     contractors: {
       type: [Types.ObjectId],
       ref: "User",
-      required: true,
     },
     siteIncharge: {
       type: Types.ObjectId,
