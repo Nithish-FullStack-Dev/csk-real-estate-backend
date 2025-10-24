@@ -14,7 +14,7 @@ const router = express.Router();
 router.post(
   "/",
   authenticate,
-  authorizeRoles("contractor", "accountant", "owner"),
+  authorizeRoles("contractor", "accountant", "owner", "admin"),
   createInvoice
 );
 router.get(
@@ -26,26 +26,26 @@ router.get(
 router.get(
   "/completed/tasks",
   authenticate,
-  authorizeRoles("contractor", "accountant", "owner"),
+  authorizeRoles("contractor", "accountant", "owner", "admin"),
   getCompletedTasksForContractor
 );
 router.put(
   "/:id/mark-paid",
   authenticate,
-  authorizeRoles("accountant", "owner"),
+  authorizeRoles("accountant", "owner", "admin"),
   markInvoiceAsPaid
 );
 router.put(
   "/:id/accountant-verify",
   authenticate,
-  authorizeRoles("accountant", "owner"),
+  authorizeRoles("accountant", "owner", "admin"),
   verifyInvoiceByAccountant
 );
 
 router.get(
   "/revenues",
   authenticate,
-  authorizeRoles("owner"),
+  authorizeRoles("owner", "admin"),
   getMonthlyRevenues
 );
 

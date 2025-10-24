@@ -92,15 +92,6 @@ const TaskSchema = new Schema({
   // }
 });
 
-// Flexible Units Schema — Object of arrays of tasks
-const UnitSchema = new Schema(
-  {
-    // unit name as key (Block-A, Block-B, etc.)
-    // each key maps to array of tasks
-  },
-  { strict: false } // to allow dynamic keys (Block-A, Villa-1, etc.)
-);
-
 // Project Schema
 const ProjectSchema = new Schema(
   {

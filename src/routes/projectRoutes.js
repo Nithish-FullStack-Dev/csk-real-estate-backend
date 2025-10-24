@@ -14,6 +14,7 @@ import {
   createTaskForProjectUnit,
   assignContractorToUnit,
   projectDropDownData,
+  getAllContractors,
 } from "../controller/projectControllers.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
 
@@ -40,6 +41,8 @@ router.get(
 );
 
 router.get("/projectsDropdown", authenticate, projectDropDownData);
+
+router.get("/contractorDropdown", authenticate, getAllContractors);
 
 router.patch(
   "/contractor/:projectId/:taskId/task",

@@ -27,7 +27,7 @@ export const getUserProjects = async (req, res) => {
     }
 
     const projects = await Project.find(query)
-      .populate("projectId", "_id projectName")
+      .populate("projectId", "_id projectName location")
       .populate("floorUnit", "_id floorNumber unitType")
       .populate("unit", "_id propertyType plotNo")
       .populate("contractors", "_id name email")
@@ -204,7 +204,7 @@ export const getContractorsForSiteIncharge = async (req, res) => {
 
     // Fetch all projects for this site incharge
     const projects = await Project.find({ siteIncharge: _id })
-      .populate("projectId", "_id projectName")
+      .populate("projectId", "_id projectName location")
       .populate("floorUnit", "_id floorNumber unitType")
       .populate("unit", "_id propertyType plotNo")
       .populate(
@@ -592,97 +592,56 @@ export const updateTaskByIdForSiteIncharge = async (req, res) => {
 
 export const addContractorForSiteIncharge = async (req, res) => {
   try {
-    const {
-      name,
-      company,
-      specialization,
-      phone,
-      email,
-      status,
-      project, // project _id
-      taskTitle,
-      unit, // unit name, e.g., "Block-A"
-      deadline, // make sure to send this from frontend
-      priority, // optional task priority
-    } = req.body;
+    const { contractor, project, taskTitle, deadline, priority } = req.body;
 
-    // 1. Check if contractor exists
-    let contractor = await User.findOne({ email, role: "contractor" });
+    const projectDoc = await Project.findById(project)
+      .populate("floorUnit", "_id floorNumber unitType")
+      .populate("unit", "_id unitName");
 
-    // 2. Create if not exists
-    if (!contractor) {
-      // 1. Fetch the roleId from rolePermissions schema
-      const contractorRole = await rolePermissions.findOne({
-        name: "contractor",
-      });
-
-      if (!contractorRole) {
-        return res
-          .status(400)
-          .json({ message: "Contractor role not found in rolePermissions" });
-      }
-
-      // 2. Create the new contractor user with roleId
-      contractor = new User({
-        name,
-        email,
-        phone,
-        company,
-        specialization,
-        role: "contractor",
-        roleId: contractorRole._id, // 👈 set the roleId
-        status,
-      });
-
-      await contractor.save();
-    }
-
-    // 3. Find the project
-    const projectDoc = await Project.findById(project);
     if (!projectDoc) {
-      return res.status(404).json({ message: "Project not found" });
+      return res
+        .status(404)
+        .json(new ApiResponse(404, null, "Project not found"));
     }
 
-    // 4. Append contractor._id to project.contractors if not already present
-    if (!projectDoc.contractors.includes(contractor._id)) {
-      projectDoc.contractors.push(contractor._id);
+    const unitId =
+      projectDoc?.unit?._id || `Unit-${projectDoc?._id.toString().slice(-4)}`;
+
+    if (!projectDoc.contractors.includes(contractor)) {
+      projectDoc.contractors.push(contractor);
     }
 
-    // 5. Create the task
     const newTask = {
-      contractor: contractor._id,
+      contractor,
       title: taskTitle,
       statusForContractor: "In progress",
       statusForSiteIncharge: "pending verification",
-      deadline: deadline ? new Date(deadline) : new Date(), // default to now if not provided
+      deadline: deadline ? new Date(deadline) : new Date(),
       progressPercentage: 0,
       priority: priority || "normal",
     };
 
-    // 6. Add task to the correct unit
-    if (!projectDoc.units.has(unit)) {
-      projectDoc.units.set(unit, []);
+    if (!projectDoc.units.has(unitId)) {
+      projectDoc.units.set(unitId, []);
     }
 
-    const unitTasks = projectDoc.units.get(unit);
+    const unitTasks = projectDoc.units.get(unitId);
     unitTasks.push(newTask);
-    projectDoc.units.set(unit, unitTasks);
+    projectDoc.units.set(unitId, unitTasks);
 
-    // 7. Save the updated project
-    await projectDoc.save();
-
-    console.log("CONTRACTOR ASSIGNED");
+    const projects = await projectDoc.save();
 
     return res.status(201).json({
-      message: "Contractor assigned and task added successfully",
+      message: `Task added to ${unitId} successfully`,
       contractor,
       task: newTask,
+      unit: unitId,
     });
   } catch (err) {
-    console.error("Assign Contractor Error:", err);
-    return res
-      .status(500)
-      .json({ message: "Server Error", error: err.message });
+    return res.status(500).json({
+      message: "Server Error",
+      error: err.message,
+    });
   }
 };
 
@@ -871,4 +830,17 @@ export const projectDropDownData = asyncHandler(async (req, res) => {
   }
 
   res.status(200).json(new ApiResponse(201, projects, message));
+});
+
+export const getAllContractors = asyncHandler(async (req, res) => {
+  const contractors = await User.find({ role: "contractor" }).select(
+    "_id name"
+  );
+  let message;
+  if (!contractors || contractors.length === 0) {
+    message = "No contractors found";
+  } else {
+    message = "Contractors fetched successfully";
+  }
+  res.status(200).json(new ApiResponse(201, contractors, message));
 });
