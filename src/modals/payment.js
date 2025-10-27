@@ -5,21 +5,19 @@ const paymentSchema = new mongoose.Schema(
     accountant: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true
+      required: true,
     },
     paymentNumber: {
       type: String,
-      unique: true, // ensures no two payments have same number
+      unique: true,
     },
     invoice: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Invoice",
-      required: true
-    }
+      required: true,
+    },
   },
-  {
-    timestamps: true // adds createdAt and updatedAt fields
-  }
+  { timestamps: true }
 );
 
 export default mongoose.model("Payment", paymentSchema);
