@@ -1,26 +1,38 @@
+import { populate } from "dotenv";
 import Payment from "../modals/payment.js";
 
 export const getAccountantPayments = async (req, res) => {
   try {
     const accountantId = req.user._id;
 
-    // const payments = await Payment.find({ accountant: accountantId })
-    //   .populate("invoice") // populate the invoice field with full object
-    //   .sort({ createdAt: -1 }); // latest first (optional)
-
+    // Fetch all payments created by this accountant
     const payments = await Payment.find({ accountant: accountantId })
       .populate({
         path: "invoice",
-        populate: {
-          path: "project", // Invoice.project
-          populate: {
-            path: "projectId", // Project.projectId
-            model: "Property", // explicitly specify if needed
-            select: "basicInfo.projectName", // only fetch what you need
+        populate: [
+          {
+            path: "project", // from Invoice
+            model: "Building",
+            select: "projectName", // get project name
           },
-        },
+          {
+            path: "unit", // populate the PropertyUnit reference
+            model: "PropertyUnit",
+            select: "plotNo propertyType",
+          },
+          {
+            path: "floorUnit", // populate the FloorUnit reference
+            model: "FloorUnit",
+            select: "floorNumber",
+          },
+        ],
       })
-      .populate("accountant")
+
+      .populate({
+        path: "accountant",
+        model: "User",
+        select: "name email role",
+      })
       .sort({ createdAt: -1 });
 
     res.status(200).json(payments);
