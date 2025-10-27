@@ -101,12 +101,29 @@ export const getUserTasks = async (req, res) => {
         : {};
 
       const unitsMap = project.units || {};
-      const floorNumber = project.floorUnit.floorNumber;
-      const unitType = project.floorUnit.unitType;
+      const floorNumber = project.floorUnit?.floorNumber || "N/A";
+      const unitType = project.floorUnit?.unitType || "N/A";
+      const plotNo = project.unit?.plotNo || "N/A";
 
       for (const [unitName, tasks] of Object.entries(unitsMap)) {
         for (const task of tasks) {
           const taskContractorId = task.contractor?.toString();
+
+          const commonTaskData = {
+            taskTitle: task.title || "Untitled Task",
+            projectName,
+            floorNumber,
+            unitType,
+            plotNo,
+            unit: unitName,
+            deadline: task.deadline,
+            priority: task.priority || "unspecified",
+            constructionPhase: task.constructionPhase,
+            contractorUploadedPhotos: task.contractorUploadedPhotos || [],
+            projectId: project._id,
+            contractorId: task.contractor,
+            _id: task._id,
+          };
 
           if (role === "site_incharge") {
             if (
@@ -114,21 +131,11 @@ export const getUserTasks = async (req, res) => {
               task.statusForContractor === "completed"
             ) {
               taskList.push({
-                taskTitle: task.title || "Untitled Task",
-                projectName,
-                floorNumber,
-                unitType,
-                unit: unitName,
+                ...commonTaskData,
                 contractorName:
                   contractorMap[taskContractorId] || "Unknown Contractor",
                 submittedByContractorOn: task.submittedByContractorOn || null,
                 status: task.statusForSiteIncharge || "pending verification",
-                priority: task.priority || "unspecified",
-                contractorUploadedPhotos: task.contractorUploadedPhotos || [],
-                projectId: project._id,
-                contractorId: task.contractor,
-                _id: task._id,
-                constructionPhase: task.constructionPhase,
                 submittedBySiteInchargeOn:
                   task.submittedBySiteInchargeOn || null,
               });
@@ -136,36 +143,18 @@ export const getUserTasks = async (req, res) => {
           } else if (role === "contractor") {
             if (taskContractorId === _id.toString()) {
               taskList.push({
-                taskTitle: task.title || "Untitled Task",
-                projectName,
-                unit: unitName,
-                constructionPhase: task.constructionPhase,
+                ...commonTaskData,
                 status: task.statusForContractor || "In progress",
-                deadline: task.deadline,
                 progress: task.progressPercentage,
-                priority: task.priority || "unspecified",
-                contractorUploadedPhotos: task.contractorUploadedPhotos || [],
-                projectId: project._id,
-                contractorId: task.contractor,
-                _id: task._id,
               });
             }
           } else if (["owner", "admin"].includes(role)) {
             taskList.push({
-              taskTitle: task.title || "Untitled Task",
-              projectName,
-              unit: unitName,
-              constructionPhase: task.constructionPhase,
+              ...commonTaskData,
               status: task.statusForContractor || "In progress",
-              deadline: task.deadline,
               progress: task.progressPercentage,
-              priority: task.priority || "unspecified",
-              contractorUploadedPhotos: task.contractorUploadedPhotos || [],
-              projectId: project._id,
-              contractorId: task.contractor,
               contractorName:
                 contractorMap[taskContractorId] || "Unknown Contractor",
-              _id: task._id,
             });
           }
         }
@@ -178,7 +167,7 @@ export const getUserTasks = async (req, res) => {
         priorityOrder[(a.priority || "unspecified").toLowerCase()] || 0;
       const bPriority =
         priorityOrder[(b.priority || "unspecified").toLowerCase()] || 0;
-      return bPriority - aPriority; // high first
+      return bPriority - aPriority;
     });
 
     res.status(200).json(taskList);
@@ -633,6 +622,7 @@ export const addContractorForSiteIncharge = async (req, res) => {
 
     return res.status(201).json({
       message: `Task added to ${unitId} successfully`,
+
       contractor,
       task: newTask,
       unit: unitId,
