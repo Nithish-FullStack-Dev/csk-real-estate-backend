@@ -707,10 +707,10 @@ export const assignTaskToContractor = async (req, res) => {
 
 export const createTaskForProjectUnit = async (req, res) => {
   try {
-    const { title, description, projectId, unit, phase, priority, deadline } =
+    const { title, description, projectId, phase, priority, deadline } =
       req.body;
 
-    if (!title || !description || !projectId || !unit || !phase || !deadline) {
+    if (!title || !description || !projectId || !phase || !deadline) {
       return res
         .status(400)
         .json({ success: false, message: "Missing required fields" });
@@ -728,6 +728,7 @@ export const createTaskForProjectUnit = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Project not found" });
     }
+    console.log("project", project);
 
     const newTask = {
       title,
@@ -737,7 +738,7 @@ export const createTaskForProjectUnit = async (req, res) => {
       constructionPhase: phase,
       priority,
     };
-
+    const unit = project?.unit;
     // Initialize unit if not present
     if (!project.units.has(unit)) {
       project.units.set(unit, []);
@@ -810,8 +811,11 @@ export const assignContractorToUnit = async (req, res) => {
 
 export const projectDropDownData = asyncHandler(async (req, res) => {
   const projects = await Project.find({})
-    .select("_id projectId")
-    .populate("projectId", "_id projectName");
+    .select("_id projectId floorUnit unit")
+    .populate("projectId", "_id projectName")
+    .populate("floorUnit", "_id floorNumber unitType")
+    .populate("unit", "_id plotNo propertyType");
+
   let message;
   if (!projects || projects.length === 0) {
     message = "No projects found";
