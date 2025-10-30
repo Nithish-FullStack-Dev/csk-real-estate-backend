@@ -2,20 +2,22 @@ import LaborTeam from "../modals/labourTeam.js"; // your all-in-one schema
 
 export const createLaborTeam = async (req, res) => {
   try {
-    const {
-      name,
-      supervisor,
-      type,
-      members,
-      wage,
-      project,
-      contact,
-      remarks,
-    } = req.body;
+    const { name, supervisor, type, members, wage, project, contact, remarks } =
+      req.body;
 
     // Validate required fields manually if needed (you can also use zod or Joi)
-    if (!name || !supervisor || !type || !members || !wage || !project || !contact) {
-      return res.status(400).json({ message: "All required fields must be filled" });
+    if (
+      !name ||
+      !supervisor ||
+      !type ||
+      !members ||
+      !wage ||
+      !project ||
+      !contact
+    ) {
+      return res
+        .status(400)
+        .json({ message: "All required fields must be filled" });
     }
 
     const newTeam = await LaborTeam.create({
@@ -48,15 +50,29 @@ export const createLaborTeam = async (req, res) => {
 
 export const getLaborTeamsForContractor = async (req, res) => {
   try {
-    const teams = await LaborTeam.find({ contractor: req.user._id }).populate({
+    const teams = await LaborTeam.find({ contractor: req.user._id })
+      .populate({
         path: "project",
-        populate: {
-          path: "projectId",
-          model: "Property",
-          select: "basicInfo", // ✅ Select the whole basicInfo object
-        },
-        select: "projectId",
-      }).sort({ createdAt: -1 });
+        populate: [
+          {
+            path: "projectId",
+            model: "Building",
+            select: "_id projectName",
+          },
+          {
+            path: "floorUnit",
+            model: "FloorUnit",
+            select: "_id floorNumber unitType",
+          },
+          {
+            path: "unit",
+            model: "PropertyUnit",
+            select: "_id plotNo propertyType",
+          },
+        ],
+        select: "projectId floorUnit unit",
+      })
+      .sort({ createdAt: -1 });
     res.status(200).json(teams);
   } catch (err) {
     console.error("Error fetching teams:", err);
@@ -82,7 +98,10 @@ export const recordAttendance = async (req, res) => {
     team.attendanceRecords.push(newRecord);
 
     // Recalculate attendance percentage
-    const totalPresent = team.attendanceRecords.reduce((acc, r) => acc + r.present, present);
+    const totalPresent = team.attendanceRecords.reduce(
+      (acc, r) => acc + r.present,
+      present
+    );
     const totalDays = team.attendanceRecords.length + 1;
     const totalPossible = totalDays * team.members;
 
@@ -90,7 +109,10 @@ export const recordAttendance = async (req, res) => {
     team.attendancePercentage = avgPercentage;
 
     await team.save();
-    res.status(200).json({ message: "Attendance recorded", attendancePercentage: avgPercentage });
+    res.status(200).json({
+      message: "Attendance recorded",
+      attendancePercentage: avgPercentage,
+    });
   } catch (err) {
     console.error("Error recording attendance:", err);
     res.status(500).json({ message: "Failed to record attendance" });

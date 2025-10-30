@@ -6,14 +6,26 @@ export const getAllMaterials = async (req, res) => {
     const materials = await Material.find({ contractor: req.user._id })
       .populate({
         path: "project",
-        populate: {
-          path: "projectId",
-          model: "Property",
-          select: "basicInfo", // ✅ Select the whole basicInfo object
-        },
-        select: "projectId",
+        populate: [
+          {
+            path: "projectId",
+            model: "Building",
+            select: "_id projectName",
+          },
+          {
+            path: "floorUnit",
+            model: "FloorUnit",
+            select: "_id floorNumber unitNumber",
+          },
+          {
+            path: "unit",
+            model: "PropertyUnit",
+            select: "_id plotNo",
+          },
+        ],
+        select: "projectId floorUnit unit",
       })
-      .populate("contractor", "name"); // optional: populate contractor if needed
+      .populate("contractor", "_id name");
     res.status(200).json(materials);
   } catch (error) {
     console.error("Error fetching materials:", error);

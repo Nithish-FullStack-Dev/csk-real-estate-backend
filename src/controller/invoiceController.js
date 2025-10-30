@@ -109,8 +109,7 @@ export const getCompletedTasksForContractor = async (req, res) => {
               title: task.title,
               unit: unitName,
               projectId: project._id,
-              projectName:
-                project.projectId.basicInfo.projectName || "Unknown Project",
+              projectName: project.projectId.projectName || "Unknown Project",
               submittedOn: task.submittedByContractorOn,
               deadline: task.deadline,
             });
