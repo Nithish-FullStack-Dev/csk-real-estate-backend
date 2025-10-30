@@ -35,6 +35,8 @@ const buildingSchema = new Schema(
     images: { type: [String], default: [] },
     description: { type: String },
     municipalPermission: { type: Boolean, default: false },
+    reraApproved: { type: Boolean, default: false },
+    reraNumber: { type: String, default: null },
     googleMapsLocation: { type: String },
     brochureUrl: { type: String, default: null },
     brochureFileId: { type: String, default: null },

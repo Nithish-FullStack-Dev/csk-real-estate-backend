@@ -17,6 +17,8 @@ export const createBuilding = asyncHandler(async (req, res) => {
     completionDate,
     description,
     municipalPermission,
+    reraApproved,
+    reraNumber,
     googleMapsLocation,
   } = req.body;
 
@@ -57,6 +59,8 @@ export const createBuilding = asyncHandler(async (req, res) => {
     completionDate,
     description,
     municipalPermission,
+    reraApproved,
+    reraNumber,
     thumbnailUrl: thumbnailUrl || "",
     // priceRange,
     googleMapsLocation,
@@ -90,6 +94,8 @@ export const getAllBuildings = asyncHandler(async (req, res) => {
         completionDate: 1,
         thumbnailUrl: 1,
         municipalPermission: 1,
+        reraApproved: 1,
+        reraNumber: 1,
         brochureUrl: 1,
         description: 1,
       },
@@ -121,7 +127,7 @@ export const getBuildingById = asyncHandler(async (req, res) => {
 export const updateBuilding = asyncHandler(async (req, res) => {
   const { _id } = req.params;
   const body = req.body;
-
+  console.log(body);
   if (!_id) {
     throw new ApiError(400, "Building ID (_id) is required");
   }
