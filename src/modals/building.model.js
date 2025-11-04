@@ -16,6 +16,7 @@ const buildingSchema = new Schema(
       enum: [
         "Villa Complex",
         "Apartment Complex",
+        "Commercial",
         "Plot Development",
         "Land Parcel",
       ],

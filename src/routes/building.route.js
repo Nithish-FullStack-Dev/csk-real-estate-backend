@@ -24,6 +24,10 @@ router.post(
       name: "brochureUrl",
       maxCount: 1,
     },
+    {
+      name: "images",
+      maxCount: 10,
+    },
   ]),
   createBuilding
 );
@@ -42,6 +46,10 @@ router.patch(
       name: "brochureUrl",
       maxCount: 1,
     },
+    {
+      name: "images",
+      maxCount: 10,
+    },
   ]),
   updateBuilding
 );
@@ -50,4 +58,5 @@ router.delete("/deleteBuilding/:_id", deleteBuilding);
 router.get("/getUpcomingBuilding", getUpcomingBuilding);
 router.get("/getOngoingBuilding", getOngoingBuilding);
 router.get("/getCompletedBuilding", getCompletedBuilding);
+
 export default router;

@@ -20,7 +20,9 @@ export const getUserProjects = async (req, res) => {
       query.siteIncharge = _id;
     } else if (role === "contractor") {
       query.contractors = _id;
-    } else if (["accountant", "owner", "admin"].includes(role)) {
+    } else if (
+      ["accountant", "owner", "admin", "customer_purchased"].includes(role)
+    ) {
       query = {};
     } else {
       return res.status(400).json({ error: "Unsupported role." });
@@ -66,7 +68,15 @@ export const getUserTasks = async (req, res) => {
       unspecified: 0,
     };
 
-    if (!["site_incharge", "contractor", "owner", "admin"].includes(role)) {
+    if (
+      ![
+        "site_incharge",
+        "contractor",
+        "owner",
+        "admin",
+        "customer_purchased",
+      ].includes(role)
+    ) {
       return res.status(400).json({ error: "Invalid role" });
     }
 
@@ -148,7 +158,7 @@ export const getUserTasks = async (req, res) => {
                 progress: task.progressPercentage,
               });
             }
-          } else if (["owner", "admin"].includes(role)) {
+          } else if (["owner", "admin", "customer_purchased"].includes(role)) {
             taskList.push({
               ...commonTaskData,
               status: task.statusForContractor || "In progress",

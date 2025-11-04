@@ -48,6 +48,15 @@ export const createBuilding = asyncHandler(async (req, res) => {
     throw new ApiError(400, "brochureUrl file is required");
   }
 
+  let imageUrls = [];
+  if (req.files?.images && Array.isArray(req.files.images)) {
+    const imageUploadPromises = req.files.images.map(async (file) => {
+      const uploadedUrl = await uploadFile(file.path, "Gallery");
+      return uploadedUrl;
+    });
+    imageUrls = await Promise.all(imageUploadPromises);
+  }
+
   const building = await Building.create({
     projectName,
     location,
@@ -62,7 +71,7 @@ export const createBuilding = asyncHandler(async (req, res) => {
     reraApproved,
     reraNumber,
     thumbnailUrl: thumbnailUrl || "",
-    // priceRange,
+    images: imageUrls,
     googleMapsLocation,
     brochureUrl: brochureUrl || "",
   });
@@ -98,6 +107,7 @@ export const getAllBuildings = asyncHandler(async (req, res) => {
         reraNumber: 1,
         brochureUrl: 1,
         description: 1,
+        images: 1,
       },
     },
   ]);
@@ -127,7 +137,6 @@ export const getBuildingById = asyncHandler(async (req, res) => {
 export const updateBuilding = asyncHandler(async (req, res) => {
   const { _id } = req.params;
   const body = req.body;
-  console.log(body);
   if (!_id) {
     throw new ApiError(400, "Building ID (_id) is required");
   }
@@ -139,6 +148,7 @@ export const updateBuilding = asyncHandler(async (req, res) => {
 
   let thumbnailUrl = existingBuilding.thumbnailUrl;
   let brochureUrl = existingBuilding.brochureUrl;
+  let images = existingBuilding.galleryImages || [];
 
   const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
   const brochureLocalPath = getFilePath(req.files, "brochureUrl");
@@ -157,10 +167,21 @@ export const updateBuilding = asyncHandler(async (req, res) => {
     brochureUrl = uploadedBrochure;
   }
 
+  if (req.files?.images && Array.isArray(req.files.images)) {
+    const newImages = await Promise.all(
+      req.files.images.map(async (file) => {
+        const uploadedUrl = await uploadFile(file.path, "Gallery");
+        return uploadedUrl;
+      })
+    );
+    images = [...existingBuilding?.images, ...newImages];
+  }
+
   const updatedData = {
     ...body,
     thumbnailUrl,
     brochureUrl,
+    images,
   };
 
   const updatedBuilding = await Building.findByIdAndUpdate(_id, updatedData, {
