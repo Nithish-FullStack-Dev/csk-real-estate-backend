@@ -23,6 +23,14 @@ export const createUnit = asyncHandler(async (req, res) => {
 
   const documentFiles = req.files?.documents || [];
   const documents = [];
+  let imageUrls = [];
+  if (req.files?.images && Array.isArray(req.files.images)) {
+    const imageUploadPromises = req.files.images.map(async (file) => {
+      const uploadedUrl = await uploadFile(file.path, "Gallery");
+      return uploadedUrl;
+    });
+    imageUrls = await Promise.all(imageUploadPromises);
+  }
 
   for (const file of documentFiles) {
     const fileUrl = await uploadFile(file.path, "Document");
@@ -39,6 +47,7 @@ export const createUnit = asyncHandler(async (req, res) => {
     ...req.body,
     thumbnailUrl,
     documents,
+    images: imageUrls,
   });
 
   return res
@@ -85,6 +94,7 @@ export const updateUnit = asyncHandler(async (req, res) => {
   }
 
   let thumbnailUrl = unit.thumbnailUrl;
+  let images = unit.images || [];
 
   const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
   if (thumbnailLocalPath) {
@@ -112,10 +122,21 @@ export const updateUnit = asyncHandler(async (req, res) => {
     documents = [...documents, ...newDocs];
   }
 
+  if (req.files?.images && Array.isArray(req.files.images)) {
+    const newImages = await Promise.all(
+      req.files.images.map(async (file) => {
+        const uploadedUrl = await uploadFile(file.path, "Gallery");
+        return uploadedUrl;
+      })
+    );
+    images = [...unit?.images, ...newImages];
+  }
+
   const updatedData = {
     ...rest,
     thumbnailUrl,
     documents,
+    images,
   };
 
   const updatedUnit = await PropertyUnitModel.findByIdAndUpdate(
