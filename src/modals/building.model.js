@@ -41,6 +41,7 @@ const buildingSchema = new Schema(
     googleMapsLocation: { type: String },
     brochureUrl: { type: String, default: null },
     brochureFileId: { type: String, default: null },
+    amenities: { type: [String], default: [] },
   },
   { timestamps: true }
 );
