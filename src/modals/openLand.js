@@ -52,7 +52,8 @@ const openLandSchema = new Schema(
     images: { type: [String], default: [] },
     brochureUrl: { type: String, default: null },
     brochureFileId: { type: String, default: null },
-
+    landArea: { type: Number },
+    areaUnit: { type: String, enum: ["Sqft", "Sqyd", "Acre", "Hectare"] },
     // Land Characteristics
     facing: {
       type: String,
