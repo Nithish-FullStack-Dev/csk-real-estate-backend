@@ -23,6 +23,10 @@ router.post(
       name: "documents",
       maxCount: 5,
     },
+    {
+      name: "images",
+      maxCount: 5,
+    },
   ]),
   createUnit
 );
@@ -49,6 +53,7 @@ router.patch(
   upload.fields([
     { name: "thumbnailUrl", maxCount: 1 },
     { name: "documents", maxCount: 5 },
+    { name: "images", maxCount: 5 },
   ]),
   updateUnit
 );
