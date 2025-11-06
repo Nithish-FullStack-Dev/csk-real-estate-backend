@@ -26,7 +26,7 @@ router.post(
     },
     {
       name: "images",
-      maxCount: 10,
+      maxCount: 5,
     },
   ]),
   createBuilding
@@ -48,7 +48,7 @@ router.patch(
     },
     {
       name: "images",
-      maxCount: 10,
+      maxCount: 5,
     },
   ]),
   updateBuilding

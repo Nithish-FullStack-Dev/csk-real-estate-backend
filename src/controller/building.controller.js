@@ -20,6 +20,7 @@ export const createBuilding = asyncHandler(async (req, res) => {
     reraApproved,
     reraNumber,
     googleMapsLocation,
+    amenities,
   } = req.body;
 
   if (
@@ -74,6 +75,7 @@ export const createBuilding = asyncHandler(async (req, res) => {
     images: imageUrls,
     googleMapsLocation,
     brochureUrl: brochureUrl || "",
+    amenities,
   });
 
   const createdBuilding = await Building.findById(building._id);
@@ -108,6 +110,7 @@ export const getAllBuildings = asyncHandler(async (req, res) => {
         brochureUrl: 1,
         description: 1,
         images: 1,
+        amenities: 1,
       },
     },
   ]);
