@@ -5,19 +5,16 @@ import mongoose from "mongoose";
 export const createQualityIssue = async (req, res) => {
   try {
     const user = req.user._id;
-    console.log(req.body);
     const {
       title,
-      project, // Project ID
-      unit,
+      project,
       severity,
-      status, // optional
+      status,
       contractor,
-      description, // optional
-      evidenceImages
+      description,
+      evidenceImages,
     } = req.body;
 
-    // Validate required fields
     if (
       !user ||
       !mongoose.Types.ObjectId.isValid(user) ||
@@ -43,12 +40,11 @@ export const createQualityIssue = async (req, res) => {
       user,
       title,
       project,
-      unit,
       contractor,
       severity,
       status: status || "open",
       description,
-      evidenceImages
+      evidenceImages,
     });
 
     const savedIssue = await newIssue.save();
@@ -75,15 +71,27 @@ export const getQualityIssuesByUserId = async (req, res) => {
     const issues = await QualityIssue.find({ user: userId })
       .populate({
         path: "project",
-        populate: {
-          path: "projectId",
-          model: "Property",
-          select: "basicInfo", // ✅ Select the whole basicInfo object
-        },
-        select: "projectId",
+        populate: [
+          {
+            path: "projectId",
+            model: "Building",
+            select: "_id projectName",
+          },
+          {
+            path: "floorUnit",
+            model: "FloorUnit",
+            select: "_id floorNumber unitType",
+          },
+          {
+            path: "unit",
+            model: "PropertyUnit",
+            select: "_id plotNo propertyType",
+          },
+        ],
+        select: "projectId floorUnit unit",
       })
-      .populate("contractor", "name") // populates contractor name from User DB
-      .sort({ reported_date: -1 }); // newest issues first
+      .populate("contractor", "_id name")
+      .sort({ reported_date: -1 });
 
     res.status(200).json({ issues });
   } catch (error) {

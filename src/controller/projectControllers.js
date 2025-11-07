@@ -658,7 +658,6 @@ export const assignTaskToContractor = async (req, res) => {
       qualityIssueId,
       description,
     } = req.body;
-    console.log(unit);
 
     // 1. Validate contractor and project
     const contractor = await User.findById(contractorId);

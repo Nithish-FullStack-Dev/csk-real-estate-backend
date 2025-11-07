@@ -19,38 +19,37 @@ This backend is built with MongoDB, Mongoose, JWT authentication, and RESTful AP
 ✅ Secure API Design — Input validation, error handling, and access control
 
 🧩 Tech Stack
-| Layer                      | Technology               |
+| Layer | Technology |
 | -------------------------- | ------------------------ |
-| **Runtime**                | Node.js                  |
-| **Framework**              | Express.js               |
-| **Database**               | MongoDB with Mongoose    |
-| **Authentication**         | JWT (JSON Web Token)     |
-| **File Uploads**           | Multer                   |
-| **Environment Management** | dotenv                   |
-| **Validation**             | Express Validator        |
-| **Caching (optional)**     | Tanstack                 |
-| **API Testing**            | Postman                  |
+| **Runtime** | Node.js |
+| **Framework** | Express.js |
+| **Database** | MongoDB with Mongoose |
+| **Authentication** | JWT (JSON Web Token) |
+| **File Uploads** | Multer |
+| **Environment Management** | dotenv |
+| **Validation** | Express Validator |
+| **Caching (optional)** | Tanstack |
+| **API Testing** | Postman |
 
 📂 Project Structure
 csk-real-estate-backend/
 ├── src/
-│   ├── config/
-│   │   └── db.js                # Database connection
-│   ├── controllers/             # Controller logic
-│   ├── modals/                  # Mongoose schemas
-│   ├── routes/                  # Express routes
-│   ├── middleware/              # Auth, error handlers, etc.
-│   ├── utils/                   # Helper functions, constants
-│   └── uploads/                 # Uploaded files
-├── .env                         # Environment variables
+│ ├── config/
+│ │ └── db.js # Database connection
+│ ├── controllers/ # Controller logic
+│ ├── modals/ # Mongoose schemas
+│ ├── routes/ # Express routes
+│ ├── middleware/ # Auth, error handlers, etc.
+│ ├── utils/ # Helper functions, constants
+│ └── uploads/ # Uploaded files
+├── .env # Environment variables
 ├── package.json
 ├── README.md
-└── server.js                    # Entry point
+└── server.js # Entry point
 
 ⚙️ Installation & Setup
 1️⃣ Clone the repository
-git clone https://github.com/<your-username>/realestate-backend.git
-cd realestate-backend
+https://github.com/Nithish-FullStack-Dev/csk-real-estate-backend.git
 
 2️⃣ Install dependencies
 npm install
@@ -60,6 +59,3 @@ npm install
 
 4️⃣ Run the server
 npm start
-
-
-
