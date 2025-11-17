@@ -4,19 +4,8 @@ const { Schema } = mongoose;
 
 const openLandSchema = new Schema(
   {
-    // Basic Land Details
-    projectName: {
-      type: String,
-      //  required: true,
-      trim: true,
-      index: true,
-    },
-    location: {
-      type: String,
-      // required: true,
-      trim: true,
-      index: true,
-    },
+    projectName: { type: String, trim: true, index: true },
+    location: { type: String, trim: true, index: true },
 
     landType: {
       type: String,
@@ -30,31 +19,26 @@ const openLandSchema = new Schema(
         "Plotting Land",
         "Other",
       ],
-      //   required: true,
     },
 
-    // Size & Availability
-    landSize: { type: String }, // e.g., "5 Acres" / "10,000 Sqft"
+    landSize: { type: String },
     availableDate: { type: Date },
-
     description: { type: String },
 
-    // Legal & Permission
     municipalPermission: { type: Boolean, default: false },
     reraApproved: { type: Boolean, default: false },
     reraNumber: { type: String, default: null },
 
-    // Location / Maps
     googleMapsLocation: { type: String },
 
-    // Media
     thumbnailUrl: { type: String },
     images: { type: [String], default: [] },
     brochureUrl: { type: String, default: null },
     brochureFileId: { type: String, default: null },
+
     landArea: { type: Number },
     areaUnit: { type: String, enum: ["Sqft", "Sqyd", "Acre", "Hectare"] },
-    // Land Characteristics
+
     facing: {
       type: String,
       enum: [
@@ -71,17 +55,50 @@ const openLandSchema = new Schema(
       default: "Not Applicable",
     },
 
-    roadAccessWidth: { type: String }, // e.g., "30ft", "60ft road"
+    roadAccessWidth: { type: String },
     fencingAvailable: { type: Boolean, default: false },
     waterFacility: { type: Boolean, default: false },
     electricity: { type: Boolean, default: false },
 
-    // Agents & References (Optional Future Linking)
-    customerId: { type: mongoose.Schema.Types.ObjectId, ref: "Customer" },
+    ownerCustomer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Customer",
+      default: null,
+    },
+
+    /* ---------------------------- UPDATED PART ---------------------------- */
+    interestedCustomers: [
+      {
+        customer: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Customer",
+          required: true,
+        },
+        agent: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+    /* ---------------------------------------------------------------------- */
+
+    soldToCustomer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Customer",
+      default: null,
+    },
+
+    soldDate: { type: Date, default: null },
+
     agentId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }
 );
 
-export default mongoose.models.OpenLand ||
-  mongoose.model("OpenLand", openLandSchema);
+const OpenLand = mongoose.model("OpenLand", openLandSchema);
+export default OpenLand;
