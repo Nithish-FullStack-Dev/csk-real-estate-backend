@@ -14,6 +14,8 @@ export const uploadOnCloudniary = async (localFilePath) => {
 
     const response = await cloudinary.uploader.upload(localFilePath, {
       resource_type: "auto",
+      format: "webp",
+      transformation: [{ quality: "auto", fetch_format: "auto" }],
     });
 
     // ✅ Delete temp file after successful upload
