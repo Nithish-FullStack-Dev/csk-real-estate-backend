@@ -24,13 +24,13 @@ export const createBuilding = asyncHandler(async (req, res) => {
   } = req.body;
 
   if (
-    [projectName, location, propertyType].some(
-      (field) => field?.trim() === ""
-    ) &&
-    !totalUnits
-  ) {
-    throw new ApiError(400, "Required fields are missing");
-  }
+  !projectName?.trim() ||
+  !location?.trim() ||
+  !propertyType?.trim() ||
+  !totalUnits
+) {
+  throw new ApiError(400, "Required fields are missing");
+}
 
   const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
   const brochureLocalPath = getFilePath(req.files, "brochureUrl");
@@ -133,7 +133,7 @@ export const getBuildingById = asyncHandler(async (req, res) => {
   if (!building) throw new ApiError(404, "Building not found");
 
   return res
-    .status(201)
+    .status(200)
     .json(new ApiResponse(200, building, "Building fetched successfully"));
 });
 
@@ -151,7 +151,7 @@ export const updateBuilding = asyncHandler(async (req, res) => {
 
   let thumbnailUrl = existingBuilding.thumbnailUrl;
   let brochureUrl = existingBuilding.brochureUrl;
-  let images = existingBuilding.galleryImages || [];
+  let images = existingBuilding.images || [];
 
   const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
   const brochureLocalPath = getFilePath(req.files, "brochureUrl");
