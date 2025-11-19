@@ -4,8 +4,10 @@ const { Schema } = mongoose;
 
 const openLandSchema = new Schema(
   {
-    projectName: { type: String, trim: true, index: true },
-    location: { type: String, trim: true, index: true },
+    projectName: { type: String, trim: true, required: true, index: true },
+    location: { type: String, trim: true, required: true, index: true },
+
+    surveyNumber: { type: String, default: "" },
 
     landType: {
       type: String,
@@ -16,28 +18,23 @@ const openLandSchema = new Schema(
         "Commercial Land",
         "Industrial Land",
         "Farm Land",
-        "Plotting Land",
         "Other",
       ],
+      required: true,
+    },
+
+    landStatus: {
+      type: String,
+      enum: ["Available", "Sold", "Reserved", "Blocked"],
+      default: "Available",
     },
 
     landSize: { type: String },
-    availableDate: { type: Date },
-    description: { type: String },
-
-    municipalPermission: { type: Boolean, default: false },
-    reraApproved: { type: Boolean, default: false },
-    reraNumber: { type: String, default: null },
-
-    googleMapsLocation: { type: String },
-
-    thumbnailUrl: { type: String },
-    images: { type: [String], default: [] },
-    brochureUrl: { type: String, default: null },
-    brochureFileId: { type: String, default: null },
-
     landArea: { type: Number },
-    areaUnit: { type: String, enum: ["Sqft", "Sqyd", "Acre", "Hectare"] },
+    areaUnit: {
+      type: String,
+      enum: ["Sqft", "Sqyd", "Acre", "Hectare"],
+    },
 
     facing: {
       type: String,
@@ -60,18 +57,50 @@ const openLandSchema = new Schema(
     waterFacility: { type: Boolean, default: false },
     electricity: { type: Boolean, default: false },
 
+    description: { type: String },
+    municipalPermission: { type: Boolean, default: false },
+
+    reraApproved: { type: Boolean, default: false },
+    reraNumber: { type: String, default: "" },
+
+    LandApproval: {
+      type: String,
+      enum: [
+        "DTCP",
+        "HMDA",
+        "Panchayat",
+        "Municipality",
+        "Unapproved",
+        "NA",
+        "Other",
+      ],
+      default: "NA",
+    },
+
+    availableDate: { type: Date },
+
+    thumbnailUrl: { type: String },
+    images: { type: [String], default: [] },
+    brochureUrl: { type: String, default: null },
+    brochureFileId: { type: String, default: null },
+
+    googleMapsLocation: { type: String },
+
+    ownerName: {
+      type: String,
+      default: "",
+    },
+
     ownerCustomer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Customer",
       default: null,
     },
-
-    /* ---------------------------- UPDATED PART ---------------------------- */
     interestedCustomers: [
       {
-        customer: {
+        lead: {
           type: mongoose.Schema.Types.ObjectId,
-          ref: "Customer",
+          ref: "Lead",
           required: true,
         },
         agent: {
@@ -85,8 +114,6 @@ const openLandSchema = new Schema(
         },
       },
     ],
-    /* ---------------------------------------------------------------------- */
-
     soldToCustomer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Customer",
@@ -95,7 +122,10 @@ const openLandSchema = new Schema(
 
     soldDate: { type: Date, default: null },
 
-    agentId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    agentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
   },
   { timestamps: true }
 );

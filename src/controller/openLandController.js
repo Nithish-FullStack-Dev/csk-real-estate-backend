@@ -12,7 +12,10 @@ import { uploadFile } from "../utils/uploadFile.js";
 const populateOpenLand = (query) =>
   query
     .populate("ownerCustomer", "name phone email")
-    .populate("interestedCustomers.customer", "name phone email")
+    .populate(
+      "interestedCustomers.lead",
+      "name phone email status propertyStatus"
+    )
     .populate("interestedCustomers.agent", "name email")
     .populate("soldToCustomer", "name phone email")
     .populate("agentId", "name email");
@@ -180,5 +183,88 @@ export const updateOpenLand = async (req, res) => {
       message: "Failed to update Open Land",
       error: error.message,
     });
+  }
+};
+export const addInterestedCustomer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { leadId, agentId } = req.body;
+
+    if (!leadId || !agentId) {
+      return res.status(400).json({ message: "leadId and agentId required" });
+    }
+
+    const land = await OpenLand.findById(id);
+    if (!land) return res.status(404).json({ message: "Open land not found" });
+
+    land.interestedCustomers.push({
+      lead: leadId,
+      agent: agentId,
+      createdAt: new Date(),
+    });
+
+    await land.save();
+
+    const populated = await populateOpenLand(OpenLand.findById(id)).exec();
+
+    res.status(200).json({
+      success: true,
+      message: "Interested lead added",
+      land: populated,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const updateInterestedCustomer = async (req, res) => {
+  try {
+    const { id, interestId } = req.params;
+    const { leadId, agentId } = req.body;
+
+    const land = await OpenLand.findById(id);
+    if (!land) return res.status(404).json({ message: "Land not found" });
+
+    const entry = land.interestedCustomers.id(interestId);
+    if (!entry)
+      return res.status(404).json({ message: "Interested entry not found" });
+
+    entry.lead = leadId;
+    entry.agent = agentId;
+    entry.updatedAt = new Date();
+
+    await land.save();
+
+    const populated = await populateOpenLand(OpenLand.findById(id));
+
+    res.status(200).json({
+      success: true,
+      message: "Interested lead updated",
+      land: populated,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const removeInterestedCustomer = async (req, res) => {
+  try {
+    const { id, interestId } = req.params;
+
+    await OpenLand.findByIdAndUpdate(
+      id,
+      { $pull: { interestedCustomers: { _id: interestId } } },
+      { new: true }
+    );
+
+    const populated = await populateOpenLand(OpenLand.findById(id));
+
+    res.status(200).json({
+      success: true,
+      message: "Deleted",
+      land: populated,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
