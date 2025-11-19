@@ -4,6 +4,8 @@ import {
   getAllLeads,
   getAvailableProperties,
   getClosedLeads,
+  getLeadsByOpenLandId,
+  getLeadsByOpenPlotId,
   getLeadsByUserId,
   saveLead,
   updateLeadById,
@@ -14,9 +16,12 @@ const router = express.Router();
 
 router.post("/saveLead", authenticate, saveLead);
 router.get("/getAllLeads", authenticate, getAllLeads);
-router.get("/getClosedLeads", getClosedLeads);
+router.get("/getClosedLeads", authenticate, getClosedLeads);
 router.get("/getLeadsById", authenticate, getLeadsByUserId);
 router.get("/getLeadProp", getAvailableProperties);
+router.get("/getLeadsByUserId/:_id", authenticate, getLeadsByUserId);
+router.get("/getLeadsByOpenPlotId/:_id", authenticate, getLeadsByOpenPlotId);
+router.get("/getLeadsByOpenLandId/:_id", authenticate, getLeadsByOpenLandId);
 router.put("/updateLead/:id", authenticate, updateLeadById);
 router.delete("/deleteLead/:id", authenticate, deleteLeadById);
 
