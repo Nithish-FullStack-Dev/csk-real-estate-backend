@@ -8,6 +8,7 @@ import {
   removeInterestedCustomer,
   updateInterestedCustomer,
   updateOpenLand,
+  markAsSold,
 } from "../controller/openLandController.js";
 
 const router = express.Router();
@@ -26,5 +27,6 @@ router.delete(
   "/:id/removeInterestedCustomer/:interestId",
   removeInterestedCustomer
 );
+router.post("/:id/markAsSold", markAsSold);
 
 export default router;
