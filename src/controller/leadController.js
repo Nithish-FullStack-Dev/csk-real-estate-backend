@@ -136,12 +136,14 @@ export const getClosedLeads = asyncHandler(async (req, res) => {
 
 export const getLeadsByUnitId = asyncHandler(async (req, res) => {
   const { _id } = req.params;
+
   if (!_id) throw new ApiError(400, "Unit id missing");
   const leads = await Lead.find({ unit: _id })
     .populate("property", "_id projectName location propertyType")
     .populate("floorUnit", "_id floorNumber unitType")
     .populate("unit", "_id plotNo propertyType totalAmount")
     .populate("addedBy", "name email role avatar");
+
   if (!leads || leads.length === 0)
     throw new ApiError(404, "No leads found for the given unit id");
   res

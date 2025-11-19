@@ -6,6 +6,7 @@ import {
   getClosedLeads,
   getLeadsByOpenLandId,
   getLeadsByOpenPlotId,
+  getLeadsByUnitId,
   getLeadsByUserId,
   saveLead,
   updateLeadById,
@@ -19,7 +20,7 @@ router.get("/getAllLeads", authenticate, getAllLeads);
 router.get("/getClosedLeads", authenticate, getClosedLeads);
 router.get("/getLeadsById", authenticate, getLeadsByUserId);
 router.get("/getLeadProp", getAvailableProperties);
-router.get("/getLeadsByUserId/:_id", authenticate, getLeadsByUserId);
+router.get("/getLeadsByUnitId/:_id", authenticate, getLeadsByUnitId);
 router.get("/getLeadsByOpenPlotId/:_id", authenticate, getLeadsByOpenPlotId);
 router.get("/getLeadsByOpenLandId/:_id", authenticate, getLeadsByOpenLandId);
 router.put("/updateLead/:id", authenticate, updateLeadById);

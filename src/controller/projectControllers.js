@@ -1,11 +1,10 @@
 import Project from "../modals/projects.js";
 import User from "../modals/user.js";
-import rolePermissions from "../modals/role.js";
 import mongoose from "mongoose";
 import QualityIssue from "../modals/qualityIssue.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiResponse from "../utils/ApiResponse.js";
-import e from "express";
+import ApiError from "../utils/ApiError.js";
 
 export const getUserProjects = async (req, res) => {
   try {
@@ -846,4 +845,143 @@ export const getAllContractors = asyncHandler(async (req, res) => {
     message = "Contractors fetched successfully";
   }
   res.status(200).json(new ApiResponse(201, contractors, message));
+});
+
+export const getCompletedTasksForUnit = asyncHandler(async (req, res) => {
+  const { projectId, unit } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(projectId)) {
+    throw new ApiError(400, "Invalid Project ID");
+  }
+
+  const project = await Project.findOne({ projectId })
+    .populate("contractors", "_id name email")
+    .lean();
+
+  if (!project) {
+    return res
+      .status(200)
+      .json(new ApiResponse(200, [], "No project found for this projectId"));
+  }
+
+  const tasksInUnit =
+    project.units instanceof Map
+      ? project.units.get(unit)
+      : project.units?.[unit] || [];
+
+  const completedTasks = tasksInUnit
+    .filter(
+      (task) =>
+        task.statusForContractor === "completed" &&
+        task.isApprovedByContractor === true
+    )
+    .map((task) => ({
+      _id: task._id,
+      title: task.title,
+      constructionPhase: task.constructionPhase,
+      progressPercentage: task.progressPercentage,
+      submittedOn: task.submittedByContractorOn,
+      deadline: task.deadline,
+      contractor:
+        project.contractors?.find(
+          (c) => c._id.toString() === task.contractor?.toString()
+        ) || null,
+      contractorUploadedPhotos: task.contractorUploadedPhotos || [],
+      siteInchargeUploadedPhotos: task.siteInchargeUploadedPhotos || [],
+    }));
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        completedTasks,
+        completedTasks.length > 0
+          ? "Completed tasks fetched successfully"
+          : "No completed tasks found for this unit"
+      )
+    );
+});
+
+export const getUnitProgressByBuilding = asyncHandler(async (req, res) => {
+  const { buildingId, floorUnitId, unitId } = req.params;
+
+  if (
+    !mongoose.Types.ObjectId.isValid(buildingId) ||
+    !mongoose.Types.ObjectId.isValid(floorUnitId) ||
+    !mongoose.Types.ObjectId.isValid(unitId)
+  ) {
+    throw new ApiError(400, "Invalid buildingId, floorUnitId, or unitId");
+  }
+
+  const project = await Project.findOne({
+    projectId: buildingId,
+    floorUnit: floorUnitId,
+    unit: unitId,
+  });
+
+  if (!project) {
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          buildingId,
+          floorUnitId,
+          unitId,
+          totalTasks: 0,
+          overallProgress: 0,
+        },
+        "No project found for this unit"
+      )
+    );
+  }
+
+  let tasksInUnit = [];
+
+  if (project.units instanceof Map) {
+    tasksInUnit = project.units.get(unitId) || [];
+  } else if (
+    project.units &&
+    typeof project.units === "object" &&
+    !Array.isArray(project.units)
+  ) {
+    tasksInUnit = project.units[unitId] || [];
+  }
+
+  if (!tasksInUnit || tasksInUnit.length === 0) {
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          buildingId,
+          floorUnitId,
+          unitId,
+          totalTasks: 0,
+          overallProgress: 0,
+        },
+        "No tasks found for this unit"
+      )
+    );
+  }
+
+  const totalProgress = tasksInUnit.reduce(
+    (sum, task) => sum + (task?.progressPercentage || 0),
+    0
+  );
+
+  const averageProgress = Math.round(totalProgress / tasksInUnit.length);
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        buildingId,
+        floorUnitId,
+        unitId,
+        totalTasks: tasksInUnit.length,
+        overallProgress: averageProgress,
+      },
+      "Unit progress calculated successfully"
+    )
+  );
 });
