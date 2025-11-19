@@ -4,19 +4,10 @@ const { Schema } = mongoose;
 
 const openLandSchema = new Schema(
   {
-    // Basic Land Details
-    projectName: {
-      type: String,
-      //  required: true,
-      trim: true,
-      index: true,
-    },
-    location: {
-      type: String,
-      // required: true,
-      trim: true,
-      index: true,
-    },
+    projectName: { type: String, trim: true, required: true, index: true },
+    location: { type: String, trim: true, required: true, index: true },
+
+    surveyNumber: { type: String, default: "" },
 
     landType: {
       type: String,
@@ -27,34 +18,24 @@ const openLandSchema = new Schema(
         "Commercial Land",
         "Industrial Land",
         "Farm Land",
-        "Plotting Land",
         "Other",
       ],
-      //   required: true,
+      required: true,
     },
 
-    // Size & Availability
-    landSize: { type: String }, // e.g., "5 Acres" / "10,000 Sqft"
-    availableDate: { type: Date },
+    landStatus: {
+      type: String,
+      enum: ["Available", "Sold", "Reserved", "Blocked"],
+      default: "Available",
+    },
 
-    description: { type: String },
-
-    // Legal & Permission
-    municipalPermission: { type: Boolean, default: false },
-    reraApproved: { type: Boolean, default: false },
-    reraNumber: { type: String, default: null },
-
-    // Location / Maps
-    googleMapsLocation: { type: String },
-
-    // Media
-    thumbnailUrl: { type: String },
-    images: { type: [String], default: [] },
-    brochureUrl: { type: String, default: null },
-    brochureFileId: { type: String, default: null },
+    landSize: { type: String },
     landArea: { type: Number },
-    areaUnit: { type: String, enum: ["Sqft", "Sqyd", "Acre", "Hectare"] },
-    // Land Characteristics
+    areaUnit: {
+      type: String,
+      enum: ["Sqft", "Sqyd", "Acre", "Hectare"],
+    },
+
     facing: {
       type: String,
       enum: [
@@ -71,17 +52,83 @@ const openLandSchema = new Schema(
       default: "Not Applicable",
     },
 
-    roadAccessWidth: { type: String }, // e.g., "30ft", "60ft road"
+    roadAccessWidth: { type: String },
     fencingAvailable: { type: Boolean, default: false },
     waterFacility: { type: Boolean, default: false },
     electricity: { type: Boolean, default: false },
 
-    // Agents & References (Optional Future Linking)
-    customerId: { type: mongoose.Schema.Types.ObjectId, ref: "Customer" },
-    agentId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    description: { type: String },
+    municipalPermission: { type: Boolean, default: false },
+
+    reraApproved: { type: Boolean, default: false },
+    reraNumber: { type: String, default: "" },
+
+    LandApproval: {
+      type: String,
+      enum: [
+        "DTCP",
+        "HMDA",
+        "Panchayat",
+        "Municipality",
+        "Unapproved",
+        "NA",
+        "Other",
+      ],
+      default: "NA",
+    },
+
+    availableDate: { type: Date },
+
+    thumbnailUrl: { type: String },
+    images: { type: [String], default: [] },
+    brochureUrl: { type: String, default: null },
+    brochureFileId: { type: String, default: null },
+
+    googleMapsLocation: { type: String },
+
+    ownerName: {
+      type: String,
+      default: "",
+    },
+
+    ownerCustomer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Customer",
+      default: null,
+    },
+    interestedCustomers: [
+      {
+        lead: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Lead",
+          required: true,
+        },
+        agent: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+    soldToCustomer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Customer",
+      default: null,
+    },
+
+    soldDate: { type: Date, default: null },
+
+    agentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
   },
   { timestamps: true }
 );
 
-export default mongoose.models.OpenLand ||
-  mongoose.model("OpenLand", openLandSchema);
+const OpenLand = mongoose.model("OpenLand", openLandSchema);
+export default OpenLand;
