@@ -32,6 +32,8 @@ export const getAllLeads = async (req, res) => {
       .populate("property", "projectName location propertyType")
       .populate("floorUnit", "floorNumber unitType")
       .populate("unit", "plotNo propertyType")
+      .populate("openPlot", "projectName plotNo memNo")
+      .populate("openLand", "projectName location landType")
       .populate("addedBy");
     res.status(200).json({ message: "Leads fetched successfully", leads });
   } catch (error) {
@@ -40,15 +42,16 @@ export const getAllLeads = async (req, res) => {
   }
 };
 
-//* GET all leads added by the logged-in user (agent)
 export const getLeadsByUserId = async (req, res) => {
   try {
-    const userId = req.user._id; // ✅ Get from middleware
+    const userId = req.user._id;
 
     const leads = await Lead.find({ addedBy: userId })
       .populate("property", "projectName location propertyType")
       .populate("floorUnit", "floorNumber unitType")
       .populate("unit", "plotNo propertyType")
+      .populate("openPlot", "projectName plotNo memNo")
+      .populate("openLand", "projectName location landType")
       .populate("addedBy");
     res.status(200).json(leads);
   } catch (error) {
@@ -91,7 +94,6 @@ export const deleteLeadById = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, lead, "Lead deleted successfully"));
 });
 
-//* GET all available properties (you can customize filters)
 export const getAvailableProperties = async (req, res) => {
   try {
     const properties = await Property.find({
@@ -130,4 +132,48 @@ export const getClosedLeads = asyncHandler(async (req, res) => {
     .json(
       new ApiResponse(200, closedLeads, "Closed leads fetched successfully")
     );
+});
+
+export const getLeadsByUnitId = asyncHandler(async (req, res) => {
+  const { _id } = req.params;
+  if (!_id) throw new ApiError(400, "Unit id missing");
+  const leads = await Lead.find({ unit: _id })
+    .populate("property", "_id projectName location propertyType")
+    .populate("floorUnit", "_id floorNumber unitType")
+    .populate("unit", "_id plotNo propertyType totalAmount")
+    .populate("addedBy", "name email role avatar");
+  if (!leads || leads.length === 0)
+    throw new ApiError(404, "No leads found for the given unit id");
+  res
+    .status(200)
+    .json(new ApiResponse(200, leads, "Leads fetched successfully"));
+});
+
+export const getLeadsByOpenPlotId = asyncHandler(async (req, res) => {
+  const { _id } = req.params;
+  if (!_id) throw new ApiError(400, "Open plot id missing");
+  const leads = await Lead.find({ openPlot: _id })
+    .populate("property", "_id projectName location propertyType")
+    .populate("floorUnit", "_id floorNumber unitType")
+    .populate("openPlot", "_id plotNo memNo")
+    .populate("addedBy", "name email role avatar");
+  if (!leads || leads.length === 0)
+    throw new ApiError(404, "No leads found for the given open plot id");
+  res
+    .status(200)
+    .json(new ApiResponse(200, leads, "Leads fetched successfully"));
+});
+
+export const getLeadsByOpenLandId = asyncHandler(async (req, res) => {
+  const { _id } = req.params;
+  if (!_id) throw new ApiError(400, "Open land id missing");
+  const leads = await Lead.find({ openLand: _id })
+    .populate("property", "_id projectName location propertyType")
+    .populate("openLand", "_id location landType")
+    .populate("addedBy", "name email role avatar");
+  if (!leads || leads.length === 0)
+    throw new ApiError(404, "No leads found for the given open land id");
+  res
+    .status(200)
+    .json(new ApiResponse(200, leads, "Leads fetched successfully"));
 });

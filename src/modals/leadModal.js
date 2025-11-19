@@ -39,6 +39,14 @@ const leadSchema = new mongoose.Schema(
       ref: "PropertyUnit",
       required: true,
     },
+    openPlot: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "OpenPlot",
+    },
+    openLand: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "OpenLand",
+    },
     lastContact: {
       type: Date,
       default: Date.now,
