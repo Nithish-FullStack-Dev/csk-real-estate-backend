@@ -145,7 +145,9 @@ export const getLeadsByUnitId = asyncHandler(async (req, res) => {
     .populate("addedBy", "name email role avatar");
 
   if (!leads || leads.length === 0)
-    throw new ApiError(404, "No leads found for the given unit id");
+    return res
+      .status(200)
+      .json(new ApiResponse(200, [], "No leads found for the given unit id"));
   res
     .status(200)
     .json(new ApiResponse(200, leads, "Leads fetched successfully"));

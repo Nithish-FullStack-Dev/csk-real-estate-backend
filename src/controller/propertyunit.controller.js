@@ -6,6 +6,7 @@ import { getFilePath } from "../utils/getFilePath.js";
 import { uploadFile } from "../utils/uploadFile.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import mongoose from "mongoose";
+import Customer from "../modals/customerSchema.js";
 
 export const createUnit = asyncHandler(async (req, res) => {
   const { buildingId, floorId } = req.body;
@@ -246,3 +247,48 @@ export const getAvailableUnitsByFloorIdAndBuildingIdForDropDown = asyncHandler(
     res.status(200).json(new ApiResponse(200, units, message));
   }
 );
+
+export const getPurchasedCustomerUnits = asyncHandler(async (req, res) => {
+  const { unitId } = req.params;
+
+  if (!unitId) {
+    return res
+      .status(400)
+      .json(new ApiResponse(400, null, "Unit ID is required"));
+  }
+
+  const customers = await Customer.aggregate([
+    { $unwind: "$properties" },
+    { $match: { "properties.unit": new mongoose.Types.ObjectId(unitId) } },
+    {
+      $lookup: {
+        from: "users",
+        localField: "user",
+        foreignField: "_id",
+        as: "userDetails",
+      },
+    },
+    { $unwind: "$userDetails" },
+    {
+      $project: {
+        _id: 0,
+        name: "$userDetails.name",
+        email: "$userDetails.email",
+        bookingDate: "$properties.bookingDate",
+        finalPrice: "$properties.finalPrice",
+        paymentStatus: "$properties.paymentStatus",
+        paymentPlan: "$properties.paymentPlan",
+      },
+    },
+  ]);
+
+  if (customers.length === 0) {
+    return res
+      .status(200)
+      .json(new ApiResponse(200, null, "No customer found for this unit"));
+  }
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, customers, "Customers retrieved successfully"));
+});

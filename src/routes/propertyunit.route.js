@@ -4,11 +4,13 @@ import {
   createUnit,
   deleteUnit,
   getAvailableUnitsByFloorIdAndBuildingIdForDropDown,
+  getPurchasedCustomerUnits,
   getUnit,
   getUnitsByFloorIdAndBuildingId,
   getUnitsByFloorIdAndBuildingIdForDropDown,
   updateUnit,
 } from "../controller/propertyunit.controller.js";
+import { authenticate } from "../middlewares/authMiddleware.js";
 
 const router = Router();
 
@@ -33,20 +35,29 @@ router.post(
 
 router.get(
   "/getUnitsByFloorIdAndBuildingId/:buildingId/:floorId",
+  authenticate,
   getUnitsByFloorIdAndBuildingId
 );
 
 router.get(
   "/getAvailableUnitsByFloorIdAndBuildingIdForDropDown/:buildingId/:floorId",
+  authenticate,
   getAvailableUnitsByFloorIdAndBuildingIdForDropDown
 );
 
 router.get(
   "/getUnitsByFloorIdAndBuildingIdForDropDown/:buildingId/:floorId",
+  authenticate,
   getUnitsByFloorIdAndBuildingIdForDropDown
 );
 
-router.get("/getUnit/:unitId", getUnit);
+router.get("/getUnit/:unitId", authenticate, getUnit);
+
+router.get(
+  "/getCustomersByUnit/:unitId",
+  authenticate,
+  getPurchasedCustomerUnits
+);
 
 router.patch(
   "/updateUnit/:unitId",
@@ -58,5 +69,5 @@ router.patch(
   updateUnit
 );
 
-router.delete("/deleteUnit/:unitId", deleteUnit);
+router.delete("/deleteUnit/:unitId", authenticate, deleteUnit);
 export default router;
