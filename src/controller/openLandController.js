@@ -268,3 +268,60 @@ export const removeInterestedCustomer = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+export const markAsSold = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { soldToCustomerId, soldDate } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Open Land ID",
+      });
+    }
+
+    if (!soldToCustomerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Buyer (soldToCustomerId) is required",
+      });
+    }
+
+    const land = await OpenLand.findById(id);
+
+    if (!land) {
+      return res.status(404).json({
+        success: false,
+        message: "Open land not found",
+      });
+    }
+
+    // Update core fields
+    land.landStatus = "Sold";
+    land.soldToCustomer = soldToCustomerId;
+    land.soldDate = soldDate ? new Date(soldDate) : new Date();
+
+    // OPTIONAL — keep only buyer in interested list
+    land.interestedCustomers = land.interestedCustomers.filter(
+      (c) => c.lead?.toString() === soldToCustomerId
+    );
+
+    await land.save();
+
+    // Populate before returning
+    const populated = await populateOpenLand(OpenLand.findById(id));
+
+    res.status(200).json({
+      success: true,
+      message: "Land marked as sold successfully",
+      land: populated,
+    });
+  } catch (error) {
+    console.error("Error marking land as sold:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to mark land as sold",
+      error: error.message,
+    });
+  }
+};
