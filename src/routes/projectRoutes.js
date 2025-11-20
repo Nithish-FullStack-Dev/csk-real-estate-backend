@@ -15,6 +15,8 @@ import {
   assignContractorToUnit,
   projectDropDownData,
   getAllContractors,
+  getCompletedTasksForUnit,
+  getUnitProgressByBuilding,
 } from "../controller/projectControllers.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
 
@@ -43,6 +45,18 @@ router.get(
 router.get("/projectsDropdown", authenticate, projectDropDownData);
 
 router.get("/contractorDropdown", authenticate, getAllContractors);
+
+router.get(
+  "/units/:projectId/:unit/completed-tasks",
+  authenticate,
+  getCompletedTasksForUnit
+);
+
+router.get(
+  "/getProject/:buildingId/:floorUnitId/:unitId/unit-progress",
+  authenticate,
+  getUnitProgressByBuilding
+);
 
 router.patch(
   "/contractor/:projectId/:taskId/task",

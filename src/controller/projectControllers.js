@@ -1,11 +1,10 @@
 import Project from "../modals/projects.js";
 import User from "../modals/user.js";
-import rolePermissions from "../modals/role.js";
 import mongoose from "mongoose";
 import QualityIssue from "../modals/qualityIssue.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiResponse from "../utils/ApiResponse.js";
-import e from "express";
+import ApiError from "../utils/ApiError.js";
 
 export const getUserProjects = async (req, res) => {
   try {
@@ -189,7 +188,7 @@ export const getUserTasks = async (req, res) => {
 
 export const getContractorsForSiteIncharge = async (req, res) => {
   try {
-    const { role, _id } = req.user;
+    const { role, _id: siteInchargeId } = req.user;
 
     if (role !== "site_incharge") {
       return res
@@ -197,12 +196,11 @@ export const getContractorsForSiteIncharge = async (req, res) => {
         .json({ error: "Access denied. Only site incharges allowed." });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(_id)) {
+    if (!mongoose.Types.ObjectId.isValid(siteInchargeId)) {
       return res.status(400).json({ error: "Invalid Site Incharge ID" });
     }
 
-    // Fetch all projects for this site incharge
-    const projects = await Project.find({ siteIncharge: _id })
+    const projects = await Project.find({ siteIncharge: siteInchargeId })
       .populate("projectId", "_id projectName location")
       .populate("floorUnit", "_id floorNumber unitType")
       .populate("unit", "_id propertyType plotNo")
@@ -216,14 +214,38 @@ export const getContractorsForSiteIncharge = async (req, res) => {
 
     for (const project of projects) {
       const projectName = project.projectId?.projectName || "Unnamed Project";
-      const floorNumber = project.floorUnit?.floorNumber;
-      const unitType = project.floorUnit?.unitType;
+      const floorNumber = project.floorUnit?.floorNumber || null;
+      const unitType = project.unit?.plotNo || null;
+      const projectId = project._id;
       const units = project.units || {};
+      let totalTasks = 0;
+      let completedTasks = 0;
 
+      for (const [, taskArray] of Object.entries(units)) {
+        for (const task of taskArray) {
+          totalTasks++;
+          const isCompleted =
+            task.progressPercentage >= 100 ||
+            task.isApprovedBySiteManager === true;
+
+          if (isCompleted) completedTasks++;
+        }
+      }
+
+      const projectProgress =
+        totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+      const projectDetailsObj = {
+        _id: projectId,
+        projectName,
+        floorNumber,
+        unitType,
+        progressPercentage: projectProgress,
+      };
       for (const contractor of project.contractors || []) {
         const contractorId = contractor._id.toString();
 
-        // Initialize contractor if not seen
+        // Initialize if first time seen
         if (!contractorMap.has(contractorId)) {
           contractorMap.set(contractorId, {
             _id: contractor._id,
@@ -234,63 +256,74 @@ export const getContractorsForSiteIncharge = async (req, res) => {
             phone: contractor.phone || "N/A",
             email: contractor.email || "N/A",
             status: contractor.status || "active",
-            projects: new Set(),
+            projects: new Map(),
             totalTasks: 0,
             completedTasks: 0,
             projectDetails: [],
           });
         }
 
-        const contractorStats = contractorMap.get(contractorId);
-        contractorStats.projects.add(projectName);
-
-        // Analyze tasks per unit
+        const stats = contractorMap.get(contractorId);
+        stats.projects.set(projectId.toString(), projectDetailsObj);
         for (const [unitName, taskArray] of Object.entries(units)) {
           for (const task of taskArray) {
-            if (task.contractor?.toString() === contractorId) {
-              contractorStats.totalTasks++;
-              if (task.status === "approved") {
-                contractorStats.completedTasks++;
-              }
+            if (task.contractor?.toString() !== contractorId) continue;
 
-              // Push task details for UI (optional)
-              contractorStats.projectDetails.push({
-                projectName,
-                unit: unitName,
-                floorNumber,
-                unitType,
-                taskTitle: task.title || "Untitled Task",
-                status: task.status,
-                priority: task.priority || "unspecified",
-              });
-            }
+            stats.totalTasks++;
+
+            const isCompleted =
+              task.statusForSiteIncharge === "approved" ||
+              task.isApprovedBySiteManager === true;
+
+            if (isCompleted) stats.completedTasks++;
+
+            stats.projectDetails.push({
+              projectName,
+              unit: unitName,
+              floorNumber,
+              unitType,
+              taskTitle: task.title || "Untitled Task",
+              progressPercentage: task.progressPercentage || 0,
+              statusForContractor: task.statusForContractor,
+              statusForSiteIncharge: task.statusForSiteIncharge,
+              isApprovedBySiteManager: task.isApprovedBySiteManager,
+              priority: task.priority || "unspecified",
+            });
           }
         }
       }
     }
 
-    // Finalize contractor data
-    const finalContractors = Array.from(contractorMap.values()).map(
-      (contractor) => ({
-        ...contractor,
-        projects: Array.from(contractor.projects),
-        completionRate:
-          contractor.totalTasks > 0
-            ? (
-                (contractor.completedTasks / contractor.totalTasks) *
-                100
-              ).toFixed(1)
-            : "0.0",
-      })
-    );
+    const finalContractors = Array.from(contractorMap.values()).map((c) => {
+      const projects = Array.from(c.projects.values());
 
-    // Sort contractors by completion rate (optional)
+      const totalProgress = c.projectDetails.reduce(
+        (sum, t) => sum + (t.progressPercentage || 0),
+        0
+      );
+
+      const overallProgress =
+        c.totalTasks > 0
+          ? Number((totalProgress / c.totalTasks).toFixed(1))
+          : 0;
+
+      return {
+        ...c,
+        projects,
+        overallProgress,
+        completionRate:
+          c.totalTasks > 0
+            ? Number(((c.completedTasks / c.totalTasks) * 100).toFixed(1))
+            : 0,
+      };
+    });
+
     finalContractors.sort((a, b) => b.completedTasks - a.completedTasks);
 
-    res.status(200).json(finalContractors);
+    return res.status(200).json(finalContractors);
   } catch (error) {
     console.error("Error fetching contractors for site incharge:", error);
-    res.status(500).json({ error: "Server error fetching contractors" });
+    return res.status(500).json({ error: "Server error fetching contractors" });
   }
 };
 
@@ -334,11 +367,27 @@ export const getContractorTasksUnderSiteIncharge = async (req, res) => {
       const floorNumber = project.floorUnit?.floorNumber;
       const unitType = project.floorUnit?.unitType;
       const units = project.units || {};
+      const contractorStats = {
+        totalTasks: 0,
+        completedTasks: 0,
+      };
 
       // Loop through units and gather tasks
       for (const [unitName, taskArray] of Object.entries(units)) {
         for (const task of taskArray) {
           if (task.contractor?.toString() === contractorId) {
+            // Correct completion check
+            const isCompleted =
+              task.progressPercentage >= 100 ||
+              task.statusForSiteIncharge === "approved" ||
+              task.isApprovedBySiteManager === true;
+
+            contractorStats.totalTasks++;
+
+            if (isCompleted) {
+              contractorStats.completedTasks++;
+            }
+
             contractorTasks.push({
               _id: task._id,
               taskTitle: task.title || "Untitled Task",
@@ -349,7 +398,7 @@ export const getContractorTasksUnderSiteIncharge = async (req, res) => {
               unitType,
               unit: unitName,
               constructionPhase: task.constructionPhase,
-              status: task.status,
+              status: isCompleted ? "completed" : task.statusForSiteIncharge,
               priority: task.priority || "unspecified",
               progressPercentage: task.progressPercentage || 0,
               deadline: task.deadline,
@@ -846,4 +895,152 @@ export const getAllContractors = asyncHandler(async (req, res) => {
     message = "Contractors fetched successfully";
   }
   res.status(200).json(new ApiResponse(201, contractors, message));
+});
+
+export const getCompletedTasksForUnit = asyncHandler(async (req, res) => {
+  const { projectId, unit } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(projectId)) {
+    throw new ApiError(400, "Invalid Project ID");
+  }
+
+  const project = await Project.findOne({ projectId })
+    .populate("contractors", "_id name email")
+    .populate("siteIncharge", "_id name email")
+    .lean();
+
+  if (!project) {
+    return res
+      .status(200)
+      .json(new ApiResponse(200, [], "No project found for this projectId"));
+  }
+
+  const tasksInUnit =
+    project.units instanceof Map
+      ? project.units.get(unit)
+      : project.units?.[unit] || [];
+
+  const completedTasks = tasksInUnit
+    .filter(
+      (task) =>
+        task.statusForContractor === "completed" &&
+        task.isApprovedBySiteManager === true
+    )
+    .map((task) => ({
+      _id: task._id,
+      title: task.title,
+      constructionPhase: task.constructionPhase,
+      progressPercentage: task.progressPercentage,
+      submittedOn: task.submittedByContractorOn,
+      deadline: task.deadline,
+      contractor:
+        project.contractors?.find(
+          (c) => c._id.toString() === task.contractor?.toString()
+        ) || null,
+      contractorUploadedPhotos: task.contractorUploadedPhotos || [],
+      siteInchargeUploadedPhotos: task.siteInchargeUploadedPhotos || [],
+    }));
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        projectDetails: {
+          _id: project._id,
+          building: project.projectId || null,
+          siteIncharge: project.siteIncharge || null,
+          floorUnit: project.floorUnit || null,
+          unit: project.unit || null,
+          contractors: project.contractors || [],
+        },
+        completedTasks,
+      },
+      completedTasks.length > 0
+        ? "Completed tasks fetched successfully"
+        : "No completed tasks found for this unit"
+    )
+  );
+});
+
+export const getUnitProgressByBuilding = asyncHandler(async (req, res) => {
+  const { buildingId, floorUnitId, unitId } = req.params;
+
+  if (
+    !mongoose.Types.ObjectId.isValid(buildingId) ||
+    !mongoose.Types.ObjectId.isValid(floorUnitId) ||
+    !mongoose.Types.ObjectId.isValid(unitId)
+  ) {
+    throw new ApiError(400, "Invalid buildingId, floorUnitId, or unitId");
+  }
+
+  const project = await Project.findOne({
+    projectId: buildingId,
+    floorUnit: floorUnitId,
+    unit: unitId,
+  });
+
+  if (!project) {
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          buildingId,
+          floorUnitId,
+          unitId,
+          totalTasks: 0,
+          overallProgress: 0,
+        },
+        "No project found for this unit"
+      )
+    );
+  }
+
+  let tasksInUnit = [];
+
+  if (project.units instanceof Map) {
+    tasksInUnit = project.units.get(unitId) || [];
+  } else if (
+    project.units &&
+    typeof project.units === "object" &&
+    !Array.isArray(project.units)
+  ) {
+    tasksInUnit = project.units[unitId] || [];
+  }
+
+  if (!tasksInUnit || tasksInUnit.length === 0) {
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        {
+          buildingId,
+          floorUnitId,
+          unitId,
+          totalTasks: 0,
+          overallProgress: 0,
+        },
+        "No tasks found for this unit"
+      )
+    );
+  }
+
+  const totalProgress = tasksInUnit.reduce(
+    (sum, task) => sum + (task?.progressPercentage || 0),
+    0
+  );
+
+  const averageProgress = Math.round(totalProgress / tasksInUnit.length);
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        buildingId,
+        floorUnitId,
+        unitId,
+        totalTasks: tasksInUnit.length,
+        overallProgress: averageProgress,
+      },
+      "Unit progress calculated successfully"
+    )
+  );
 });
