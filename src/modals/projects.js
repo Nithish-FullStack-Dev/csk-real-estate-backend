@@ -153,6 +153,15 @@ const ProjectSchema = new Schema(
     },
     status: {
       type: String,
+      enum: [
+        "Not Started",
+        "Planning",
+        "In Progress",
+        "On Hold",
+        "Delayed",
+        "Under Inspection",
+        "Completed",
+      ],
     },
     assignedContractors: {
       type: Map,
