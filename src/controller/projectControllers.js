@@ -186,6 +186,33 @@ export const getUserTasks = async (req, res) => {
   }
 };
 
+export const updateProject = asyncHandler(async (req, res) => {
+  const { projectId } = req.params;
+  const updateData = req.body;
+
+  if (!projectId) {
+    throw new ApiError(400, "Project ID is required");
+  }
+
+  if (!updateData || Object.keys(updateData).length === 0) {
+    throw new ApiError(400, "No update data provided");
+  }
+
+  const updatedProject = await Project.findByIdAndUpdate(
+    projectId,
+    { $set: updateData },
+    { new: true, runValidators: true }
+  );
+
+  if (!updatedProject) {
+    throw new ApiError(404, "Project not found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, updatedProject, "Project updated successfully"));
+});
+
 export const getContractorsForSiteIncharge = async (req, res) => {
   try {
     const { role, _id: siteInchargeId } = req.user;

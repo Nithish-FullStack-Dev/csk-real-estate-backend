@@ -17,6 +17,7 @@ import {
   getAllContractors,
   getCompletedTasksForUnit,
   getUnitProgressByBuilding,
+  updateProject,
 } from "../controller/projectControllers.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
 
@@ -63,6 +64,8 @@ router.patch(
   authenticate,
   updateTaskByIdForContractor
 );
+
+router.patch("/updateProject/:projectId", authenticate, updateProject);
 
 router.patch(
   "/site-incharge/:projectId/:taskId/task",
