@@ -47,6 +47,7 @@ import FloorRoute from "./src/routes/floor.route.js";
 import PropertyUnit from "./src/routes/propertyunit.route.js";
 import DownloadRoute from "./src/routes/download.routes.js";
 import openLandRoutes from "./src/routes/openLandRoutes.js";
+import ContratorRoutes from "./src/routes/contractor.route.js";
 dotenv.config();
 
 // Create Express app and HTTP server
@@ -169,6 +170,7 @@ app.use("/api/floor", FloorRoute);
 app.use("/api/unit", PropertyUnit);
 app.use("/api", DownloadRoute);
 app.use("/api/openLand", openLandRoutes);
+app.use("/api/contractor", ContratorRoutes);
 // Start the server
 server.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
