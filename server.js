@@ -48,6 +48,7 @@ import PropertyUnit from "./src/routes/propertyunit.route.js";
 import DownloadRoute from "./src/routes/download.routes.js";
 import openLandRoutes from "./src/routes/openLandRoutes.js";
 import ContratorRoutes from "./src/routes/contractor.route.js";
+import AgentRoutes from "./src/routes/agent.route.js";
 dotenv.config();
 
 // Create Express app and HTTP server
@@ -171,6 +172,7 @@ app.use("/api/unit", PropertyUnit);
 app.use("/api", DownloadRoute);
 app.use("/api/openLand", openLandRoutes);
 app.use("/api/contractor", ContratorRoutes);
+app.use("/api/agentlist", AgentRoutes);
 // Start the server
 server.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
