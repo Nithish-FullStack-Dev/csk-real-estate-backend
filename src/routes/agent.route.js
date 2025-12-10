@@ -4,6 +4,7 @@ import {
   deleteAgentModel,
   getAgentById,
   getAllAgents,
+  getAllAgentsForDropDown,
   updateAgentModel,
 } from "../controller/agent.controller.js";
 
@@ -12,6 +13,8 @@ const router = express.Router();
 router.post("/addAgentList", addAgentModel);
 
 router.get("/getAllAgentsLists", getAllAgents);
+
+router.get("/getAllAgentsListsForDropDown", getAllAgentsForDropDown);
 
 router.get("/getAgentsListsById/:id", getAgentById);
 

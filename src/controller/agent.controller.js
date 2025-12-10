@@ -1,4 +1,5 @@
 import AgentModel from "../modals/agent.model.js";
+import TeamManagement from "../modals/teamManagementModal.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
@@ -228,4 +229,17 @@ export const deleteAgentModel = asyncHandler(async (req, res) => {
   res
     .status(200)
     .json(new ApiResponse(200, deletedAgent, "Agent deleted successfully"));
+});
+
+export const getAllAgentsForDropDown = asyncHandler(async (req, res) => {
+  const assignedAgentIds = await TeamManagement.distinct("agentId");
+  const agents = await AgentModel.find(
+    {
+      agentId: { $nin: assignedAgentIds },
+    },
+    "agentId"
+  ).populate("agentId", "_id name email phone");
+  res
+    .status(200)
+    .json(new ApiResponse(200, agents, "agents fetched successfully"));
 });
