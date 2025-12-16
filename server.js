@@ -50,6 +50,7 @@ import openLandRoutes from "./src/routes/openLandRoutes.js";
 import ContratorRoutes from "./src/routes/contractor.route.js";
 import AgentRoutes from "./src/routes/agent.route.js";
 import PurchaseRoutes from "./src/routes/purchase.routes.js";
+import CashExpensesRoutes from "./src/routes/cashexpenses.routes.js";
 dotenv.config();
 
 // Create Express app and HTTP server
@@ -175,6 +176,7 @@ app.use("/api/openLand", openLandRoutes);
 app.use("/api/contractor", ContratorRoutes);
 app.use("/api/agentlist", AgentRoutes);
 app.use("/api/purchases", PurchaseRoutes);
+app.use("/api/cash-expenses", CashExpensesRoutes);
 // Start the server
 server.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
