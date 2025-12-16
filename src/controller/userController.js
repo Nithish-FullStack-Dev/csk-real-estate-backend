@@ -272,7 +272,7 @@ export const getAllSalesPersons = async (req, res) => {
 
 export const getAllAgentPersons = async (req, res) => {
   try {
-    const agent = await User.find({ role: "agent" });
+    const agent = await User.find({ role: "agent" }).select("name email role");
     res.status(200).json(agent);
   } catch (error) {
     console.error("Error fetching agent:", error);
