@@ -3,6 +3,7 @@ import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import { uploadFile } from "../utils/uploadFile.js";
+import { uploadPdfToCloudinary } from "../config/cloudinary.js";
 
 export const createCustomer = asyncHandler(async (req, res) => {
   const {
@@ -41,21 +42,17 @@ export const createCustomer = asyncHandler(async (req, res) => {
     !totalAmount ||
     !contractorId ||
     !siteInchargeId
-  )
+  ) {
     throw new ApiError(400, "Required fields are missing");
+  }
 
+  // Upload documents (images only)
   const documentLocalfile = req.files?.documents || [];
   const uploadedDocuments = [];
+
   for (const file of documentLocalfile) {
     const fileUrl = await uploadFile(file.path, "Document");
     uploadedDocuments.push(fileUrl);
-  }
-
-  let uploadedPdf = null;
-  if (req.files?.pdfFile?.[0]) {
-    const pdf = req.files.pdfFile[0];
-    const pdfUrl = await uploadFile(pdf.path, "PDF");
-    uploadedPdf = pdfUrl;
   }
 
   const newCustomer = await Customer.create({
@@ -84,12 +81,11 @@ export const createCustomer = asyncHandler(async (req, res) => {
     finalPrice,
     paymentStatus,
     images: uploadedDocuments,
-    pdfDocument: uploadedPdf,
   });
 
   res
     .status(201)
-    .json(new ApiResponse(200, newCustomer, "Successfully added Customer"));
+    .json(new ApiResponse(201, newCustomer, "Successfully added Customer"));
 });
 
 //! GET ALL CUSTOMERS
@@ -133,6 +129,7 @@ export const getCustomerById = asyncHandler(async (req, res) => {
 });
 
 //! UPDATE CUSTOMER
+
 export const updateCustomer = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
@@ -152,14 +149,7 @@ export const updateCustomer = asyncHandler(async (req, res) => {
     }
   }
 
-  let uploadedPdf = null;
-
-  if (req.files?.pdfFile?.length > 0) {
-    const pdf = req.files.pdfFile[0];
-    const pdfUrl = await uploadFile(pdf.path, "PDF");
-    uploadedPdf = pdfUrl;
-  }
-
+  // Merge existing images with new uploads
   updateData.images = [...existing.images, ...uploadedDocuments];
 
   if (
@@ -170,10 +160,6 @@ export const updateCustomer = asyncHandler(async (req, res) => {
     const advance = updateData.advanceReceived ?? existing.advanceReceived;
 
     updateData.balancePayment = total - advance;
-  }
-
-  if (uploadedPdf) {
-    updateData.pdfDocument = uploadedPdf;
   }
 
   const updatedCustomer = await Customer.findByIdAndUpdate(id, updateData, {
@@ -263,4 +249,36 @@ export const getPurchasedProperties = asyncHandler(async (req, res) => {
     .json(
       new ApiResponse(200, result, "Successfully fetched purchased properties")
     );
+});
+
+export const uploadCustomerPdf = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const customer = await Customer.findById(id);
+  if (!customer) throw new ApiError(404, "Customer not found");
+
+  // Multer validation
+  if (!req.file?.path) throw new ApiError(400, "PDF file is required");
+
+  if (req.file.mimetype !== "application/pdf")
+    throw new ApiError(400, "Only PDF files are allowed");
+
+  // Upload to Cloudinary
+  const pdfUrl = await uploadPdfToCloudinary(req.file.path);
+  if (!pdfUrl) throw new ApiError(500, "Failed to upload PDF");
+
+  // Save PDF URL
+  customer.pdfDocument = pdfUrl;
+  await customer.save();
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        customerId: customer._id,
+        pdfDocument: customer.pdfDocument,
+      },
+      "PDF uploaded successfully"
+    )
+  );
 });

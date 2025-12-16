@@ -7,6 +7,7 @@ import {
   deleteCustomer,
   getCustomerByUser,
   getPurchasedProperties,
+  uploadCustomerPdf,
 } from "../controller/customerController.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { upload } from "../middlewares/multer.js";
@@ -20,7 +21,6 @@ router.post(
       name: "documents",
       maxCount: 5,
     },
-    { name: "pdfFile", maxCount: 1 },
   ]),
   createCustomer
 );
@@ -35,10 +35,16 @@ router.put(
       name: "documents",
       maxCount: 5,
     },
-    { name: "pdfFile", maxCount: 1 },
   ]),
   updateCustomer
 );
+
+router.put(
+  "/customers/:id/upload-pdf",
+  upload.single("pdf"),
+  uploadCustomerPdf
+);
+
 router.delete("/deleteCustomer/:id", deleteCustomer);
 
 export default router;
