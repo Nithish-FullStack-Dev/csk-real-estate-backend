@@ -1,5 +1,6 @@
 import TeamManagement from "../modals/teamManagementModal.js";
 import User from "../modals/user.js";
+import AgentModel from "../modals/agent.model.js";
 
 // 1. CREATE TEAM AGENT
 export const addTeamMember = async (req, res) => {
@@ -55,7 +56,7 @@ export const getAllTeamMembers = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch team members", error });
   }
-}
+};
 
 // 3. UPDATE TEAM AGENT BY ID
 export const updateTeamAgentById = async (req, res) => {
@@ -109,10 +110,14 @@ export const getUnassignedAgents = async (req, res) => {
     // Step 1: Get all agent IDs already assigned to a team
     const assignedAgentIds = await TeamManagement.distinct("agentId");
 
+    const assignedAgentListIds = await AgentModel.distinct("agentId");
+
+    const excludeIds = [...assignedAgentIds, ...assignedAgentListIds];
+
     // Step 2: Find agents (role: 'agent') who are NOT assigned
     const unassignedAgents = await User.find({
       role: "agent",
-      _id: { $nin: assignedAgentIds },
+      _id: { $nin: excludeIds },
     }).select("-password"); // Exclude password field for safety
 
     res.status(200).json({

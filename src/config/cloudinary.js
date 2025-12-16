@@ -13,7 +13,8 @@ export const uploadOnCloudniary = async (localFilePath) => {
     if (!localFilePath) return null;
 
     const response = await cloudinary.uploader.upload(localFilePath, {
-      resource_type: "auto",
+      resource_type: "image",
+      folder: "csk/images",
       format: "webp",
       transformation: [{ quality: "auto", fetch_format: "auto" }],
     });
@@ -21,6 +22,29 @@ export const uploadOnCloudniary = async (localFilePath) => {
     // ✅ Delete temp file after successful upload
     fs.unlinkSync(localFilePath);
 
+    return response.secure_url;
+  } catch (error) {
+    console.error("Cloudinary upload failed:", error);
+
+    // ✅ Try to delete the temp file even on failure
+    if (fs.existsSync(localFilePath)) {
+      fs.unlinkSync(localFilePath);
+    }
+
+    return null;
+  }
+};
+
+export const uploadPdfToCloudinary = async (localFilePath) => {
+  try {
+    if (!localFilePath) return null;
+    const response = await cloudinary.uploader.upload(localFilePath, {
+      resource_type: "raw",
+      folder: "csk/pdfs",
+      format: "pdf",
+      access_mode: "public",
+    });
+    fs.unlinkSync(localFilePath);
     return response.secure_url;
   } catch (error) {
     console.error("Cloudinary upload failed:", error);

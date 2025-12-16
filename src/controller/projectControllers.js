@@ -221,7 +221,7 @@ export const getContractorsForSiteIncharge = async (req, res) => {
   try {
     const { role, _id: siteInchargeId } = req.user;
 
-    if (role !== "site_incharge") {
+    if (role !== "site_incharge" && role !== "accountant") {
       return res.status(403).json({
         error: "Access denied. Only site incharges allowed.",
       });

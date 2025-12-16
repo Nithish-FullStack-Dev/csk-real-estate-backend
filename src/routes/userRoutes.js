@@ -14,6 +14,7 @@ import {
   getAllAgentPersons,
   getAllCustomer_Purchased,
   getLoggedInUser,
+  getContractors,
 } from "../controller/userController.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import csrf from "csurf";
@@ -31,6 +32,7 @@ router.post("/updateUser", updateUser);
 router.post("/resetPassword", resetPassword);
 router.delete("/deleteUser/:userId", deleteUser);
 router.get("/contractors", getAllContractors);
+router.get("/getControctorsForDropDown", getContractors);
 router.patch("/:id/status", updateStatus);
 router.get("/site-incharges", getSiteIncharges);
 router.get("/contractor", getAllContractors);
