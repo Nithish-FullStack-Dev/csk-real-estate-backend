@@ -36,12 +36,17 @@ export const addContractor = asyncHandler(async (req, res) => {
   } = req.body;
 
   if (
+    !userId ||
     !companyName ||
     !gstNumber ||
     !panCardNumber ||
-    !contractorType ||
     !siteIncharge ||
-    !amount
+    !amount ||
+    !bankName ||
+    !branchName ||
+    !ifscCode ||
+    !paymentDetails ||
+    !accountNumber
   ) {
     throw new ApiError(400, "Required fields are missing");
   }
@@ -62,11 +67,14 @@ export const addContractor = asyncHandler(async (req, res) => {
   }
 
   const exists = await ContractorModel.findOne({
-    $or: [{ gstNumber }, { panCardNumber }],
+    $or: [{ userId }, { gstNumber }, { panCardNumber }],
   });
 
   if (exists) {
-    throw new ApiError(409, "Contractor with same GST or PAN already exists");
+    throw new ApiError(
+      409,
+      "Contractor with same Name GST or PAN already exists"
+    );
   }
 
   const contractor = await ContractorModel.create({
@@ -198,6 +206,18 @@ export const updateContractor = asyncHandler(async (req, res) => {
     }
   }
 
+  let normalizedProjectsAssigned = [];
+
+  if (projectsAssigned !== undefined) {
+    if (Array.isArray(projectsAssigned)) {
+      normalizedProjectsAssigned = projectsAssigned;
+    } else {
+      normalizedProjectsAssigned = [projectsAssigned];
+    }
+  } else {
+    normalizedProjectsAssigned = [];
+  }
+
   const updateData = {
     companyName,
     gstNumber,
@@ -212,7 +232,7 @@ export const updateContractor = asyncHandler(async (req, res) => {
 
     siteIncharge,
     accountsIncharge,
-    projectsAssigned,
+    projectsAssigned: normalizedProjectsAssigned,
 
     amount,
     advancePaid,

@@ -5,6 +5,7 @@ import QualityIssue from "../modals/qualityIssue.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
+import ContractorModel from "../modals/contractor.model.js";
 
 export const getUserProjects = async (req, res) => {
   try {
@@ -964,9 +965,12 @@ export const projectDropDownData = asyncHandler(async (req, res) => {
 });
 
 export const getAllContractors = asyncHandler(async (req, res) => {
-  const contractors = await User.find({ role: "contractor" }).select(
-    "_id name"
-  );
+  const assignedContractors = await ContractorModel.distinct("userId");
+
+  const contractors = await User.find({
+    role: "contractor",
+    _id: { $nin: assignedContractors },
+  }).select("_id name");
   let message;
   if (!contractors || contractors.length === 0) {
     message = "No contractors found";

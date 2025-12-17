@@ -51,6 +51,7 @@ import ContratorRoutes from "./src/routes/contractor.route.js";
 import AgentRoutes from "./src/routes/agent.route.js";
 import PurchaseRoutes from "./src/routes/purchase.routes.js";
 import CashExpensesRoutes from "./src/routes/cashexpenses.routes.js";
+import errorHandler from "./src/middlewares/error.middleware.js";
 dotenv.config();
 
 // Create Express app and HTTP server
@@ -177,6 +178,9 @@ app.use("/api/contractor", ContratorRoutes);
 app.use("/api/agentlist", AgentRoutes);
 app.use("/api/purchases", PurchaseRoutes);
 app.use("/api/cash-expenses", CashExpensesRoutes);
+
+app.use(errorHandler);
+
 // Start the server
 server.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
