@@ -46,6 +46,11 @@ export const createCustomer = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Required fields are missing");
   }
 
+  const existCustomer = await Customer.findOne({ customerId });
+
+  if (existCustomer)
+    throw new ApiError(409, "Customer already exists with this Customer ID");
+
   // Upload documents (images only)
   const documentLocalfile = req.files?.documents || [];
   const uploadedDocuments = [];
