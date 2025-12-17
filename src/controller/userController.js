@@ -1,7 +1,7 @@
 import User from "../modals/user.js";
 import Role from "../modals/role.js";
 import bcrypt from "bcrypt";
-import csrf from "csurf";
+import Customer from "../modals/customerSchema.js";
 import jwt from "jsonwebtoken";
 import { tokenBlacklist } from "../utils/tokenBlacklist.js";
 
@@ -282,7 +282,11 @@ export const getAllAgentPersons = async (req, res) => {
 
 export const getAllCustomer_Purchased = async (req, res) => {
   try {
-    const customer_purchased = await User.find({ role: "customer_purchased" });
+    const assignedCustomers = await Customer.distinct("customerId");
+    const customer_purchased = await User.find({
+      role: "customer_purchased",
+      _id: { $nin: assignedCustomers },
+    });
     res.status(200).json(customer_purchased);
   } catch (error) {
     console.error("Error fetching customer_purchased:", error);
