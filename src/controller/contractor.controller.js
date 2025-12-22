@@ -124,7 +124,26 @@ export const getAllContractorsById = asyncHandler(async (req, res) => {
     .populate("userId", "name email phone")
     .populate("siteIncharge", "name email phone")
     .populate("accountsIncharge", "name email phone")
-    .populate("projectsAssigned", "name email phone")
+    .populate({
+      path: "projectsAssigned",
+      populate: [
+        {
+          path: "projectId",
+          model: "Building",
+          select: "projectName location",
+        },
+        {
+          path: "floorUnit",
+          model: "FloorUnit",
+          select: "floorNumber",
+        },
+        {
+          path: "unit",
+          model: "PropertyUnit",
+          select: "plotNo",
+        },
+      ],
+    })
     .lean();
 
   if (!contractor) throw new ApiError(404, "contrator not found");
@@ -139,7 +158,26 @@ export const getAllContractorList = asyncHandler(async (req, res) => {
     .populate("userId", "name email phone")
     .populate("siteIncharge", "name email phone")
     .populate("accountsIncharge", "name email phone")
-    .populate("projectsAssigned", "name email phone");
+    .populate({
+      path: "projectsAssigned",
+      populate: [
+        {
+          path: "projectId",
+          model: "Building",
+          select: "projectName location",
+        },
+        {
+          path: "floorUnit",
+          model: "FloorUnit",
+          select: "floorNumber",
+        },
+        {
+          path: "unit",
+          model: "PropertyUnit",
+          select: "plotNo",
+        },
+      ],
+    });
 
   res
     .status(200)
