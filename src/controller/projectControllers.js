@@ -651,9 +651,8 @@ export const updateTaskByIdForSiteIncharge = async (req, res) => {
       noteBySiteIncharge,
       qualityAssessment,
       verificationDecision,
-      photos,
+      siteInchargeUploadedPhotos,
     } = req.body;
-
     if (
       !mongoose.Types.ObjectId.isValid(projectId) ||
       !mongoose.Types.ObjectId.isValid(taskId)
@@ -676,8 +675,8 @@ export const updateTaskByIdForSiteIncharge = async (req, res) => {
       const task = taskArray.find((t) => t._id.toString() === taskId);
       if (task) {
         // Append site incharge photos
-        if (Array.isArray(photos)) {
-          task.siteInchargeUploadedPhotos.push(...photos);
+        if (Array.isArray(siteInchargeUploadedPhotos)) {
+          task.siteInchargeUploadedPhotos.push(...siteInchargeUploadedPhotos);
         }
 
         if (noteBySiteIncharge) task.noteBySiteIncharge = noteBySiteIncharge;
@@ -693,8 +692,6 @@ export const updateTaskByIdForSiteIncharge = async (req, res) => {
         }
 
         task.submittedBySiteInchargeOn = new Date();
-
-        console.log(task);
 
         taskUpdated = true;
         break;
