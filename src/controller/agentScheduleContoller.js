@@ -4,7 +4,14 @@ import Appointment from "../modals/agentSchedule.js";
 export const getAppointments = async (req, res) => {
   try {
     const appointments = await Appointment.find()
-      .populate("lead")
+      .populate({
+        path: "lead",
+        select: "name email phone property",
+        populate: {
+          path: "property",
+          select: "projectName",
+        },
+      })
       .populate("agent", "name email role");
 
     res.status(200).json({ schedules: appointments });
