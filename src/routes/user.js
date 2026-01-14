@@ -1,16 +1,28 @@
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/jwt";
-import clientPromise from "@/lib/mongodb";
+import express from "express";
+import jwt from "jsonwebtoken";
 import { ObjectId } from "mongodb";
+import clientPromise from "../lib/mongodb.js";
 
-export async function GET(req) {
+const router = express.Router();
+
+/* ===========================
+   JWT VERIFY
+=========================== */
+function verifyToken(token) {
+  return jwt.verify(token, process.env.JWT_SECRET_KEY);
+}
+
+/* ===========================
+   GET USER OR ALL USERS
+   GET /api/loginuser
+   GET /api/loginuser?all=true
+=========================== */
+router.get("/", async (req, res) => {
   try {
-    const { searchParams } = new URL(req.url);
-    const getAll = searchParams.get("all");
+    const getAll = req.query.all;
 
     const client = await clientPromise;
-    const db = client.db(); // default DB
+    const db = client.db();
     const usersCol = db.collection("users");
 
     /* ===============================
@@ -18,55 +30,52 @@ export async function GET(req) {
     =============================== */
     if (getAll === "true") {
       const users = await usersCol
-        .find({}, {
-          projection: {
-            password: 0, // never send password
-          }
-        })
+        .find({}, { projection: { password: 0 } })
         .sort({ name: 1 })
         .toArray();
 
-      return NextResponse.json({ success: true, users });
+      return res.json({ success: true, users });
     }
 
     /* ===============================
        AUTHENTICATED USER
     =============================== */
-    const token = cookies().get("token")?.value;
+    const token =
+      req.cookies?.token ||
+      req.headers.authorization?.split(" ")[1];
 
     if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
     let payload;
     try {
       payload = verifyToken(token);
     } catch {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+      return res.status(401).json({ error: "Invalid token" });
     }
 
     const userId = payload.userId || payload.id;
 
     if (!userId) {
-      return NextResponse.json({ error: "Invalid token payload" }, { status: 401 });
+      return res.status(401).json({ error: "Invalid token payload" });
     }
 
     const user = await usersCol.findOne(
       { _id: new ObjectId(userId) },
-      {
-        projection: {
-          password: 0,
-        },
-      }
+      { projection: { password: 0 } }
     );
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return res.status(404).json({ error: "User not found" });
     }
 
-    return NextResponse.json({ user });
-  } catch (error) {
-    console.error("USER API ERROR:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return res.json({ user });
+
+  } catch (err) {
+    console.error("USER API ERROR:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
-}
+});
+
+export default router;
