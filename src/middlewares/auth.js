@@ -3,10 +3,8 @@ import jwt from "jsonwebtoken";
 export function auth(req, res, next) {
   try {
     const token = req.cookies?.token || req.headers.authorization?.split(" ")[1];
-    console.log("call", token);
     
         if (!token) {
-          console.log("no token");
           return res.status(401).json({ error: "Unauthorized" });
         }
     

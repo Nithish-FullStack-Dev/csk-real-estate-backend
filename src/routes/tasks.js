@@ -27,10 +27,8 @@ router.post("/create", upload.array("attachment"), async (req, res) => {
 
     const token =
       req.cookies?.token || req.headers.authorization?.split(" ")[1];
-    console.log("call", token);
 
     if (!token) {
-      console.log("no token");
       return res.status(401).json({ error: "Unauthorized" });
     }
 
@@ -97,41 +95,55 @@ router.post("/create", upload.array("attachment"), async (req, res) => {
 ====================================== */
 router.get("/", async (req, res) => {
   try {
-    const { userId } = req.query; // comes from the dropdown
+    const { userId } = req.query;
+console.log(userId);
 
     const token =
       req.cookies?.token || req.headers.authorization?.split(" ")[1];
-    console.log("call", token);
 
     if (!token) {
-      console.log("no token");
       return res.status(401).json({ error: "Unauthorized" });
     }
 
     const payload = jwt.verify(token, process.env.JWT_SECRET_KEY);
-
-    if (!payload) {
+    if (!payload?.id) {
       return res.status(401).json({ error: "Invalid token" });
     }
-
-    const { id, role } = payload; // comes from JWT
 
     const client = await clientPromise;
     const db = client.db();
 
-    const currentUserId = new ObjectId(id);
+    const currentUserId = new ObjectId(payload.id);
+
+    // 🔑 FETCH ROLE FROM DB (CRITICAL)
+    const currentUser = await db
+      .collection("users")
+      .findOne(
+        { _id: currentUserId },
+        { projection: { role: 1 } }
+      );
+
+    if (!currentUser) {
+      return res.status(401).json({ error: "User not found" });
+    }
+
+    const role = currentUser.role?.toUpperCase();
 
     const where = {};
 
-    // ADMIN can view any user's tasks
+    // ADMIN can view selected user's tasks
     if (role === "ADMIN") {
       if (userId) {
+        console.log("called adminn");
+        
         where.userId = new ObjectId(userId);
       }
-      // else → admin sees all tasks
+      // else: admin sees all tasks
     }
-    // Non-admin sees only their own tasks
+    // NON-ADMIN: only own tasks
     else {
+      console.log("not workk");
+      
       where.userId = currentUserId;
     }
 
@@ -151,6 +163,8 @@ router.get("/", async (req, res) => {
       ])
       .toArray();
 
+      console.log(tasks);
+      
     res.json({ success: true, tasks });
   } catch (err) {
     console.error("FETCH TASK ERROR", err);
@@ -158,44 +172,47 @@ router.get("/", async (req, res) => {
   }
 });
 
+
 /* ======================================
    UPDATE TASK
 ====================================== */
 router.put("/", upload.array("attachment"), async (req, res) => {
   try {
-    const { id, status } = req.body;
+    const { id } = req.body;
 
-    const token = req.cookies?.token || req.headers.authorization?.split(" ")[1];
-    console.log("call", token);
+    const token =
+      req.cookies?.token || req.headers.authorization?.split(" ")[1];
 
     if (!token) {
-      console.log("no token");
       return res.status(401).json({ error: "Unauthorized" });
     }
 
     const payload = jwt.verify(token, process.env.JWT_SECRET_KEY);
-
     if (!payload) {
       return res.status(401).json({ error: "Invalid token" });
     }
 
-    const { id: userId, role } = payload; // comes from JWT
+    if (!id || !ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid task id" });
+    }
 
     const client = await clientPromise;
     const db = client.db();
 
     const taskId = new ObjectId(id);
-    const currentUserId = new ObjectId(userId);
 
-    // Build ownership filter
-    const where =
-      role === "ADMIN"
-        ? { _id: taskId }
-        : { _id: taskId, userId: currentUserId };
-
+    // ✅ build update object safely
     const update = {};
 
-    if (status) update.status = status;
+    if (req.body.title) update.title = req.body.title;
+    if (req.body.description) update.description = req.body.description;
+    if (req.body.assignee) update.assignee = req.body.assignee;
+    if (req.body.priority) update.priority = req.body.priority;
+    if (req.body.status) update.status = req.body.status;
+    if (req.body.tags)
+      update.tags = req.body.tags.split(",").map(t => t.trim());
+    if (req.body.dueDate)
+      update.dueDate = new Date(req.body.dueDate);
 
     if (req.files?.length) {
       const attachments = [];
@@ -217,20 +234,31 @@ router.put("/", upload.array("attachment"), async (req, res) => {
       update.attachments = attachments;
     }
 
+    // ✅ perform update
     const result = await db
       .collection("tasks")
-      .updateOne(where, { $set: update });
+      .updateOne({ _id: taskId }, { $set: update });
 
     if (result.matchedCount === 0) {
-      return res.status(403).json({ error: "Not authorized" });
+      return res.status(404).json({ error: "Task not found" });
     }
 
-    res.json({ success: true });
+    // ✅ fetch updated task (THIS WAS MISSING / WRONG)
+    const updatedTask = await db
+      .collection("tasks")
+      .findOne({ _id: taskId });
+
+    // ✅ return what frontend expects
+    res.json({
+      success: true,
+      task: updatedTask,
+    });
   } catch (err) {
     console.error("UPDATE ERROR", err);
     res.status(500).json({ error: "Update failed" });
   }
 });
+
 
 /* ======================================
     DELETE TASK

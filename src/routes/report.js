@@ -41,11 +41,11 @@ router.get("/", authOptional, async (req, res) => {
       count,
       messages
     });
-
   } catch (err) {
     console.error("Report fetch error:", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
 
 export default router;

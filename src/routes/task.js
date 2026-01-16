@@ -13,34 +13,34 @@ router.delete("/:id", auth, async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (!id) {
-      return res.status(400).json({ error: "Task ID is required" });
+    if (!id || !ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid task id" });
     }
 
     const client = await clientPromise;
     const db = client.db();
 
+    const taskId = new ObjectId(id);
+
     const existingTask = await db.collection("tasks").findOne({
-      _id: new ObjectId(id),
+      _id: taskId,
     });
 
     if (!existingTask) {
       return res.status(404).json({ error: "Task not found" });
     }
 
-    await db.collection("tasks").deleteOne({
-      _id: new ObjectId(id),
-    });
+    await db.collection("tasks").deleteOne({ _id: taskId });
 
     res.json({
       message: "Task deleted successfully",
       deletedTask: existingTask,
     });
-
   } catch (err) {
     console.error("DELETE TASK ERROR:", err);
     res.status(500).json({ error: "Failed to delete task" });
   }
 });
+
 
 export default router;
