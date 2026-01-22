@@ -96,7 +96,6 @@ router.post("/create", upload.array("attachment"), async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const { userId } = req.query;
-console.log(userId);
 
     const token =
       req.cookies?.token || req.headers.authorization?.split(" ")[1];
@@ -134,7 +133,6 @@ console.log(userId);
     // ADMIN can view selected user's tasks
     if (role === "ADMIN") {
       if (userId) {
-        console.log("called adminn");
         
         where.userId = new ObjectId(userId);
       }
@@ -142,7 +140,6 @@ console.log(userId);
     }
     // NON-ADMIN: only own tasks
     else {
-      console.log("not workk");
       
       where.userId = currentUserId;
     }
@@ -162,8 +159,6 @@ console.log(userId);
         },
       ])
       .toArray();
-
-      console.log(tasks);
       
     res.json({ success: true, tasks });
   } catch (err) {

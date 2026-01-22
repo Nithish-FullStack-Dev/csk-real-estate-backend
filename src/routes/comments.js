@@ -36,12 +36,8 @@ function toObjectId(id) {
 ============================================================ */
 router.post("/", async (req, res) => {
   try {
-    console.log("its called");
-
     const token =
       req.cookies?.token || req.headers.authorization?.split(" ")[1];
-
-    console.log("call", token);
 
     if (!token) {
       return res.status(401).json({ error: "Unauthorized" });
@@ -167,8 +163,6 @@ router.put("/", async (req, res) => {
     const token =
       req.cookies?.token || req.headers.authorization?.split(" ")[1];
 
-    console.log("call", token);
-
     if (!token) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -214,8 +208,6 @@ router.delete("/", async (req, res) => {
   try {
     const token =
       req.cookies?.token || req.headers.authorization?.split(" ")[1];
-
-    console.log("call", token);
 
     if (!token) {
       return res.status(401).json({ error: "Unauthorized" });
