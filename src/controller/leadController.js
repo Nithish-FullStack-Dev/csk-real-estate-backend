@@ -5,26 +5,20 @@ import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 
-export const saveLead = async (req, res) => {
-  try {
-    const leadData = req.body;
+export const saveLead = asyncHandler(async (req, res) => {
+  const leadData = req.body;
+  leadData.addedBy = req.user._id;
 
-    if (!leadData)
-      return res.status(400).json({ message: "Please provide lead data." });
+  if (leadData.openPlot === "") leadData.openPlot = undefined;
+  if (leadData.openLand === "") leadData.openLand = undefined;
 
-    leadData.addedBy = req.user._id;
+  const newLead = new Lead(leadData);
+  const savedLead = await newLead.save();
 
-    const newLead = new Lead(leadData);
-    const savedLead = await newLead.save();
-
-    res
-      .status(201)
-      .json({ message: "Lead saved successfully", lead: savedLead });
-  } catch (error) {
-    console.error("Error saving lead:", error.message);
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
+  res
+    .status(201)
+    .json(new ApiResponse(201, savedLead, "Lead saved successfully"));
+});
 
 export const getAllLeads = async (req, res) => {
   try {

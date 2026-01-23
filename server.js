@@ -52,6 +52,13 @@ import AgentRoutes from "./src/routes/agent.route.js";
 import PurchaseRoutes from "./src/routes/purchase.routes.js";
 import CashExpensesRoutes from "./src/routes/cashexpenses.routes.js";
 import errorHandler from "./src/middlewares/error.middleware.js";
+import commentRoutes from "./src/routes/comments.js";
+import LoginUser from "./src/routes/user.js";
+import taskRoutes from "./src/routes/tasks.js";
+import reportRoutes from "./src/routes/reports.js";
+import reportRoute from "./src/routes/report.js";
+import taskRoute from "./src/routes/task.js";
+import reportCount from "./src/routes/reportCount.js";
 dotenv.config();
 
 // Create Express app and HTTP server
@@ -178,6 +185,13 @@ app.use("/api/contractor", ContratorRoutes);
 app.use("/api/agentlist", AgentRoutes);
 app.use("/api/purchases", PurchaseRoutes);
 app.use("/api/cash-expenses", CashExpensesRoutes);
+app.use("/api/kanban/comment", commentRoutes);
+app.use("/api/loginuser", LoginUser);
+app.use("/api/kanban/tasks", taskRoutes);
+app.use("/api/kanban/task", taskRoute);
+app.use("/api/kanban/reports", reportRoutes);
+app.use("/api/kanban/report", reportRoute);
+app.use("/api/kanban/reportcount", reportCount);
 
 app.use(errorHandler);
 
