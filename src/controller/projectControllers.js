@@ -46,11 +46,40 @@ export const getUserProjects = async (req, res) => {
 
 export const createProject = async (req, res) => {
   try {
-    const newProject = new Project(req.body);
+    const {
+      projectId,
+      clientName,
+      floorUnit,
+      unit,
+      startDate,
+      endDate,
+      estimatedBudget,
+      description,
+      teamSize,
+      siteIncharge,
+      status,
+    } = req.body;
+
+    const newProject = new Project({
+      projectId,
+      clientName, // 🔥 explicitly saved
+      floorUnit,
+      unit,
+      startDate,
+      endDate,
+      estimatedBudget,
+      description,
+      teamSize,
+      siteIncharge,
+      status,
+    });
+
     await newProject.save();
-    res
-      .status(201)
-      .json({ message: "Project created successfully", project: newProject });
+
+    res.status(201).json({
+      message: "Project created successfully",
+      project: newProject,
+    });
   } catch (error) {
     console.error("Error creating project:", error);
     res.status(500).json({ error: "Failed to create project" });
@@ -82,8 +111,8 @@ export const getUserTasks = async (req, res) => {
       role === "site_incharge"
         ? { siteIncharge: _id }
         : role === "contractor"
-        ? { contractors: _id }
-        : {};
+          ? { contractors: _id }
+          : {};
 
     const projects = await Project.find(query)
       .populate("projectId", "_id projectName")
@@ -101,7 +130,7 @@ export const getUserTasks = async (req, res) => {
       const plotNo = project.unit?.plotNo || "N/A";
 
       const contractorMap = Object.fromEntries(
-        (project.contractors || []).map((c) => [c._id.toString(), c.name])
+        (project.contractors || []).map((c) => [c._id.toString(), c.name]),
       );
 
       const unitsMap = project.units || {};
@@ -206,7 +235,7 @@ export const updateProject = asyncHandler(async (req, res) => {
   const updatedProject = await Project.findByIdAndUpdate(
     projectId,
     { $set: updateData },
-    { new: true, runValidators: true }
+    { new: true, runValidators: true },
   );
 
   if (!updatedProject) {
@@ -505,7 +534,7 @@ export const getContractorTasksUnderSiteIncharge = async (req, res) => {
   } catch (error) {
     console.error(
       "Error fetching contractor tasks under site incharge:",
-      error
+      error,
     );
     res
       .status(500)
@@ -1004,7 +1033,7 @@ export const getCompletedTasksForUnit = asyncHandler(async (req, res) => {
     .filter(
       (task) =>
         task.statusForContractor === "completed" &&
-        task.isApprovedBySiteManager === true
+        task.isApprovedBySiteManager === true,
     )
     .map((task) => ({
       _id: task._id,
@@ -1015,7 +1044,7 @@ export const getCompletedTasksForUnit = asyncHandler(async (req, res) => {
       deadline: task.deadline,
       contractor:
         project.contractors?.find(
-          (c) => c._id.toString() === task.contractor?.toString()
+          (c) => c._id.toString() === task.contractor?.toString(),
         ) || null,
       contractorUploadedPhotos: task.contractorUploadedPhotos || [],
       siteInchargeUploadedPhotos: task.siteInchargeUploadedPhotos || [],
@@ -1037,8 +1066,8 @@ export const getCompletedTasksForUnit = asyncHandler(async (req, res) => {
       },
       completedTasks.length > 0
         ? "Completed tasks fetched successfully"
-        : "No completed tasks found for this unit"
-    )
+        : "No completed tasks found for this unit",
+    ),
   );
 });
 
@@ -1070,8 +1099,8 @@ export const getUnitProgressByBuilding = asyncHandler(async (req, res) => {
           totalTasks: 0,
           overallProgress: 0,
         },
-        "No project found for this unit"
-      )
+        "No project found for this unit",
+      ),
     );
   }
 
@@ -1098,14 +1127,14 @@ export const getUnitProgressByBuilding = asyncHandler(async (req, res) => {
           totalTasks: 0,
           overallProgress: 0,
         },
-        "No tasks found for this unit"
-      )
+        "No tasks found for this unit",
+      ),
     );
   }
 
   const totalProgress = tasksInUnit.reduce(
     (sum, task) => sum + (task?.progressPercentage || 0),
-    0
+    0,
   );
 
   const averageProgress = Math.round(totalProgress / tasksInUnit.length);
@@ -1120,7 +1149,7 @@ export const getUnitProgressByBuilding = asyncHandler(async (req, res) => {
         totalTasks: tasksInUnit.length,
         overallProgress: averageProgress,
       },
-      "Unit progress calculated successfully"
-    )
+      "Unit progress calculated successfully",
+    ),
   );
 });

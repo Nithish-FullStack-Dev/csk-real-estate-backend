@@ -1,6 +1,22 @@
 import mongoose from "mongoose";
 const { Schema, model, Types } = mongoose;
-
+const materialTypes = [
+  "Cement",
+  "Steel",
+  "Sand",
+  "Aggregate",
+  "Bricks",
+  "Paint",
+  "Electrical",
+  "Plumbing",
+  "Timber",
+  "Glass",
+  "Tiles",
+  "Hardware",
+  "Chemicals",
+  "Tools",
+  "Other",
+];
 const MaterialSchema = new Schema(
   {
     contractor: {
@@ -21,7 +37,7 @@ const MaterialSchema = new Schema(
     type: {
       type: String,
       required: true,
-      enum: ["Cement", "Steel", "Sand", "Bricks", "Electrical", "Plumbing", "Other"],
+      enum: materialTypes,
     },
     quantity: {
       type: Number,
@@ -48,7 +64,6 @@ const MaterialSchema = new Schema(
     poNumber: {
       type: String,
       required: true,
-      unique: true,
       trim: true,
     },
     invoiceNumber: {
@@ -69,11 +84,15 @@ const MaterialSchema = new Schema(
       default: "",
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
+MaterialSchema.index({ poNumber: 1, project: 1 });
 
+// safer calculation
 MaterialSchema.pre("save", function (next) {
-  this.totalCost = this.quantity * this.rate;
+  const qty = Number(this.quantity || 0);
+  const rate = Number(this.rate || 0);
+  this.totalCost = qty * rate;
   next();
 });
 

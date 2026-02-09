@@ -105,6 +105,12 @@ const ProjectSchema = new Schema(
       ref: "FloorUnit",
       required: true,
     },
+
+    clientName: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     unit: {
       type: Types.ObjectId,
       ref: "PropertyUnit",
@@ -174,7 +180,7 @@ const ProjectSchema = new Schema(
       default: {},
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const Project = model("Project", ProjectSchema);
