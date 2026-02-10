@@ -22,17 +22,49 @@ export const saveLead = asyncHandler(async (req, res) => {
 
 export const getAllLeads = async (req, res) => {
   try {
-    const leads = await Lead.find()
+    const { role, _id } = req.user;
+
+    let query = {};
+
+    // ADMIN & SALES MANAGER → see all
+    if (role === "admin" || role === "sales_manager") {
+      query = {};
+    }
+
+    // AGENT → only their leads
+    else if (role === "agent") {
+      query = { addedBy: _id };
+    }
+
+    // TEAM LEAD → only their team agents leads
+    else if (role === "team_lead") {
+      const teamAgents = await TeamManagement.find({ teamLeadId: _id }).select(
+        "agentId",
+      );
+
+      const agentIds = teamAgents.map((t) => t.agentId);
+
+      query = { addedBy: { $in: agentIds } };
+    }
+
+    const leads = await Lead.find(query)
       .populate("property", "projectName location propertyType")
       .populate("floorUnit", "floorNumber unitType")
       .populate("unit", "plotNo propertyType")
       .populate("openPlot", "projectName plotNo memNo")
       .populate("openLand", "projectName location landType")
-      .populate("addedBy");
-    res.status(200).json({ message: "Leads fetched successfully", leads });
+      .populate("addedBy", "name email role");
+
+    res.status(200).json({
+      message: "Leads fetched successfully",
+      leads,
+    });
   } catch (error) {
     console.error("Error fetching leads:", error.message);
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
 
@@ -59,20 +91,29 @@ export const getLeadsByUserId = async (req, res) => {
 export const updateLeadById = async (req, res) => {
   try {
     const { id } = req.params;
-    const leadData = { ...req.body, lastContact: new Date() };
+    const { role, _id } = req.user;
 
-    const updatedLead = await Lead.findByIdAndUpdate(id, leadData, {
-      new: true,
-      runValidators: true,
-    });
+    const lead = await Lead.findById(id);
 
-    if (!updatedLead) {
-      return res.status(404).json({ message: "Lead not found" });
+    if (!lead) return res.status(404).json({ message: "Lead not found" });
+
+    // Only admin/sales_manager OR owner agent can edit
+    if (
+      role !== "admin" &&
+      role !== "sales_manager" &&
+      lead.addedBy.toString() !== _id.toString()
+    ) {
+      return res.status(403).json({ message: "Unauthorized" });
     }
 
-    res.status(200).json({ message: "Lead updated successfully", updatedLead });
+    const updatedLead = await Lead.findByIdAndUpdate(
+      id,
+      { ...req.body, lastContact: new Date() },
+      { new: true, runValidators: true },
+    );
+
+    res.status(200).json({ message: "Lead updated", updatedLead });
   } catch (error) {
-    console.error("Error updating lead:", error.message);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
@@ -109,7 +150,7 @@ export const getClosedLeads = asyncHandler(async (req, res) => {
   const commissionedLeadRecords = await Commission.find({}, "clientId").lean();
 
   const commissionedLeadIds = commissionedLeadRecords.map((record) =>
-    record.clientId.toString()
+    record.clientId.toString(),
   );
 
   const closedLeads = await Lead.find({
@@ -124,7 +165,7 @@ export const getClosedLeads = asyncHandler(async (req, res) => {
   res
     .status(200)
     .json(
-      new ApiResponse(200, closedLeads, "Closed leads fetched successfully")
+      new ApiResponse(200, closedLeads, "Closed leads fetched successfully"),
     );
 });
 

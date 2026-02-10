@@ -1,13 +1,14 @@
 import TeamManagement from "../modals/teamManagementModal.js";
 import User from "../modals/user.js";
 import AgentModel from "../modals/agent.model.js";
-
+import mongoose from "mongoose";
 // 1. CREATE TEAM AGENT
 export const addTeamMember = async (req, res) => {
   try {
-    const { agentId, status, performance, teamLeadId } = req.body;
+    const { agentId, status, performance } = req.body;
 
-    // Create a new TeamAgent document
+    const teamLeadId = req.user._id; // 🔥 critical
+
     const teamAgent = new TeamManagement({
       agentId,
       status,
@@ -15,34 +16,43 @@ export const addTeamMember = async (req, res) => {
       teamLeadId,
     });
 
-    // Save the new team agent to the database
     await teamAgent.save();
 
-    res
-      .status(201)
-      .json({ message: "Team member added successfully", teamAgent });
+    res.status(201).json({
+      message: "Team member added successfully",
+      teamAgent,
+    });
   } catch (error) {
-    console.error("Error adding team member:", error); // Log the error for debugging
-    res
-      .status(500)
-      .json({ message: "Failed to add team member", error: error.message });
+    res.status(500).json({
+      message: "Failed to add team member",
+      error: error.message,
+    });
   }
 };
+
 // 2. FETCH ALL AGENTS FOR A TEAM LEAD
 export const getAllAgentsByTeamLead = async (req, res) => {
   try {
-    const { id: teamLeadId } = req.params;
-    const loggedInUserId = req.user._id;
+    const userId = new mongoose.Types.ObjectId(req.user._id);
+    const role = req.user.role;
 
-    const agents = await TeamManagement.find({
-      teamLeadId,
-      _id: { $ne: loggedInUserId },
-    })
+    // ADMIN sees all
+    if (role === "admin") {
+      const allAgents = await TeamManagement.find()
+        .populate("agentId")
+        .populate("teamLeadId");
+
+      return res.status(200).json(allAgents);
+    }
+
+    // TEAM LEAD sees only his agents
+    const agents = await TeamManagement.find({ teamLeadId: userId })
       .populate("agentId")
       .populate("teamLeadId");
 
     res.status(200).json(agents);
   } catch (error) {
+    console.error("Team fetch error:", error);
     res.status(500).json({ message: "Failed to fetch agents", error });
   }
 };
@@ -62,14 +72,25 @@ export const getAllTeamMembers = async (req, res) => {
 export const updateTeamAgentById = async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
-    const updatedAgent = await TeamManagement.findByIdAndUpdate(id, updates, {
+    const role = req.user.role;
+    const userId = new mongoose.Types.ObjectId(req.user._id);
+
+    const agent = await TeamManagement.findById(id);
+
+    if (!agent) {
+      return res.status(404).json({ message: "Team agent not found" });
+    }
+
+    // Admin can edit all
+    if (role !== "admin" && agent.teamLeadId.toString() !== userId.toString()) {
+      return res.status(403).json({ message: "Unauthorized action" });
+    }
+
+    const updatedAgent = await TeamManagement.findByIdAndUpdate(id, req.body, {
       new: true,
       runValidators: true,
     });
-    if (!updatedAgent) {
-      return res.status(404).json({ message: "Team agent not found" });
-    }
+
     res.status(200).json({ message: "Team agent updated", updatedAgent });
   } catch (error) {
     res.status(500).json({ message: "Failed to update team agent", error });
@@ -80,10 +101,22 @@ export const updateTeamAgentById = async (req, res) => {
 export const deleteTeamAgentById = async (req, res) => {
   try {
     const { id } = req.params;
-    const deleted = await TeamManagement.findByIdAndDelete(id);
-    if (!deleted) {
+    const role = req.user.role;
+    const userId = new mongoose.Types.ObjectId(req.user._id);
+
+    const agent = await TeamManagement.findById(id);
+
+    if (!agent) {
       return res.status(404).json({ message: "Team agent not found" });
     }
+
+    // Admin can delete all
+    if (role !== "admin" && agent.teamLeadId.toString() !== userId.toString()) {
+      return res.status(403).json({ message: "Unauthorized action" });
+    }
+
+    await TeamManagement.findByIdAndDelete(id);
+
     res.status(200).json({ message: "Team agent deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: "Failed to delete team agent", error });

@@ -12,12 +12,12 @@ import { authenticate } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/addTeamMember", addTeamMember);
-router.get("/unassigned", getUnassignedAgents);
-router.get("/getAllTeam/:id", authenticate, getAllAgentsByTeamLead);
-router.get("/getAllTeamMembers", getAllTeamMembers);
-router.get("/getAgentById/:id", getTeamAgentById);
-router.patch("/updateTeam/:id", updateTeamAgentById);
-router.delete("/deleteTeam/:id", deleteTeamAgentById);
+router.post("/addTeamMember", authenticate, addTeamMember);
+router.get("/unassigned", authenticate, getUnassignedAgents);
+router.get("/getAllTeam", authenticate, getAllAgentsByTeamLead);
+router.get("/getAllTeamMembers", authenticate, getAllTeamMembers);
+router.get("/getAgentById/:id", authenticate, getTeamAgentById);
+router.patch("/updateTeam/:id", authenticate, updateTeamAgentById);
+router.delete("/deleteTeam/:id", authenticate, deleteTeamAgentById);
 
 export default router;
