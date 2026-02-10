@@ -1,3 +1,4 @@
+// src\lib\jwt.js
 import jwt from "jsonwebtoken";
 
 export function createToken(payload) {

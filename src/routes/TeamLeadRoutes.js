@@ -16,7 +16,8 @@ router.post("/addTeamLead", createTeamLeadMapping);
 router.get("/getAllTeamLeads", getAllTeamMembers);
 router.get("/unassigned", getUnassignedTeamLead);
 router.get("/getSales/:salesId", getTeamMemberBySalesId);
-router.get("/getAllSalesTeam/:id", authenticate, getAllTeamLeadBySales);
+router.get("/getAllSalesTeam", authenticate, getAllTeamLeadBySales);
+
 router.patch("/updateTeamLead/:id", updateTeamMember);
 router.delete("/deleteTeamLead/:id", deleteTeamMember);
 

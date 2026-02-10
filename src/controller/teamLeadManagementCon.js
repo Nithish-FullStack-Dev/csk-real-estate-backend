@@ -62,13 +62,9 @@ export const getTeamMemberBySalesId = async (req, res) => {
 // READ by teamLeadId (get all agents under one TL)
 export const getAllTeamLeadBySales = async (req, res) => {
   try {
-    const { id: salesId } = req.params;
-    const loggedInUserId = req.user._id;
+    const salesId = req.user._id;
 
-    const teamLeads = await TeamLeads.find({
-      salesId,
-      _id: { $ne: loggedInUserId },
-    })
+    const teamLeads = await TeamLeads.find({ salesId })
       .populate("salesId")
       .populate("teamLeadId");
 

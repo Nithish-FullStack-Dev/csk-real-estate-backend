@@ -1,5 +1,6 @@
 import SiteVisit from "../modals/siteVisitModal.js";
 import User from "../modals/user.js";
+import TeamManagement from "../modals/teamManagementModal.js";
 
 //* CREATE a new site visit
 export const createSiteVisit = async (req, res) => {
@@ -54,6 +55,37 @@ export const getAllSiteVisits = async (req, res) => {
     res
       .status(500)
       .json({ error: "Failed to fetch site visits", details: error.message });
+  }
+};
+
+export const getMyTeamSiteVisits = async (req, res) => {
+  try {
+    const teamLeadId = req.user._id;
+
+    // 1️⃣ find agents under this TL
+    const teamAgents = await TeamManagement.find({ teamLeadId }).select(
+      "agentId",
+    );
+
+    const agentIds = teamAgents.map((t) => t.agentId);
+
+    // 2️⃣ fetch site visits booked by those agents
+    const visits = await SiteVisit.find({
+      bookedBy: { $in: agentIds },
+    })
+      .populate("bookedBy", "name email role avatar")
+      .populate("vehicleId")
+      .populate({
+        path: "clientId",
+        model: "Lead",
+        select: "_id name email propertyStatus",
+      })
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(visits);
+  } catch (error) {
+    console.error("TL site visit error:", error);
+    res.status(500).json({ error: "Failed to fetch TL site visits" });
   }
 };
 
@@ -181,7 +213,7 @@ export const getSiteVisitOfAgents = async (req, res) => {
 
     // Filter out those site visits where bookedBy is null (i.e., not an agent)
     const filteredVisits = siteVisits.filter(
-      (visit) => visit.bookedBy !== null
+      (visit) => visit.bookedBy !== null,
     );
 
     res.status(200).json(filteredVisits);
@@ -202,7 +234,7 @@ export const approvalOrRejectStatus = async (req, res) => {
     const updatedVisit = await SiteVisit.findByIdAndUpdate(
       _id,
       { status, approvalNotes },
-      { new: true }
+      { new: true },
     );
 
     if (!updatedVisit) {
