@@ -1,6 +1,8 @@
 import Lead from "../modals/leadModal.js";
 import Property from "../modals/propertyModel.js";
 import Commission from "../modals/commissionsModal.js";
+import TeamManagement from "../modals/teamManagementModal.js";
+
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
@@ -44,7 +46,12 @@ export const getAllLeads = async (req, res) => {
 
       const agentIds = teamAgents.map((t) => t.agentId);
 
-      query = { addedBy: { $in: agentIds } };
+      query = {
+        $or: [
+          { addedBy: _id }, // team lead own leads
+          { addedBy: { $in: agentIds } }, // team agents leads
+        ],
+      };
     }
 
     const leads = await Lead.find(query)
