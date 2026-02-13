@@ -18,7 +18,6 @@ import {
   getCompletedTasksForUnit,
   getUnitProgressByBuilding,
   updateProject,
-  uploadTaskEvidence,
 } from "../controller/projectControllers.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { upload } from "../middlewares/multer.js";
