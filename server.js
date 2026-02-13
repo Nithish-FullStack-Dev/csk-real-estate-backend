@@ -62,6 +62,7 @@ import reportCount from "./src/routes/reportCount.js";
 import siteinchargeRoutes from "./src/routes/siteinchargeRoutes.js";
 import departments from "./src/routes/departments.js";
 import MultiTaskGroupRoute from "./src/routes/multiTaskGroup.js";
+import stt from "./src/routes/stt.js";
 dotenv.config();
 
 // Create Express app and HTTP server
@@ -198,6 +199,7 @@ app.use("/api/kanban/reportcount", reportCount);
 app.use("/api/incharge", siteinchargeRoutes);
 app.use("/api/departments", departments);
 app.use("/api/kanban", MultiTaskGroupRoute);
+app.use("/api/speech", stt);
 
 
 app.use(errorHandler);
