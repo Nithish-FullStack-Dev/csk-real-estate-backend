@@ -21,7 +21,6 @@ export const createQualityIssue = async (req, res) => {
       !title ||
       !project ||
       !mongoose.Types.ObjectId.isValid(project) ||
-      !unit ||
       !severity
     ) {
       return res
@@ -115,7 +114,7 @@ export const updateStatus = async (req, res) => {
   const issue = await QualityIssue.findByIdAndUpdate(
     req.params.id,
     { status },
-    { new: true }
+    { new: true },
   );
 
   res.json(issue);
