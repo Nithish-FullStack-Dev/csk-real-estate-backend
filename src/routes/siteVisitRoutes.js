@@ -12,13 +12,13 @@ import {
 import { authenticate } from "../middlewares/authMiddleware.js";
 const router = express.Router();
 
-router.post("/bookSite", createSiteVisit);
-router.get("/getAllSiteVis", getAllSiteVisits);
 router.get("/getMyTeamSiteVisits", authenticate, getMyTeamSiteVisits);
-router.get("/getSiteVisitOfAgents", getSiteVisitOfAgents);
-router.get("/getSiteVisitById/:bookedBy", getSiteVisitById);
-router.patch("/approvalOrReject", approvalOrRejectStatus);
-router.put("/updateSite/:id", updateSiteVisit);
-router.delete("/deleteSite/:id", deleteSiteVisit);
+router.post("/bookSite", authenticate, createSiteVisit);
+router.get("/getAllSiteVis", authenticate, getAllSiteVisits);
+router.get("/getSiteVisitById/:bookedBy", authenticate, getSiteVisitById);
+router.get("/getSiteVisitOfAgents", authenticate, getSiteVisitOfAgents);
+router.patch("/approvalOrReject", authenticate, approvalOrRejectStatus);
+router.put("/updateSite/:id", authenticate, updateSiteVisit);
+router.delete("/deleteSite/:id", authenticate, deleteSiteVisit);
 
 export default router;

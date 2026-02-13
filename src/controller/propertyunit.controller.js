@@ -15,15 +15,31 @@ export const createUnit = asyncHandler(async (req, res) => {
     throw new ApiError(400, "buildingId and floorId are required");
   }
 
-  const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
-  if (!thumbnailLocalPath) {
-    throw new ApiError(400, "Thumbnail file is required");
+  // detect bulk creation
+  const isBulk = req.body.bulk === "true";
+
+  let thumbnailUrl = null;
+
+  // manual creation → thumbnail required
+  if (!isBulk) {
+    const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
+
+    if (!thumbnailLocalPath) {
+      throw new ApiError(400, "Thumbnail file is required");
+    }
+
+    thumbnailUrl = await uploadFile(thumbnailLocalPath, "ThumbnailUrl");
   }
 
-  const thumbnailUrl = await uploadFile(thumbnailLocalPath, "ThumbnailUrl");
+  // bulk CSV → thumbnail optional
+  if (isBulk) {
+    const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
+    if (thumbnailLocalPath) {
+      thumbnailUrl = await uploadFile(thumbnailLocalPath, "ThumbnailUrl");
+    }
+  }
 
-  const documentFiles = req.files?.documents || [];
-  const documents = [];
+  // images upload
   let imageUrls = [];
   if (req.files?.images && Array.isArray(req.files.images)) {
     const imageUploadPromises = req.files.images.map(async (file) => {
@@ -32,6 +48,10 @@ export const createUnit = asyncHandler(async (req, res) => {
     });
     imageUrls = await Promise.all(imageUploadPromises);
   }
+
+  // documents upload
+  const documentFiles = req.files?.documents || [];
+  const documents = [];
 
   for (const file of documentFiles) {
     const fileUrl = await uploadFile(file.path, "Document");
@@ -128,7 +148,7 @@ export const updateUnit = asyncHandler(async (req, res) => {
       req.files.images.map(async (file) => {
         const uploadedUrl = await uploadFile(file.path, "Gallery");
         return uploadedUrl;
-      })
+      }),
     );
     images = [...unit?.images, ...newImages];
   }
@@ -143,7 +163,7 @@ export const updateUnit = asyncHandler(async (req, res) => {
   const updatedUnit = await PropertyUnitModel.findByIdAndUpdate(
     unitId,
     { $set: updatedData },
-    { new: true, runValidators: true }
+    { new: true, runValidators: true },
   )
     .populate("buildingId", "projectName location propertyType")
     .populate("floorId", "floorNumber unitType totalSubUnits")
@@ -224,7 +244,7 @@ export const getUnitsByFloorIdAndBuildingIdForDropDown = asyncHandler(
       : "No Units added yet";
 
     res.status(200).json(new ApiResponse(200, units, message));
-  }
+  },
 );
 
 export const getAvailableUnitsByFloorIdAndBuildingIdForDropDown = asyncHandler(
@@ -245,7 +265,7 @@ export const getAvailableUnitsByFloorIdAndBuildingIdForDropDown = asyncHandler(
       : "No Units added yet";
 
     res.status(200).json(new ApiResponse(200, units, message));
-  }
+  },
 );
 
 export const getPurchasedCustomerUnits = asyncHandler(async (req, res) => {
