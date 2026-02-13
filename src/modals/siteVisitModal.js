@@ -10,7 +10,8 @@ const SiteVisitSchema = new mongoose.Schema(
     vehicleId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "CarAllocation",
-      required: true,
+      required: false,
+      default: null,
     },
     date: {
       type: String,
@@ -42,7 +43,7 @@ const SiteVisitSchema = new mongoose.Schema(
       type: String,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const SiteVisit = mongoose.model("SiteVisit", SiteVisitSchema);

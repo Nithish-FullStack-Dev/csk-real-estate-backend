@@ -75,6 +75,31 @@ export const getAllLeads = async (req, res) => {
   }
 };
 
+export const buildLeadAccessQuery = async (user) => {
+  const { role, _id } = user;
+
+  if (role === "admin" || role === "sales_manager") {
+    return {};
+  }
+
+  if (role === "agent") {
+    return { addedBy: _id };
+  }
+
+  if (role === "team_lead") {
+    const teamAgents = await TeamManagement.find({ teamLeadId: _id }).select(
+      "agentId",
+    );
+    const agentIds = teamAgents.map((t) => t.agentId);
+
+    return {
+      $or: [{ addedBy: _id }, { addedBy: { $in: agentIds } }],
+    };
+  }
+
+  return { addedBy: _id };
+};
+
 export const getLeadsByUserId = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -127,11 +152,21 @@ export const updateLeadById = async (req, res) => {
 
 export const deleteLeadById = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  if (!id) throw new ApiError(400, "Lead id missing");
+  const { role, _id } = req.user;
 
-  const lead = await Lead.findByIdAndDelete(id);
+  const lead = await Lead.findById(id);
 
   if (!lead) throw new ApiError(404, "Lead not found");
+
+  if (
+    role !== "admin" &&
+    role !== "sales_manager" &&
+    lead.addedBy.toString() !== _id.toString()
+  ) {
+    throw new ApiError(403, "Unauthorized");
+  }
+
+  await lead.deleteOne();
 
   res.status(200).json(new ApiResponse(200, lead, "Lead deleted successfully"));
 });
@@ -154,16 +189,19 @@ export const getAvailableProperties = async (req, res) => {
 };
 
 export const getClosedLeads = asyncHandler(async (req, res) => {
-  const commissionedLeadRecords = await Commission.find({}, "clientId").lean();
+  const accessQuery = await buildLeadAccessQuery(req.user);
 
-  const commissionedLeadIds = commissionedLeadRecords.map((record) =>
-    record.clientId.toString(),
+  const commissionedLeadRecords = await Commission.find({}, "clientId").lean();
+  const commissionedLeadIds = commissionedLeadRecords.map((r) =>
+    r.clientId.toString(),
   );
 
   const closedLeads = await Lead.find({
+    ...accessQuery,
     propertyStatus: "Closed",
     _id: { $nin: commissionedLeadIds },
   })
+
     .populate("property", "_id projectName location propertyType")
     .populate("floorUnit", "_id floorNumber unitType")
     .populate("unit", "_id plotNo propertyType totalAmount")
@@ -180,7 +218,12 @@ export const getLeadsByUnitId = asyncHandler(async (req, res) => {
   const { _id } = req.params;
 
   if (!_id) throw new ApiError(400, "Unit id missing");
-  const leads = await Lead.find({ unit: _id })
+  const accessQuery = await buildLeadAccessQuery(req.user);
+
+  const leads = await Lead.find({
+    unit: _id,
+    ...accessQuery,
+  })
     .populate("property", "_id projectName location propertyType")
     .populate("floorUnit", "_id floorNumber unitType")
     .populate("unit", "_id plotNo propertyType totalAmount")
@@ -198,7 +241,12 @@ export const getLeadsByUnitId = asyncHandler(async (req, res) => {
 export const getLeadsByOpenPlotId = asyncHandler(async (req, res) => {
   const { _id } = req.params;
   if (!_id) throw new ApiError(400, "Open plot id missing");
-  const leads = await Lead.find({ openPlot: _id })
+  const accessQuery = await buildLeadAccessQuery(req.user);
+
+  const leads = await Lead.find({
+    openPlot: _id,
+    ...accessQuery,
+  })
     .populate("property", "_id projectName location propertyType")
     .populate("floorUnit", "_id floorNumber unitType")
     .populate("openPlot", "_id plotNo memNo")
@@ -213,7 +261,12 @@ export const getLeadsByOpenPlotId = asyncHandler(async (req, res) => {
 export const getLeadsByOpenLandId = asyncHandler(async (req, res) => {
   const { _id } = req.params;
   if (!_id) throw new ApiError(400, "Open land id missing");
-  const leads = await Lead.find({ openLand: _id })
+  const accessQuery = await buildLeadAccessQuery(req.user);
+
+  const leads = await Lead.find({
+    openLand: _id,
+    ...accessQuery,
+  })
     .populate("property", "_id projectName location propertyType")
     .populate("openLand", "_id location landType")
     .populate("addedBy", "name email role avatar");

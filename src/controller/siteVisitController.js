@@ -1,64 +1,117 @@
 import SiteVisit from "../modals/siteVisitModal.js";
 import User from "../modals/user.js";
 import TeamManagement from "../modals/teamManagementModal.js";
+import Lead from "../modals/leadModal.js";
+import { buildLeadAccessQuery } from "./leadController.js";
+import CarAllocation from "../modals/carAllocation.js";
+
+const buildSiteVisitAccessQuery = async (user) => {
+  const { role, _id } = user;
+
+  // ADMIN & SALES MANAGER → full access
+  if (role === "admin" || role === "sales_manager") {
+    return {};
+  }
+
+  // AGENT → own visits only
+  if (role === "agent") {
+    return { bookedBy: _id };
+  }
+
+  // TEAM LEAD → their agents visits + own
+  if (role === "team_lead") {
+    const teamAgents = await TeamManagement.find({ teamLeadId: _id }).select(
+      "agentId",
+    );
+    const agentIds = teamAgents.map((t) => t.agentId);
+
+    return {
+      $or: [{ bookedBy: _id }, { bookedBy: { $in: agentIds } }],
+    };
+  }
+
+  return { bookedBy: _id };
+};
 
 //* CREATE a new site visit
+
 export const createSiteVisit = async (req, res) => {
   try {
-    const siteVisit = new SiteVisit(req.body);
+    const accessQuery = await buildLeadAccessQuery(req.user);
+
+    const lead = await Lead.findOne({
+      _id: req.body.clientId,
+      ...accessQuery,
+    });
+
+    if (!lead) {
+      return res.status(403).json({ error: "Unauthorized lead selection" });
+    }
+
+    // VEHICLE VALIDATION
+    // VEHICLE VALIDATION
+    if (req.body.vehicleId) {
+      const vehicle = await CarAllocation.findById(req.body.vehicleId);
+
+      if (!vehicle) {
+        return res.status(404).json({ error: "Vehicle not found" });
+      }
+
+      if (vehicle.status !== "available" && vehicle.status !== "assigned") {
+        return res.status(400).json({ error: "Vehicle not available" });
+      }
+    }
+
+    const siteVisit = new SiteVisit({
+      clientId: req.body.clientId,
+      priority: req.body.priority,
+      date: req.body.date,
+      time: req.body.time,
+      notes: req.body.notes,
+      bookedBy: req.user._id,
+      status: "pending",
+      ...(req.body.vehicleId && { vehicleId: req.body.vehicleId }),
+    });
+
     await siteVisit.save();
     res.status(201).json(siteVisit);
   } catch (error) {
-    res
-      .status(400)
-      .json({ error: "Failed to create site visit", details: error });
+    res.status(400).json({
+      error: "Failed to create site visit",
+      details: error,
+    });
   }
 };
 
 //* READ all site visits
 export const getAllSiteVisits = async (req, res) => {
   try {
-    const siteVisits = await SiteVisit.find()
+    const accessQuery = await buildSiteVisitAccessQuery(req.user);
+
+    const siteVisits = await SiteVisit.find(accessQuery)
+      .populate("vehicleId")
+      .populate("bookedBy", "name email role")
       .populate({
         path: "clientId",
         model: "Lead",
-        select: "_id name email propertyStatus",
-        populate: [
-          {
-            path: "property",
-            model: "Building",
-            select: "_id projectName location propertyType",
-          },
-          {
-            path: "floorUnit",
-            model: "FloorUnit",
-            select: "_id floorNumber unitType",
-          },
-          {
-            path: "unit",
-            model: "PropertyUnit",
-            select: "_id plotNo propertyType totalAmount",
-          },
-          {
-            path: "addedBy",
-            model: "User",
-            select: "name email role avatar",
-          },
-        ],
+        select: "_id name email propertyStatus addedBy",
       })
-      .populate("vehicleId")
-      .populate("bookedBy", "name email role")
       .sort({ createdAt: -1 });
 
     res.status(200).json(siteVisits);
   } catch (error) {
-    res
-      .status(500)
-      .json({ error: "Failed to fetch site visits", details: error.message });
+    res.status(500).json({
+      error: "Failed to fetch site visits",
+      details: error.message,
+    });
   }
 };
 
 export const getMyTeamSiteVisits = async (req, res) => {
+  if (req.user.role !== "team_lead") {
+    return res.status(403).json({ error: "Only team leads allowed" });
+  }
+
   try {
     const teamLeadId = req.user._id;
 
@@ -92,9 +145,13 @@ export const getMyTeamSiteVisits = async (req, res) => {
 //* get site visits by id
 export const getSiteVisitById = async (req, res) => {
   try {
+    const accessQuery = await buildSiteVisitAccessQuery(req.user);
     const { bookedBy } = req.params;
 
-    const siteVisits = await SiteVisit.find({ bookedBy })
+    const siteVisits = await SiteVisit.find({
+      bookedBy,
+      ...accessQuery,
+    })
       .populate({
         path: "clientId",
         model: "Lead",
@@ -135,23 +192,52 @@ export const getSiteVisitById = async (req, res) => {
 };
 
 //* UPDATE a site visit
+//* UPDATE a site visit
 export const updateSiteVisit = async (req, res) => {
   try {
     const { id } = req.params;
-    const updated = await SiteVisit.findByIdAndUpdate(id, req.body, {
+    const accessQuery = await buildSiteVisitAccessQuery(req.user);
+
+    const visit = await SiteVisit.findOne({ _id: id, ...accessQuery });
+
+    if (!visit) {
+      return res.status(403).json({ error: "Unauthorized or visit not found" });
+    }
+
+    // allowed fields only
+    const updatePayload = {
+      priority: req.body.priority,
+      date: req.body.date,
+      time: req.body.time,
+      notes: req.body.notes,
+    };
+
+    // VEHICLE VALIDATION ON UPDATE
+    if (req.body.vehicleId) {
+      const vehicle = await CarAllocation.findById(req.body.vehicleId);
+
+      if (!vehicle) {
+        return res.status(404).json({ error: "Vehicle not found" });
+      }
+
+      if (vehicle.status !== "available" && vehicle.status !== "assigned") {
+        return res.status(400).json({ error: "Vehicle not available" });
+      }
+
+      updatePayload.vehicleId = req.body.vehicleId;
+    }
+
+    const updated = await SiteVisit.findByIdAndUpdate(id, updatePayload, {
       new: true,
       runValidators: true,
     });
 
-    if (!updated) {
-      return res.status(404).json({ error: "Site visit not found" });
-    }
-
     res.status(200).json(updated);
   } catch (error) {
-    res
-      .status(400)
-      .json({ error: "Failed to update site visit", details: error });
+    res.status(400).json({
+      error: "Failed to update site visit",
+      details: error,
+    });
   }
 };
 
@@ -159,11 +245,15 @@ export const updateSiteVisit = async (req, res) => {
 export const deleteSiteVisit = async (req, res) => {
   try {
     const { id } = req.params;
-    const deleted = await SiteVisit.findByIdAndDelete(id);
+    const accessQuery = await buildSiteVisitAccessQuery(req.user);
 
-    if (!deleted) {
-      return res.status(404).json({ error: "Site visit not found" });
+    const visit = await SiteVisit.findOne({ _id: id, ...accessQuery });
+
+    if (!visit) {
+      return res.status(403).json({ error: "Unauthorized or visit not found" });
     }
+
+    await SiteVisit.findByIdAndDelete(id);
 
     res.status(200).json({ message: "Site visit deleted successfully" });
   } catch (error) {
@@ -176,77 +266,55 @@ export const deleteSiteVisit = async (req, res) => {
 //* get site visits of agents
 export const getSiteVisitOfAgents = async (req, res) => {
   try {
-    const siteVisits = await SiteVisit.find()
+    const accessQuery = await buildSiteVisitAccessQuery(req.user);
+
+    const siteVisits = await SiteVisit.find(accessQuery)
       .populate({
         path: "bookedBy",
         match: { role: "agent" },
         select: "name email role",
       })
+      .populate("vehicleId")
       .populate({
         path: "clientId",
         model: "Lead",
         select: "_id name email propertyStatus",
-        populate: [
-          {
-            path: "property",
-            model: "Property",
-            select: "_id projectName location propertyType",
-          },
-          {
-            path: "floorUnit",
-            model: "FloorUnit",
-            select: "_id floorNumber unitType",
-          },
-          {
-            path: "unit",
-            model: "PropertyUnit",
-            select: "_id plotNo propertyType totalAmount",
-          },
-          {
-            path: "addedBy",
-            model: "User",
-            select: "name email role avatar",
-          },
-        ],
-      })
-      .populate("vehicleId");
+      });
 
-    // Filter out those site visits where bookedBy is null (i.e., not an agent)
-    const filteredVisits = siteVisits.filter(
-      (visit) => visit.bookedBy !== null,
-    );
-
-    res.status(200).json(filteredVisits);
+    res.status(200).json(siteVisits);
   } catch (error) {
-    console.error("Error fetching site visits of agents:", error);
     res.status(500).json({ error: "Server Error" });
   }
 };
 
 export const approvalOrRejectStatus = async (req, res) => {
   try {
-    const { _id, status, approvalNotes } = req.body;
+    const { role, _id } = req.user;
+    const { _id: visitId, status, approvalNotes } = req.body;
 
     if (!["confirmed", "cancelled"].includes(status)) {
       return res.status(400).json({ error: "Invalid status value" });
     }
 
+    const accessQuery = await buildSiteVisitAccessQuery(req.user);
+
+    const visit = await SiteVisit.findOne({
+      _id: visitId,
+      ...accessQuery,
+    });
+
+    if (!visit && role !== "admin" && role !== "sales_manager") {
+      return res.status(403).json({ error: "Unauthorized approval" });
+    }
+
     const updatedVisit = await SiteVisit.findByIdAndUpdate(
-      _id,
+      visitId,
       { status, approvalNotes },
       { new: true },
     );
 
-    if (!updatedVisit) {
-      return res.status(404).json({ error: "Site visit not found" });
-    }
-
-    res.status(200).json({
-      message: `Site visit ${status} successfully`,
-      siteVisit: updatedVisit,
-    });
+    res.status(200).json(updatedVisit);
   } catch (error) {
-    console.error("Status update failed:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };
