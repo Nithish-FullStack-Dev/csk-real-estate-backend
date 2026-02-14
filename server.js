@@ -62,6 +62,7 @@ import reportCount from "./src/routes/reportCount.js";
 import siteinchargeRoutes from "./src/routes/siteinchargeRoutes.js";
 import departments from "./src/routes/departments.js";
 import MultiTaskGroupRoute from "./src/routes/multiTaskGroup.js";
+import InnerPlot from "./src/routes/innerPlot.routes.js";
 dotenv.config();
 
 // Create Express app and HTTP server
@@ -123,7 +124,7 @@ app.use(
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
-  })
+  }),
 );
 
 app.use(express.json());
@@ -198,7 +199,7 @@ app.use("/api/kanban/reportcount", reportCount);
 app.use("/api/incharge", siteinchargeRoutes);
 app.use("/api/departments", departments);
 app.use("/api/kanban", MultiTaskGroupRoute);
-
+app.use("/api/innerPlot", InnerPlot);
 
 app.use(errorHandler);
 

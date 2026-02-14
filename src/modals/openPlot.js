@@ -1,97 +1,75 @@
 import mongoose from "mongoose";
 
-const openPlotSchema = new mongoose.Schema(
+const OpenPlotSchema = new mongoose.Schema(
   {
-    // Basic Plot Information
-    memNo: { type: String, unique: true },
-    projectName: { type: String },
-    plotNo: { type: String },
+    projectName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    openPlotNo: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+
+    surveyNo: {
+      type: String,
+    },
+
+    approvalAuthority: {
+      type: String,
+      enum: ["DTCP", "HMDA", "RERA", "PANCHAYAT", "OTHER"],
+    },
+
+    /* -------- Location -------- */
+    location: String,
+
+    /* -------- Land Details -------- */
+    totalArea: {
+      type: Number,
+      required: true,
+    },
+
+    areaUnit: {
+      type: String,
+      enum: ["SqFt", "SqYd", "Acre"],
+      default: "SqFt",
+    },
+
     facing: {
       type: String,
-      enum: [
-        "North",
-        "East",
-        "West",
-        "South",
-        "North-East",
-        "North-West",
-        "South-East",
-        "South-West",
-      ],
+      enum: ["North", "South", "East", "West"],
     },
-    extentSqYards: { type: Number },
-    plotType: {
+
+    roadWidthFt: Number,
+
+    boundaries: String,
+
+    /* -------- Legal -------- */
+    titleStatus: {
       type: String,
-      enum: ["Residential", "Commercial", "Agricultural", "Industrial"],
+      enum: ["Clear", "Disputed", "NA"],
+      default: "Clear",
     },
-    approval: {
+
+    reraNo: String,
+    documentNo: String,
+
+    /* -------- Status -------- */
+    status: {
       type: String,
-      enum: [
-        "DTCP",
-        "HMDA",
-        "Panchayat",
-        "Municipality",
-        "Unapproved",
-        "Other",
-      ],
+      enum: ["Available", "Sold", "Blocked"],
+      default: "Available",
     },
-    isCornerPlot: { type: Boolean, default: false },
-    isGatedCommunity: { type: Boolean, default: false },
 
-    // Financial Details
-    pricePerSqYard: { type: Number },
-    totalAmount: { type: Number },
-    bookingAmount: { type: Number, default: 0 }, // Often a specific default
-    amountReceived: { type: Number, default: 0 }, // Often a specific default
-    // balanceAmount is typically calculated, but can be stored if needed.
-    // Given it's in your Zod schema and handled in the frontend, keeping it here.
-    balanceAmount: { type: Number, default: 0 },
-    emiScheme: { type: Boolean, default: false },
-    registrationStatus: {
-      type: String,
-      enum: [
-        "Not Started",
-        "In Progress",
-        "Pending Documents",
-        "Pending Payment",
-        "Scheduled",
-        "Completed",
-        "Delayed",
-        "Cancelled",
-      ],
-    },
-    listedDate: { type: Date, default: Date.now, required: true }, // Set required based on Zod
-    availableFrom: { type: Date }, // Set required based on Zod
+    remarks: String,
 
-    // Availability & Customer Details
-    availabilityStatus: {
-      type: String,
-      enum: ["Available", "Sold", "Reserved", "Blocked", "Under Dispute"],
-    },
-    customerId: { type: mongoose.Schema.Types.ObjectId, ref: "Customer" },
-    agentId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    customerContact: { type: String }, // Optional
-
-    // Location & Images
-    googleMapsLink: { type: String }, // Optional
-    thumbnailUrl: { type: String }, // Optional, will store the URL
-    images: [{ type: String }], // Optional, will store an array of URLs
-
-    // Additional Details
-    remarks: { type: String }, // Optional
-
-    roadWidthFt: { type: Number },
-    landmarkNearby: { type: String },
-    brochureUrl: { type: String, default: null },
-    reraApproved: { type: Boolean, default: false },
-    reraNumber: { type: String, default: null },
+    thumbnailUrl: { type: String },
+    images: { type: [String], default: [] },
   },
-  {
-    timestamps: true, // Adds createdAt and updatedAt fields
-  }
+  { timestamps: true },
 );
 
-const OpenPlot =
-  mongoose.models.OpenPlot || mongoose.model("OpenPlot", openPlotSchema);
-
-export default OpenPlot;
+export default mongoose.model("OpenPlot", OpenPlotSchema);
