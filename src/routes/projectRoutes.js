@@ -20,6 +20,7 @@ import {
   updateProject,
 } from "../controller/projectControllers.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
+import { upload } from "../middlewares/multer.js";
 
 const router = express.Router();
 
@@ -32,7 +33,7 @@ router.get("/tasks", authenticate, getUserTasks);
 router.get(
   "/site-incharge/myContractors",
   authenticate,
-  getContractorsForSiteIncharge
+  getContractorsForSiteIncharge,
 );
 
 router.post("/update-task", authenticate, updateTask);
@@ -40,7 +41,7 @@ router.post("/update-task", authenticate, updateTask);
 router.get(
   "/site-incharge/:contractorId/contractor/tasks",
   authenticate,
-  getContractorTasksUnderSiteIncharge
+  getContractorTasksUnderSiteIncharge,
 );
 
 router.get("/projectsDropdown", authenticate, projectDropDownData);
@@ -50,19 +51,19 @@ router.get("/contractorDropdown", authenticate, getAllContractors);
 router.get(
   "/units/:projectId/:unit/completed-tasks",
   authenticate,
-  getCompletedTasksForUnit
+  getCompletedTasksForUnit,
 );
 
 router.get(
   "/getProject/:buildingId/:floorUnitId/:unitId/unit-progress",
   authenticate,
-  getUnitProgressByBuilding
+  getUnitProgressByBuilding,
 );
 
 router.patch(
   "/contractor/:projectId/:taskId/task",
   authenticate,
-  updateTaskByIdForContractor
+  updateTaskByIdForContractor,
 );
 
 router.patch("/updateProject/:projectId", authenticate, updateProject);
@@ -70,25 +71,25 @@ router.patch("/updateProject/:projectId", authenticate, updateProject);
 router.patch(
   "/site-incharge/:projectId/:taskId/task",
   authenticate,
-  updateTaskByIdForSiteIncharge
+  updateTaskByIdForSiteIncharge,
 );
 
 router.post(
   "/site-incharge/ass-contractor",
   authenticate,
-  addContractorForSiteIncharge
+  addContractorForSiteIncharge,
 );
 
 router.post(
   "/site-incharge/assign-task-to-contractor",
   authenticate,
-  assignTaskToContractor
+  assignTaskToContractor,
 );
 
 router.put(
   "/contractor/:projectId/:taskId/mini/task",
   authenticate,
-  miniUpdateTaskByIdForContractor
+  miniUpdateTaskByIdForContractor,
 );
 
 router.post("/tasks/create", authenticate, createTaskForProjectUnit);
