@@ -181,7 +181,7 @@ export const getUserTasks = async (req, res) => {
           ) {
             taskList.push({
               ...commonTaskData,
-              status: task.statusForContractor || "In progress",
+              status: task.statusForContractor || "in_progress",
               progress: task.progressPercentage,
 
               verificationDecision: task.verificationDecision || "",
@@ -192,7 +192,7 @@ export const getUserTasks = async (req, res) => {
           } else if (["owner", "admin", "customer_purchased"].includes(role)) {
             taskList.push({
               ...commonTaskData,
-              status: task.statusForContractor || "In progress",
+              status: task.statusForContractor || "in_progress",
               progress: task.progressPercentage,
               contractorName:
                 contractorMap[taskContractorId] || "Unknown Contractor",
@@ -768,7 +768,7 @@ export const addContractorForSiteIncharge = async (req, res) => {
     const newTask = {
       contractor,
       title: taskTitle,
-      statusForContractor: "In progress",
+      statusForContractor: "in_progress",
       statusForSiteIncharge: "pending verification",
       deadline: deadline ? new Date(deadline) : new Date(),
       progressPercentage: 0,
@@ -833,7 +833,7 @@ export const assignTaskToContractor = async (req, res) => {
       deadline,
       constructionPhase: phase,
       description,
-      statusForContractor: "In progress",
+      statusForContractor: "in_progress",
       statusForSiteIncharge: "pending verification",
       progressPercentage: 0,
     };

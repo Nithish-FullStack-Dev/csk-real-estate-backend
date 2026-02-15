@@ -15,9 +15,9 @@ const TaskSchema = new Schema({
   },
   statusForContractor: {
     type: String,
-    enum: ["In progress", "completed", "pending review"],
+    enum: ["in_progress", "completed", "pending_review"],
     required: true,
-    default: "In progress",
+    default: "in_progress",
   },
   statusForSiteIncharge: {
     type: String,
