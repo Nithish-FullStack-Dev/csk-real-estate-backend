@@ -7,7 +7,7 @@ const openLandSchema = new Schema(
     projectName: { type: String, trim: true, required: true, index: true },
     location: { type: String, trim: true, required: true, index: true },
 
-    surveyNumber: { type: String, default: "" },
+    surveyNumber: { type: String, trim: true, default: "" },
 
     landType: {
       type: String,
@@ -127,8 +127,9 @@ const openLandSchema = new Schema(
       ref: "User",
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
+openLandSchema.index({ surveyNumber: 1, location: 1 }, { unique: true });
 
 const OpenLand = mongoose.model("OpenLand", openLandSchema);
 export default OpenLand;
