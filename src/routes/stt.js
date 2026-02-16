@@ -1,3 +1,5 @@
+import dotenv from "dotenv";
+dotenv.config();
 import express from "express";
 import multer from "multer";
 import axios from "axios";
@@ -5,6 +7,9 @@ import FormData from "form-data";
 import fs from "fs";
 
 const router = express.Router();
+const WHISPER_HOST = process.env.WHISPER_HOST;
+const WHISPER_PORT = process.env.WHISPER_PORT;
+const whisperURL = `http://${WHISPER_HOST}:${WHISPER_PORT}/transcribe`;
 
 const upload = multer({
   dest: "uploads/",
@@ -17,7 +22,7 @@ router.post("/stt", upload.single("audio"), async (req, res) => {
     form.append("file", fs.createReadStream(req.file.path));
 
     const response = await axios.post(
-      "http://localhost:8001/transcribe",
+      whisperURL,
       form,
       { headers: form.getHeaders() }
     );
