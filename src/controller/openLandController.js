@@ -14,7 +14,7 @@ const populateOpenLand = (query) =>
     .populate("ownerCustomer", "name phone email")
     .populate(
       "interestedCustomers.lead",
-      "name phone email status propertyStatus"
+      "name phone email status propertyStatus",
     )
     .populate("interestedCustomers.agent", "name email")
     .populate("soldToCustomer", "name phone email")
@@ -25,18 +25,24 @@ export const createOpenLand = async (req, res) => {
   try {
     const data = req.body;
 
-    // Check if projectName already exists (optional unique constraint)
+    // normalize
+    data.projectName = data.projectName?.trim();
+    data.location = data.location?.trim();
+    data.surveyNumber = data.surveyNumber?.trim();
+
+    // logical duplicate check
     const existingLand = await OpenLand.findOne({
-      projectName: data.projectName,
+      surveyNumber: data.surveyNumber,
+      location: data.location,
     });
 
     if (existingLand) {
       return res.status(409).json({
         success: false,
-        message: "Project name already exists. Please provide a unique name.",
+        message: "Land already exists for this survey number in this location.",
         error: {
-          field: "projectName",
-          code: "DUPLICATE_PROJECT_NAME",
+          field: "surveyNumber",
+          code: "DUPLICATE_SURVEY_LOCATION",
         },
       });
     }
@@ -44,7 +50,6 @@ export const createOpenLand = async (req, res) => {
     const newLand = new OpenLand(data);
     await newLand.save();
 
-    // populate the saved document before returning
     const populated = await populateOpenLand(OpenLand.findById(newLand._id));
 
     res.status(201).json({
@@ -55,11 +60,15 @@ export const createOpenLand = async (req, res) => {
   } catch (error) {
     console.error("Error creating open land:", error);
 
-    if (error.code === 11000 && error.keyPattern?.projectName) {
+    if (error.code === 11000) {
       return res.status(409).json({
         success: false,
-        message: "Project name already exists.",
-        error: { field: "projectName", code: "DUPLICATE_PROJECT_NAME_DB" },
+        message:
+          "Land already exists with this survey number in this location.",
+        error: {
+          field: "surveyNumber",
+          code: "DUPLICATE_SURVEY_LOCATION_DB",
+        },
       });
     }
 
@@ -254,7 +263,7 @@ export const removeInterestedCustomer = async (req, res) => {
     await OpenLand.findByIdAndUpdate(
       id,
       { $pull: { interestedCustomers: { _id: interestId } } },
-      { new: true }
+      { new: true },
     );
 
     const populated = await populateOpenLand(OpenLand.findById(id));
@@ -303,7 +312,7 @@ export const markAsSold = async (req, res) => {
 
     // OPTIONAL — keep only buyer in interested list
     land.interestedCustomers = land.interestedCustomers.filter(
-      (c) => c.lead?.toString() === soldToCustomerId
+      (c) => c.lead?.toString() === soldToCustomerId,
     );
 
     await land.save();
