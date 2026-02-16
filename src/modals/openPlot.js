@@ -1,3 +1,4 @@
+// src\modals\openPlot.js
 import mongoose from "mongoose";
 
 const OpenPlotSchema = new mongoose.Schema(
