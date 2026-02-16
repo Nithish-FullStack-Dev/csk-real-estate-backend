@@ -59,16 +59,18 @@ export const createInnerPlot = asyncHandler(async (req, res) => {
 });
 
 /* ================= GET BY OPEN PLOT ================= */
-export const getInnerPlotsByOpenPlot = asyncHandler(async (req, res) => {
-  const { openPlotId } = req.params;
+export const getInnerPlotById = asyncHandler(async (req, res) => {
+  const { _id } = req.params;
 
-  const plots = await InnerPlot.find({ openPlotId }).sort({
-    createdAt: -1,
-  });
+  const plot = await InnerPlot.findOne({ _id });
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, plots, "Inner plots fetched"));
+  if (!plot) {
+    return res
+      .status(404)
+      .json(new ApiResponse(404, null, "Inner plot not found"));
+  }
+
+  return res.status(200).json(new ApiResponse(200, plot, "Inner plot fetched"));
 });
 
 export const getAllInnerPlot = asyncHandler(async (req, res) => {

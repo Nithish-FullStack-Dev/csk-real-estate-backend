@@ -2,10 +2,10 @@ import { Router } from "express";
 import { upload } from "../middlewares/multer.js";
 import {
   createInnerPlot,
-  getInnerPlotsByOpenPlot,
   updateInnerPlot,
   deleteInnerPlot,
   getAllInnerPlot,
+  getInnerPlotById,
 } from "../controller/innerPlot.controller.js";
 
 const router = Router();
@@ -16,7 +16,7 @@ const uploadFields = upload.fields([
 ]);
 
 router.post("/saveInnerPlot", uploadFields, createInnerPlot);
-router.get("/by-openplot/:openPlotId", getInnerPlotsByOpenPlot);
+router.get("/by-openplot/:_id", getInnerPlotById);
 router.get("/getAllInnerPlot/:openPlotId", getAllInnerPlot);
 router.put("/updateInnerPlot/:_id", uploadFields, updateInnerPlot);
 router.delete("/deleteInnerPlot/:_id", deleteInnerPlot);
