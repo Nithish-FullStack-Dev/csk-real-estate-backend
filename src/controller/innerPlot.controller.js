@@ -1,3 +1,4 @@
+// src\controller\innerPlot.controller.js
 import { getFilePath } from "../utils/getFilePath.js";
 import { uploadFile } from "../utils/uploadFile.js";
 import InnerPlot from "../modals/InnerPlot.js";
@@ -92,13 +93,14 @@ export const getAllInnerPlot = asyncHandler(async (req, res) => {
 /* ================= UPDATE ================= */
 export const updateInnerPlot = asyncHandler(async (req, res) => {
   const { _id } = req.params;
-  const body = req.body;
 
   const existing = await InnerPlot.findById(_id);
   if (!existing) throw new ApiError(404, "Inner plot not found");
 
   let thumbnailUrl = existing.thumbnailUrl;
   let images = existing.images || [];
+
+  /* ---------- FILE HANDLING ---------- */
 
   const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
   if (thumbnailLocalPath) {
@@ -114,10 +116,27 @@ export const updateInnerPlot = asyncHandler(async (req, res) => {
     images = [...images, ...newImages];
   }
 
+  /* ---------- BODY FIX (TYPE CONVERSION) ---------- */
+
+  const body = { ...req.body };
+
+  if (body.area) body.area = Number(body.area);
+  if (body.wastageArea) body.wastageArea = Number(body.wastageArea);
+  if (body.roadWidthFt) body.roadWidthFt = Number(body.roadWidthFt);
+
+  /* ---------- UPDATE ---------- */
+
   const updated = await InnerPlot.findByIdAndUpdate(
     _id,
-    { ...body, thumbnailUrl, images },
-    { new: true },
+    {
+      ...body,
+      thumbnailUrl,
+      images,
+    },
+    {
+      new: true,
+      runValidators: true,
+    },
   );
 
   return res

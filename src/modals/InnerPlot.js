@@ -6,16 +6,11 @@ const InnerPlotSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "OpenPlot",
       required: true,
-      index: true,
     },
 
     plotNo: {
       type: String,
       required: true,
-    },
-
-    wastageArea: {
-      type: String,
     },
 
     area: {
@@ -27,8 +22,6 @@ const InnerPlotSchema = new mongoose.Schema(
       type: String,
       enum: ["North", "South", "East", "West"],
     },
-
-    roadWidthFt: Number,
 
     plotType: {
       type: String,
@@ -42,12 +35,17 @@ const InnerPlotSchema = new mongoose.Schema(
       default: "Available",
     },
 
-    remarks: String,
+    wastageArea: Number,
+    roadWidthFt: Number,
 
-    thumbnailUrl: { type: String },
-    images: { type: [String], default: [] },
+    thumbnailUrl: String,
+    images: [String],
   },
   { timestamps: true },
 );
 
-export default mongoose.model("InnerPlot", InnerPlotSchema);
+/* prevent duplicate numbering in same layout */
+InnerPlotSchema.index({ openPlotId: 1, plotNo: 1 }, { unique: true });
+
+export default mongoose.models.InnerPlot ||
+  mongoose.model("InnerPlot", InnerPlotSchema);
