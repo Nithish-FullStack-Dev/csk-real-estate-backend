@@ -1,59 +1,48 @@
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
 
-// Cloudinary configuration
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-export const uploadOnCloudniary = async (localFilePath) => {
+export const uploadOnCloudniary = async (localFilePath, options = {}) => {
   try {
     if (!localFilePath) return null;
 
     const response = await cloudinary.uploader.upload(localFilePath, {
-      resource_type: "image",
-      folder: "csk/images",
-      format: "webp",
-      transformation: [{ quality: "auto", fetch_format: "auto" }],
+      resource_type: options.resource_type || "image",
+      folder: options.folder || "csk/images",
+      ...options,
     });
 
-    // ✅ Delete temp file after successful upload
     fs.unlinkSync(localFilePath);
-
-    return response.secure_url;
+    return response;
   } catch (error) {
     console.error("Cloudinary upload failed:", error);
-
-    // ✅ Try to delete the temp file even on failure
-    if (fs.existsSync(localFilePath)) {
-      fs.unlinkSync(localFilePath);
-    }
-
+    if (fs.existsSync(localFilePath)) fs.unlinkSync(localFilePath);
     return null;
   }
 };
 
-export const uploadPdfToCloudinary = async (localFilePath) => {
+/* PDF upload */
+export const uploadPdfToCloudinary = async (localFilePath, originalName) => {
   try {
     if (!localFilePath) return null;
+
     const response = await cloudinary.uploader.upload(localFilePath, {
       resource_type: "raw",
       folder: "csk/pdfs",
-      format: "pdf",
-      access_mode: "public",
+      use_filename: true,
+      unique_filename: true,
     });
+
     fs.unlinkSync(localFilePath);
     return response.secure_url;
   } catch (error) {
-    console.error("Cloudinary upload failed:", error);
-
-    // ✅ Try to delete the temp file even on failure
-    if (fs.existsSync(localFilePath)) {
-      fs.unlinkSync(localFilePath);
-    }
-
+    console.error("Cloudinary PDF upload failed:", error);
+    if (fs.existsSync(localFilePath)) fs.unlinkSync(localFilePath);
     return null;
   }
 };

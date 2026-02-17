@@ -1,9 +1,17 @@
+// src/controller/openPlotController.js
+
+import mongoose from "mongoose";
+import { uploadPdfToCloudinary } from "../config/cloudinary.js";
 import OpenPlot from "../modals/openPlot.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { getFilePath } from "../utils/getFilePath.js";
 import { uploadFile } from "../utils/uploadFile.js";
+
+/* ========================================================= */
+/* CREATE OPEN PLOT */
+/* ========================================================= */
 
 export const createOpenPlot = asyncHandler(async (req, res) => {
   const {
@@ -24,7 +32,6 @@ export const createOpenPlot = asyncHandler(async (req, res) => {
     boundaries,
   } = req.body;
 
-  /* -------- Required Field Validation -------- */
   if (
     !projectName?.trim() ||
     !openPlotNo?.trim() ||
@@ -34,38 +41,37 @@ export const createOpenPlot = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Required fields are missing");
   }
 
-  /* -------- Duplicate Open Plot Check -------- */
   const existingPlot = await OpenPlot.findOne({ openPlotNo });
   if (existingPlot) {
-    throw new ApiError(409, "Open Plot with this number already exists");
+    throw new ApiError(409, "Open Plot already exists");
   }
 
-  /* -------- Thumbnail Upload (Required) -------- */
   const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
-  if (!thumbnailLocalPath) {
+  const brochureLocalPath = getFilePath(req.files, "brochureUrl");
+
+  if (!thumbnailLocalPath)
     throw new ApiError(400, "Thumbnail image is required");
-  }
+
+  if (!brochureLocalPath) throw new ApiError(400, "Brochure PDF is required");
 
   const thumbnailUrl = await uploadFile(
     thumbnailLocalPath,
     "OpenPlot/Thumbnail",
   );
-  if (!thumbnailUrl) {
-    throw new ApiError(500, "Failed to upload thumbnail");
+
+  const brochureUrl = await uploadPdfToCloudinary(brochureLocalPath);
+
+  if (!thumbnailUrl || !brochureUrl) {
+    throw new ApiError(500, "File upload failed");
   }
 
-  /* -------- Gallery Images Upload (Optional) -------- */
   let imageUrls = [];
   if (req.files?.images && Array.isArray(req.files.images)) {
     imageUrls = await Promise.all(
-      req.files.images.map(async (file) => {
-        const uploadedUrl = await uploadFile(file.path, "OpenPlot/Gallery");
-        return uploadedUrl;
-      }),
+      req.files.images.map((file) => uploadFile(file.path, "OpenPlot/Gallery")),
     );
   }
 
-  /* -------- Create Open Plot -------- */
   const openPlot = await OpenPlot.create({
     projectName,
     openPlotNo,
@@ -82,118 +88,123 @@ export const createOpenPlot = asyncHandler(async (req, res) => {
     reraNo,
     documentNo,
     boundaries,
+    brochureUrl,
     thumbnailUrl,
     images: imageUrls,
   });
 
-  const createdPlot = await OpenPlot.findById(openPlot._id);
-  if (!createdPlot) {
-    throw new ApiError(500, "Something went wrong while creating Open Plot");
-  }
-
-  return res
+  res
     .status(201)
-    .json(new ApiResponse(201, createdPlot, "Open Plot created successfully"));
+    .json(new ApiResponse(201, openPlot, "Open Plot created successfully"));
 });
+
+/* ========================================================= */
+/* UPDATE OPEN PLOT */
+/* ========================================================= */
 
 export const updateOpenPlot = asyncHandler(async (req, res) => {
   const { _id } = req.params;
-  const body = req.body;
 
-  if (!_id) {
-    throw new ApiError(400, "Open Plot ID (_id) is required");
-  }
+  if (!_id) throw new ApiError(400, "Open Plot ID required");
 
   const existingPlot = await OpenPlot.findById(_id);
-  if (!existingPlot) {
-    throw new ApiError(404, "Open Plot not found");
-  }
+  if (!existingPlot) throw new ApiError(404, "Open Plot not found");
 
   let thumbnailUrl = existingPlot.thumbnailUrl;
+  let brochureUrl = existingPlot.brochureUrl;
   let images = existingPlot.images || [];
 
-  /* -------- Thumbnail Update (Optional) -------- */
   const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
+  const brochureLocalPath = getFilePath(req.files, "brochureUrl");
+
+  /* -------- remove brochure from UI -------- */
+  if (
+    req.body.brochureRemoved === "true" ||
+    req.body.brochureRemoved === true
+  ) {
+    brochureUrl = "";
+  }
+
+  /* -------- replace brochure -------- */
+  if (brochureLocalPath) {
+    const uploadedBrochure = await uploadPdfToCloudinary(brochureLocalPath);
+    if (!uploadedBrochure) throw new ApiError(500, "Brochure upload failed");
+    brochureUrl = uploadedBrochure;
+  }
+
+  /* -------- replace thumbnail -------- */
   if (thumbnailLocalPath) {
     const uploadedThumbnail = await uploadFile(
       thumbnailLocalPath,
       "OpenPlot/Thumbnail",
     );
-    if (!uploadedThumbnail) {
-      throw new ApiError(500, "Failed to upload thumbnail");
-    }
+    if (!uploadedThumbnail) throw new ApiError(500, "Thumbnail upload failed");
     thumbnailUrl = uploadedThumbnail;
   }
 
-  /* -------- Add New Gallery Images (Append) -------- */
+  /* -------- append gallery images -------- */
   if (req.files?.images && Array.isArray(req.files.images)) {
     const newImages = await Promise.all(
-      req.files.images.map(async (file) => {
-        const uploadedUrl = await uploadFile(file.path, "OpenPlot/Gallery");
-        return uploadedUrl;
-      }),
+      req.files.images.map((file) => uploadFile(file.path, "OpenPlot/Gallery")),
     );
     images = [...images, ...newImages];
   }
 
-  /* -------- Final Update Payload -------- */
-  const updatedData = {
-    ...body,
-    thumbnailUrl,
-    images,
-  };
+  const updatedPlot = await OpenPlot.findByIdAndUpdate(
+    _id,
+    {
+      ...req.body,
+      thumbnailUrl,
+      brochureUrl,
+      images,
+    },
+    { new: true, runValidators: true },
+  );
 
-  const updatedPlot = await OpenPlot.findByIdAndUpdate(_id, updatedData, {
-    new: true,
-    runValidators: true,
-  });
-
-  return res
+  res
     .status(200)
     .json(new ApiResponse(200, updatedPlot, "Open Plot updated successfully"));
 });
 
+/* ========================================================= */
+/* GET ALL */
+/* ========================================================= */
+
 export const getAllOpenPlots = asyncHandler(async (req, res) => {
   const openPlots = await OpenPlot.find().sort({ createdAt: -1 });
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, openPlots, "Open plots fetched successfully"));
+  res.status(200).json(new ApiResponse(200, openPlots));
 });
+
+/* ========================================================= */
+/* GET ONE */
+/* ========================================================= */
 
 export const getOpenPlotById = asyncHandler(async (req, res) => {
   const { _id } = req.params;
 
-  if (!_id) {
-    throw new ApiError(400, "Open Plot ID (_id) is required");
-  }
+  if (!_id) throw new ApiError(400, "Open Plot ID required");
 
-  const openPlot = await OpenPlot.findById(_id);
+  const plot = await OpenPlot.findById(_id);
+  if (!plot) throw new ApiError(404, "Open Plot not found");
 
-  if (!openPlot) {
-    throw new ApiError(404, "Open Plot not found");
-  }
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, openPlot, "Open plot fetched successfully"));
+  res.status(200).json(new ApiResponse(200, plot));
 });
+
+/* ========================================================= */
+/* DELETE */
+/* ========================================================= */
 
 export const deleteOpenPlot = asyncHandler(async (req, res) => {
   const { _id } = req.params;
 
-  if (!_id) {
-    throw new ApiError(400, "Open Plot ID (_id) is required");
-  }
+  if (!_id) throw new ApiError(400, "Open Plot ID required");
 
-  const existingPlot = await OpenPlot.findById(_id);
-  if (!existingPlot) {
-    throw new ApiError(404, "Open Plot not found");
-  }
+  const plot = await OpenPlot.findById(_id);
+  if (!plot) throw new ApiError(404, "Open Plot not found");
 
   await OpenPlot.findByIdAndDelete(_id);
 
-  return res
+  res
     .status(200)
     .json(new ApiResponse(200, null, "Open Plot deleted successfully"));
 });

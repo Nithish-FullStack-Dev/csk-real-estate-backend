@@ -63,12 +63,10 @@ router.get("/download-proxy", async (req, res) => {
     // );
 
     if (!publicId || !format) {
-      return res
-        .status(400)
-        .json({
-          error: "Could not parse public_id/format from Cloudinary URL",
-          parsed: { publicId, format, inferredResourceType },
-        });
+      return res.status(400).json({
+        error: "Could not parse public_id/format from Cloudinary URL",
+        parsed: { publicId, format, inferredResourceType },
+      });
     }
 
     // Candidate resource types to try (prefer inferred if present)
@@ -94,7 +92,7 @@ router.get("/download-proxy", async (req, res) => {
               resource_type: rt,
               type: t,
               attachment: true,
-            }
+            },
           );
           // quick check with HEAD to confirm it exists
           const headResp = await fetch(candidate, { method: "HEAD" });
@@ -105,14 +103,14 @@ router.get("/download-proxy", async (req, res) => {
             break;
           } else {
             console.log(
-              `Signed URL HEAD check failed (${headResp.status}) for rt=${rt} type=${t}`
+              `Signed URL HEAD check failed (${headResp.status}) for rt=${rt} type=${t}`,
             );
           }
         } catch (err) {
           // ignore and try next
           console.log(
             `private_download_url failed for rt=${rt} type=${t}`,
-            err.message || err
+            err.message || err,
           );
         }
       }
@@ -151,7 +149,7 @@ router.get("/download-proxy", async (req, res) => {
               resource_type: foundInfo.resourceType,
               type: "authenticated",
               attachment: true,
-            }
+            },
           );
           const headResp = await fetch(candidate, { method: "HEAD" });
           if (headResp.ok) {
@@ -185,7 +183,6 @@ router.get("/download-proxy", async (req, res) => {
     //   usedType
     // );
     return res.redirect(signedUrl);
-
   } catch (err) {
     console.error("Download proxy error:", err);
     return res
