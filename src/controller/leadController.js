@@ -385,39 +385,57 @@ export const getLeadsByUnitId = asyncHandler(async (req, res) => {
 
 export const getLeadsByOpenPlotId = asyncHandler(async (req, res) => {
   const { _id } = req.params;
+
   if (!_id) throw new ApiError(400, "Open plot id missing");
+
   const accessQuery = await buildLeadAccessQuery(req.user);
 
   const leads = await Lead.find({
-    openPlot: _id,
+    innerPlot: _id,
+    isPlotLead: true,
     ...accessQuery,
   })
-    .populate("property", "_id projectName location propertyType")
-    .populate("floorUnit", "_id floorNumber unitType")
-    .populate("openPlot", "_id plotNo memNo")
+    .populate("openPlot", "_id projectName openPlotNo")
+    .populate("innerPlot", "_id plotNo")
     .populate("addedBy", "name email role avatar");
-  if (!leads || leads.length === 0)
-    throw new ApiError(404, "No leads found for the given open plot id");
+
+  if (!leads || leads.length === 0) {
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, [], "No leads found for the given open plot id"),
+      );
+  }
+
   res
     .status(200)
-    .json(new ApiResponse(200, leads, "Leads fetched successfully"));
+    .json(new ApiResponse(200, leads, "Open plot leads fetched successfully"));
 });
 
 export const getLeadsByOpenLandId = asyncHandler(async (req, res) => {
   const { _id } = req.params;
+
   if (!_id) throw new ApiError(400, "Open land id missing");
+
   const accessQuery = await buildLeadAccessQuery(req.user);
 
   const leads = await Lead.find({
     openLand: _id,
+    isLandLead: true,
     ...accessQuery,
   })
-    .populate("property", "_id projectName location propertyType")
-    .populate("openLand", "_id location landType")
+    .populate("openLand", "_id projectName location landType")
     .populate("addedBy", "name email role avatar");
-  if (!leads || leads.length === 0)
-    throw new ApiError(404, "No leads found for the given open land id");
+
+  if (!leads || leads.length === 0) {
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, [], "No leads found for the given open land id"),
+      );
+  }
+
   res
     .status(200)
-    .json(new ApiResponse(200, leads, "Leads fetched successfully"));
+    .json(new ApiResponse(200, leads, "Open land leads fetched successfully"));
 });
