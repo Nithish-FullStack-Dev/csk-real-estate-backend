@@ -27,26 +27,36 @@ const leadSchema = new mongoose.Schema(
     property: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Building",
-      required: true,
+      default: null,
     },
     floorUnit: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "FloorUnit",
-      required: true,
+      default: null,
     },
     unit: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "PropertyUnit",
-      required: true,
+      default: null,
     },
     openPlot: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "OpenPlot",
+      default: null,
+    },
+    innerPlot: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "InnerPlot",
+      default: null,
     },
     openLand: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "OpenLand",
+      default: null,
     },
+    isPlotLead: { type: Boolean, default: false },
+    isLandLead: { type: Boolean, default: false },
+    isPropertyLead: { type: Boolean, default: false },
     lastContact: {
       type: Date,
       default: Date.now,
@@ -58,7 +68,7 @@ const leadSchema = new mongoose.Schema(
     },
     notes: { type: String, default: "" },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.model("Lead", leadSchema);

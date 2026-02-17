@@ -197,3 +197,17 @@ export const deleteOpenPlot = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, null, "Open Plot deleted successfully"));
 });
+
+export const getOpenPlotDropdown = asyncHandler(async (req, res) => {
+  const openPlots = await OpenPlot.find();
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        openPlots,
+        "Open plot dropdown fetched successfully",
+      ),
+    );
+});

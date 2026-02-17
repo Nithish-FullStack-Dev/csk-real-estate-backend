@@ -9,6 +9,7 @@ import {
   deleteInnerPlot,
   getAllInnerPlot,
   getInnerPlotById,
+  getInnerPlotDropdown,
 } from "../controller/innerPlot.controller.js";
 
 import {
@@ -30,5 +31,7 @@ router.put("/updateInnerPlot/:_id", uploadFields, updateInnerPlot);
 router.delete("/deleteInnerPlot/:_id", deleteInnerPlot);
 router.post("/generate-bulk", generateBulkInnerPlots);
 router.post("/csv-upload", csvUpload.single("file"), bulkCsvInnerPlots);
+
+router.get("/getInnerPlotDropdown/:openPlotId", getInnerPlotDropdown);
 
 export default router;

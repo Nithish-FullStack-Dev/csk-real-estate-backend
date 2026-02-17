@@ -1,5 +1,7 @@
 import express from "express";
 import {
+  createOpenLandLead,
+  createOpenPlotLead,
   deleteLeadById,
   getAllLeads,
   getAvailableProperties,
@@ -25,5 +27,8 @@ router.get("/getLeadsByOpenPlotId/:_id", authenticate, getLeadsByOpenPlotId);
 router.get("/getLeadsByOpenLandId/:_id", authenticate, getLeadsByOpenLandId);
 router.put("/updateLead/:id", authenticate, updateLeadById);
 router.delete("/deleteLead/:id", authenticate, deleteLeadById);
+
+router.post("/open-plot", authenticate, createOpenPlotLead);
+router.post("/open-land", authenticate, createOpenLandLead);
 
 export default router;

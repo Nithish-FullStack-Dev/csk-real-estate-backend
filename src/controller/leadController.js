@@ -2,7 +2,6 @@ import Lead from "../modals/leadModal.js";
 import Property from "../modals/propertyModel.js";
 import Commission from "../modals/commissionsModal.js";
 import TeamManagement from "../modals/teamManagementModal.js";
-
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
@@ -10,9 +9,7 @@ import ApiResponse from "../utils/ApiResponse.js";
 export const saveLead = asyncHandler(async (req, res) => {
   const leadData = req.body;
   leadData.addedBy = req.user._id;
-
-  if (leadData.openPlot === "") leadData.openPlot = undefined;
-  if (leadData.openLand === "") leadData.openLand = undefined;
+  leadData.isPropertyLead = true;
 
   const newLead = new Lead(leadData);
   const savedLead = await newLead.save();
@@ -20,6 +17,84 @@ export const saveLead = asyncHandler(async (req, res) => {
   res
     .status(201)
     .json(new ApiResponse(201, savedLead, "Lead saved successfully"));
+});
+
+export const createOpenPlotLead = asyncHandler(async (req, res) => {
+  const { openPlot, name, email, phone, source, notes, innerPlot } = req.body;
+
+  if (!openPlot || !innerPlot) {
+    return res
+      .status(400)
+      .json(new ApiResponse(400, null, "Open plot is required"));
+  }
+
+  const lead = await Lead.create({
+    name,
+    email,
+    phone,
+    source,
+    notes,
+
+    // plot relation
+    openPlot,
+    innerPlot,
+
+    // reset others
+    property: null,
+    floorUnit: null,
+    unit: null,
+    openLand: null,
+
+    // flags
+    isPlotLead: true,
+    isLandLead: false,
+    isPropertyLead: false,
+
+    addedBy: req.user._id,
+  });
+
+  res
+    .status(201)
+    .json(new ApiResponse(201, lead, "Open plot lead created successfully"));
+});
+
+export const createOpenLandLead = asyncHandler(async (req, res) => {
+  const { openLand, name, email, phone, source, notes } = req.body;
+
+  if (!openLand) {
+    return res
+      .status(400)
+      .json(new ApiResponse(400, null, "Open land is required"));
+  }
+
+  const lead = await Lead.create({
+    name,
+    email,
+    phone,
+    source,
+    notes,
+
+    // land relation
+    openLand,
+
+    // reset others
+    property: null,
+    floorUnit: null,
+    unit: null,
+    openPlot: null,
+    innerPlot: null,
+
+    // flags
+    isLandLead: true,
+    isPlotLead: false,
+    isPropertyLead: false,
+
+    addedBy: req.user._id,
+  });
+
+  res
+    .status(201)
+    .json(new ApiResponse(201, lead, "Open land lead created successfully"));
 });
 
 export const getAllLeads = async (req, res) => {
@@ -108,7 +183,8 @@ export const getLeadsByUserId = async (req, res) => {
       .populate("property", "projectName location propertyType")
       .populate("floorUnit", "floorNumber unitType")
       .populate("unit", "plotNo propertyType")
-      .populate("openPlot", "projectName plotNo memNo")
+      .populate("openPlot", "projectName openPlotNo")
+      .populate("innerPlot", "plotNo")
       .populate("openLand", "projectName location landType")
       .populate("addedBy");
     res.status(200).json(leads);
@@ -126,10 +202,11 @@ export const updateLeadById = async (req, res) => {
     const { role, _id } = req.user;
 
     const lead = await Lead.findById(id);
+    if (!lead) {
+      return res.status(404).json({ message: "Lead not found" });
+    }
 
-    if (!lead) return res.status(404).json({ message: "Lead not found" });
-
-    // Only admin/sales_manager OR owner agent can edit
+    // RBAC
     if (
       role !== "admin" &&
       role !== "sales_manager" &&
@@ -138,15 +215,83 @@ export const updateLeadById = async (req, res) => {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
-    const updatedLead = await Lead.findByIdAndUpdate(
-      id,
-      { ...req.body, lastContact: new Date() },
-      { new: true, runValidators: true },
-    );
+    const {
+      name,
+      email,
+      phone,
+      source,
+      status,
+      propertyStatus,
+      notes,
+      property,
+      floorUnit,
+      unit,
+      openPlot,
+      innerPlot,
+      openLand,
+    } = req.body;
 
-    res.status(200).json({ message: "Lead updated", updatedLead });
+    const update = {
+      name,
+      email,
+      phone,
+      source,
+      status,
+      propertyStatus,
+      notes,
+      lastContact: new Date(),
+    };
+
+    /* ---------------- Lead-type enforcement ---------------- */
+
+    // PROPERTY LEAD
+    if (lead.isPropertyLead) {
+      update.property = property;
+      update.floorUnit = floorUnit;
+      update.unit = unit;
+
+      update.openPlot = null;
+      update.innerPlot = null;
+      update.openLand = null;
+    }
+
+    // PLOT LEAD
+    if (lead.isPlotLead) {
+      update.openPlot = openPlot;
+      update.innerPlot = innerPlot;
+
+      update.property = null;
+      update.floorUnit = null;
+      update.unit = null;
+      update.openLand = null;
+    }
+
+    // LAND LEAD
+    if (lead.isLandLead) {
+      update.openLand = openLand;
+
+      update.property = null;
+      update.floorUnit = null;
+      update.unit = null;
+      update.openPlot = null;
+      update.innerPlot = null;
+    }
+
+    const updatedLead = await Lead.findByIdAndUpdate(id, update, {
+      new: true,
+      runValidators: true,
+    });
+
+    res.status(200).json({
+      message: "Lead updated successfully",
+      updatedLead,
+    });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error("Update Lead Error:", error);
+    res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
 
@@ -240,39 +385,57 @@ export const getLeadsByUnitId = asyncHandler(async (req, res) => {
 
 export const getLeadsByOpenPlotId = asyncHandler(async (req, res) => {
   const { _id } = req.params;
+
   if (!_id) throw new ApiError(400, "Open plot id missing");
+
   const accessQuery = await buildLeadAccessQuery(req.user);
 
   const leads = await Lead.find({
-    openPlot: _id,
+    innerPlot: _id,
+    isPlotLead: true,
     ...accessQuery,
   })
-    .populate("property", "_id projectName location propertyType")
-    .populate("floorUnit", "_id floorNumber unitType")
-    .populate("openPlot", "_id plotNo memNo")
+    .populate("openPlot", "_id projectName openPlotNo")
+    .populate("innerPlot", "_id plotNo")
     .populate("addedBy", "name email role avatar");
-  if (!leads || leads.length === 0)
-    throw new ApiError(404, "No leads found for the given open plot id");
+
+  if (!leads || leads.length === 0) {
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, [], "No leads found for the given open plot id"),
+      );
+  }
+
   res
     .status(200)
-    .json(new ApiResponse(200, leads, "Leads fetched successfully"));
+    .json(new ApiResponse(200, leads, "Open plot leads fetched successfully"));
 });
 
 export const getLeadsByOpenLandId = asyncHandler(async (req, res) => {
   const { _id } = req.params;
+
   if (!_id) throw new ApiError(400, "Open land id missing");
+
   const accessQuery = await buildLeadAccessQuery(req.user);
 
   const leads = await Lead.find({
     openLand: _id,
+    isLandLead: true,
     ...accessQuery,
   })
-    .populate("property", "_id projectName location propertyType")
-    .populate("openLand", "_id location landType")
+    .populate("openLand", "_id projectName location landType")
     .populate("addedBy", "name email role avatar");
-  if (!leads || leads.length === 0)
-    throw new ApiError(404, "No leads found for the given open land id");
+
+  if (!leads || leads.length === 0) {
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, [], "No leads found for the given open land id"),
+      );
+  }
+
   res
     .status(200)
-    .json(new ApiResponse(200, leads, "Leads fetched successfully"));
+    .json(new ApiResponse(200, leads, "Open land leads fetched successfully"));
 });

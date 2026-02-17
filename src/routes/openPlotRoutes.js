@@ -7,7 +7,9 @@ import {
   getOpenPlotById,
   deleteOpenPlot,
   getAllOpenPlots,
+  getOpenPlotDropdown,
 } from "../controller/openPlotController.js";
+import { authenticate } from "../middlewares/authMiddleware.js";
 
 const router = Router();
 
@@ -23,5 +25,7 @@ router.put("/updateOpenplot/:_id", uploadFields, updateOpenPlot);
 router.get("/getAllOpenPlot", getAllOpenPlots);
 router.get("/getOpenplot/:_id", getOpenPlotById);
 router.delete("/deleteOpenplot/:_id", deleteOpenPlot);
+
+router.get("/getOpenPlotDropdown", authenticate, getOpenPlotDropdown);
 
 export default router;
