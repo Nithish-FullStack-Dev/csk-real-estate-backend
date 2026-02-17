@@ -131,3 +131,19 @@ export const deleteInnerPlot = asyncHandler(async (req, res) => {
   await InnerPlot.findByIdAndDelete(_id);
   return res.status(200).json(new ApiResponse(200, null, "Inner plot deleted"));
 });
+
+export const getInnerPlotDropdown = asyncHandler(async (req, res) => {
+  const { openPlotId } = req.params;
+
+  const innerPlots = await InnerPlot.find({ openPlotId });
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        innerPlots,
+        "Inner plot dropdown fetched successfully",
+      ),
+    );
+});

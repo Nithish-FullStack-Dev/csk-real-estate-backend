@@ -6,6 +6,7 @@ import {
   deleteInnerPlot,
   getAllInnerPlot,
   getInnerPlotById,
+  getInnerPlotDropdown,
 } from "../controller/innerPlot.controller.js";
 
 const router = Router();
@@ -20,5 +21,7 @@ router.get("/by-openplot/:_id", getInnerPlotById);
 router.get("/getAllInnerPlot/:openPlotId", getAllInnerPlot);
 router.put("/updateInnerPlot/:_id", uploadFields, updateInnerPlot);
 router.delete("/deleteInnerPlot/:_id", deleteInnerPlot);
+
+router.get("/getInnerPlotDropdown/:openPlotId", getInnerPlotDropdown);
 
 export default router;
