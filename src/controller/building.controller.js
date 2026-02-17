@@ -1,3 +1,4 @@
+import { uploadPdfToCloudinary } from "../config/cloudinary.js";
 import Building from "../modals/building.model.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
@@ -24,27 +25,36 @@ export const createBuilding = asyncHandler(async (req, res) => {
   } = req.body;
 
   if (
-  !projectName?.trim() ||
-  !location?.trim() ||
-  !propertyType?.trim() ||
-  !totalUnits
-) {
-  throw new ApiError(400, "Required fields are missing");
-}
+    !projectName?.trim() ||
+    !location?.trim() ||
+    !propertyType?.trim() ||
+    !totalUnits
+  ) {
+    throw new ApiError(400, "Required fields are missing");
+  }
+  console.log("HEADERS:", req.headers["content-type"]);
+  console.log("FILES:", req.files);
+  console.log("BODY:", req.body);
 
-  const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
-  const brochureLocalPath = getFilePath(req.files, "brochureUrl");
+  const thumbnailLocalPath = req.files?.thumbnailUrl?.[0]?.path;
+
+  const brochureLocalPath = req.files?.brochureUrl?.[0]?.path;
 
   if (!thumbnailLocalPath)
     throw new ApiError(400, "Thumbnail file is required");
   if (!brochureLocalPath) throw new ApiError(400, "Brochure file is required");
 
   const thumbnailUrl = await uploadFile(thumbnailLocalPath, "Thumbnail");
-  const brochureUrl = await uploadFile(brochureLocalPath, "Brochure");
 
-  if (!thumbnailUrl) {
-    throw new ApiError(400, "thumbnailUrl file is required");
-  }
+  const brochureUrl = await uploadPdfToCloudinary(
+    brochureLocalPath,
+    req.files?.brochureUrl?.[0]?.originalname,
+  );
+
+  // const brochureUrl = await uploadPdfToCloudinary(brochureLocalPath);
+  // if (!thumbnailUrl) {
+  //   throw new ApiError(400, "thumbnailUrl file is required");
+  // }
   if (!brochureUrl) {
     throw new ApiError(400, "brochureUrl file is required");
   }
@@ -86,7 +96,7 @@ export const createBuilding = asyncHandler(async (req, res) => {
   return res
     .status(201)
     .json(
-      new ApiResponse(200, createdBuilding, "Building Created Successfully")
+      new ApiResponse(200, createdBuilding, "Building Created Successfully"),
     );
 });
 
@@ -140,6 +150,7 @@ export const getBuildingById = asyncHandler(async (req, res) => {
 export const updateBuilding = asyncHandler(async (req, res) => {
   const { _id } = req.params;
   const body = req.body;
+
   if (!_id) {
     throw new ApiError(400, "Building ID (_id) is required");
   }
@@ -153,9 +164,10 @@ export const updateBuilding = asyncHandler(async (req, res) => {
   let brochureUrl = existingBuilding.brochureUrl;
   let images = existingBuilding.images || [];
 
-  const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
-  const brochureLocalPath = getFilePath(req.files, "brochureUrl");
+  const thumbnailLocalPath = req.files?.thumbnailUrl?.[0]?.path;
+  const brochureLocalPath = req.files?.brochureUrl?.[0]?.path;
 
+  /* ---------------- THUMBNAIL UPDATE ---------------- */
   if (thumbnailLocalPath) {
     const uploadedThumbnail = await uploadFile(thumbnailLocalPath, "Thumbnail");
     if (!uploadedThumbnail)
@@ -163,23 +175,38 @@ export const updateBuilding = asyncHandler(async (req, res) => {
     thumbnailUrl = uploadedThumbnail;
   }
 
+  /* ---------------- BROCHURE REMOVE ---------------- */
+  // frontend must send: brochureRemoved = true
+  if (body.brochureRemoved === "true" || body.brochureRemoved === true) {
+    brochureUrl = "";
+  }
+
+  /* ---------------- BROCHURE UPDATE (PDF) ---------------- */
   if (brochureLocalPath) {
-    const uploadedBrochure = await uploadFile(brochureLocalPath, "Brochure");
+    const uploadedBrochure = await uploadPdfToCloudinary(
+      brochureLocalPath,
+      req.files?.brochureUrl?.[0]?.originalname,
+    );
+
     if (!uploadedBrochure)
       throw new ApiError(500, "Failed to upload new brochure");
+
     brochureUrl = uploadedBrochure;
   }
 
+  /* ---------------- GALLERY UPDATE ---------------- */
   if (req.files?.images && Array.isArray(req.files.images)) {
     const newImages = await Promise.all(
       req.files.images.map(async (file) => {
         const uploadedUrl = await uploadFile(file.path, "Gallery");
         return uploadedUrl;
-      })
+      }),
     );
-    images = [...existingBuilding?.images, ...newImages];
+
+    images = [...images, ...newImages];
   }
 
+  /* ---------------- FINAL UPDATE ---------------- */
   const updatedData = {
     ...body,
     thumbnailUrl,
@@ -195,7 +222,7 @@ export const updateBuilding = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(
-      new ApiResponse(200, updatedBuilding, "Building updated successfully")
+      new ApiResponse(200, updatedBuilding, "Building updated successfully"),
     );
 });
 
@@ -208,7 +235,7 @@ export const deleteBuilding = asyncHandler(async (req, res) => {
   return res
     .status(201)
     .json(
-      new ApiResponse(200, deletedBuilding, "Building Deleted Successfully")
+      new ApiResponse(200, deletedBuilding, "Building Deleted Successfully"),
     );
 });
 
@@ -226,8 +253,8 @@ export const getUpcomingBuilding = asyncHandler(async (req, res) => {
       new ApiResponse(
         200,
         upcomingProperties,
-        "Upcoming properties fetched successfully"
-      )
+        "Upcoming properties fetched successfully",
+      ),
     );
 });
 
@@ -245,8 +272,8 @@ export const getOngoingBuilding = asyncHandler(async (req, res) => {
       new ApiResponse(
         200,
         upcomingProperties,
-        "Ongoing properties fetched successfully"
-      )
+        "Ongoing properties fetched successfully",
+      ),
     );
 });
 
@@ -264,7 +291,7 @@ export const getCompletedBuilding = asyncHandler(async (req, res) => {
       new ApiResponse(
         200,
         upcomingProperties,
-        "Completed properties fetched successfully"
-      )
+        "Completed properties fetched successfully",
+      ),
     );
 });

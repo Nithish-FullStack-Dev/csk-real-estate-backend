@@ -14,6 +14,7 @@ const router = Router();
 /* ---------------- MULTER CONFIG ---------------- */
 const uploadFields = upload.fields([
   { name: "thumbnailUrl", maxCount: 1 },
+  { name: "brochureUrl", maxCount: 1 },
   { name: "images", maxCount: 10 },
 ]);
 
