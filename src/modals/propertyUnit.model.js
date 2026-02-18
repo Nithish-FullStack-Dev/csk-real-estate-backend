@@ -29,7 +29,7 @@ const PropertyUnitSchema = new Schema(
     },
     // memNo: { type: String, required: false, index: true },
     projectName: { type: String },
-    plotNo: { type: String },
+    plotNo: { type: String, required: true },
     villaFacing: {
       type: String,
       enum: [
@@ -95,6 +95,9 @@ const PropertyUnitSchema = new Schema(
   },
   { timestamps: true },
 );
-
+PropertyUnitSchema.index(
+  { buildingId: 1, floorId: 1, plotNo: 1 },
+  { unique: true },
+);
 export default mongoose.models.PropertyUnit ||
   mongoose.model("PropertyUnit", PropertyUnitSchema);

@@ -41,5 +41,7 @@ floorUnitSchema.pre(
   },
 );
 
+floorUnitSchema.index({ buildingId: 1, floorNumber: 1 }, { unique: true });
+
 export default mongoose.models.FloorUnit ||
   mongoose.model("FloorUnit", floorUnitSchema);
