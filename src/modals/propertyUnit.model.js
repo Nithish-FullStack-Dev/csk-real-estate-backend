@@ -93,7 +93,7 @@ const PropertyUnitSchema = new Schema(
     purchasedCustomerName: { type: String },
     purchasedCustomerContact: { type: String },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.models.PropertyUnit ||
