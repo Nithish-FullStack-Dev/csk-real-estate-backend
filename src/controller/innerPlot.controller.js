@@ -24,6 +24,16 @@ export const createInnerPlot = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Required fields are missing");
   }
 
+  /* 🔐 DUPLICATE VALIDATION */
+  const alreadyExists = await InnerPlot.findOne({
+    openPlotId,
+    plotNo,
+  });
+
+  if (alreadyExists) {
+    throw new ApiError(409, `Plot No ${plotNo} already exists`);
+  }
+
   let thumbnailUrl = "";
   let images = [];
 
@@ -123,7 +133,17 @@ export const updateInnerPlot = asyncHandler(async (req, res) => {
   if (body.area) body.area = Number(body.area);
   if (body.wastageArea) body.wastageArea = Number(body.wastageArea);
   if (body.roadWidthFt) body.roadWidthFt = Number(body.roadWidthFt);
+  if (req.body.plotNo) {
+    const duplicate = await InnerPlot.findOne({
+      openPlotId: existing.openPlotId,
+      plotNo: req.body.plotNo,
+      _id: { $ne: _id },
+    });
 
+    if (duplicate) {
+      throw new ApiError(409, `Plot No ${req.body.plotNo} already exists`);
+    }
+  }
   /* ---------- UPDATE ---------- */
 
   const updated = await InnerPlot.findByIdAndUpdate(

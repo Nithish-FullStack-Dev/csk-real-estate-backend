@@ -27,7 +27,7 @@ const PropertyUnitSchema = new Schema(
       required: true,
       index: true,
     },
-    memNo: { type: String, required: false, index: true },
+    // memNo: { type: String, required: false, index: true },
     projectName: { type: String },
     plotNo: { type: String },
     villaFacing: {

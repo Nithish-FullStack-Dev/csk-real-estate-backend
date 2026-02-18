@@ -45,6 +45,7 @@ export const createOpenPlot = asyncHandler(async (req, res) => {
   if (existingPlot) {
     throw new ApiError(409, "Open Plot already exists");
   }
+  
 
   const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
   const brochureLocalPath = getFilePath(req.files, "brochureUrl");
