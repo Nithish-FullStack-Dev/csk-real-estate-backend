@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import PropertyUnit from "./propertyUnit.model.js";
 const { Schema } = mongoose;
 
 const priceRangeSchema = new Schema({
@@ -21,6 +22,23 @@ const floorUnitSchema = new Schema(
     priceRange: priceRangeSchema,
   },
   { timestamps: true },
+);
+
+floorUnitSchema.pre("findOneAndDelete", async function (next) {
+  const floor = await this.model.findOne(this.getQuery());
+  if (!floor) return next();
+
+  await PropertyUnit.deleteMany({ floorId: floor._id });
+  next();
+});
+
+floorUnitSchema.pre(
+  "deleteOne",
+  { document: true, query: false },
+  async function (next) {
+    await PropertyUnit.deleteMany({ floorId: this._id });
+    next();
+  },
 );
 
 floorUnitSchema.index({ buildingId: 1, floorNumber: 1 }, { unique: true });
