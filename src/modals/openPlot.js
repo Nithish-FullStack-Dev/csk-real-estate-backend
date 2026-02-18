@@ -71,6 +71,8 @@ const OpenPlotSchema = new mongoose.Schema(
     images: { type: [String], default: [] },
     brochureUrl: { type: String, default: null },
     brochureFileId: { type: String, default: null },
+
+    googleMapsLocation: { type: String },
   },
   { timestamps: true },
 );

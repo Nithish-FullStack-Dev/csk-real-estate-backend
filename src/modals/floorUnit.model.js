@@ -20,8 +20,10 @@ const floorUnitSchema = new Schema(
     availableSubUnits: { type: Number, default: 0, min: 0 },
     priceRange: priceRangeSchema,
   },
-  { timestamps: true }
+  { timestamps: true },
 );
+
+floorUnitSchema.index({ buildingId: 1, floorNumber: 1 }, { unique: true });
 
 export default mongoose.models.FloorUnit ||
   mongoose.model("FloorUnit", floorUnitSchema);

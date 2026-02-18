@@ -14,13 +14,21 @@ export const createFloor = asyncHandler(async (req, res) => {
     priceRange,
   } = req.body;
 
-  if (
-    [buildingId, unitType].some((field) => field === "") &&
-    !floorNumber &&
-    !totalSubUnits &&
-    !availableSubUnits
-  ) {
+  if (!buildingId || floorNumber === undefined || !unitType) {
     throw new ApiError(400, "Required fields are missing");
+  }
+
+  /* 🔐 DUPLICATE FLOOR CHECK */
+  const existingFloor = await FloorUnit.findOne({
+    buildingId,
+    floorNumber,
+  });
+
+  if (existingFloor) {
+    throw new ApiError(
+      409,
+      `Floor ${floorNumber} already exists for this building`,
+    );
   }
 
   const floor = await FloorUnit.create({
@@ -31,8 +39,9 @@ export const createFloor = asyncHandler(async (req, res) => {
     availableSubUnits,
     priceRange,
   });
+
   return res
-    .status(200)
+    .status(201)
     .json(new ApiResponse(201, floor, "Floor unit created successfully"));
 });
 
@@ -60,15 +69,33 @@ export const getAllFloorsByBuildingId = asyncHandler(async (req, res) => {
 
 export const updateFloorById = asyncHandler(async (req, res) => {
   const { _id } = req.params;
-  const floor = req.body;
-  if (!_id) throw new ApiError(400, `Floor ID not received properly: ${_id}`);
+  const data = req.body;
 
-  const updatedFloor = await FloorUnit.findByIdAndUpdate(_id, floor, {
+  if (!_id) throw new ApiError(400, "Floor ID missing");
+
+  const floor = await FloorUnit.findById(_id);
+  if (!floor) throw new ApiError(404, "Floor not found");
+
+  /* 🔐 CHECK DUPLICATE BEFORE UPDATE */
+  if (data.floorNumber !== undefined) {
+    const duplicate = await FloorUnit.findOne({
+      buildingId: floor.buildingId,
+      floorNumber: data.floorNumber,
+      _id: { $ne: _id },
+    });
+
+    if (duplicate) {
+      throw new ApiError(
+        409,
+        `Floor ${data.floorNumber} already exists for this building`,
+      );
+    }
+  }
+
+  const updatedFloor = await FloorUnit.findByIdAndUpdate(_id, data, {
     new: true,
     runValidators: true,
   });
-
-  if (!updatedFloor) throw new ApiError(404, "Floor not found");
 
   return res
     .status(200)
@@ -95,7 +122,7 @@ export const getAllFloorsByBuildingIdForDropDown = asyncHandler(
     if (!buildingId) {
       throw new ApiError(
         400,
-        `Building ID not received properly: ${buildingId}`
+        `Building ID not received properly: ${buildingId}`,
       );
     }
 
@@ -108,5 +135,5 @@ export const getAllFloorsByBuildingIdForDropDown = asyncHandler(
       : "No floors added yet";
 
     return res.status(200).json(new ApiResponse(200, floors, message));
-  }
+  },
 );

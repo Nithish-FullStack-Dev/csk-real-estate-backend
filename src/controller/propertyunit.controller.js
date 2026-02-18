@@ -9,18 +9,51 @@ import mongoose from "mongoose";
 import Customer from "../modals/customerSchema.js";
 
 export const createUnit = asyncHandler(async (req, res) => {
-  const { buildingId, floorId } = req.body;
+  const { buildingId, floorId, plotNo } = req.body;
 
   if (!buildingId || !floorId) {
     throw new ApiError(400, "buildingId and floorId are required");
   }
 
-  // detect bulk creation
   const isBulk = req.body.bulk === "true";
+
+  /* 🔐 BULK DUPLICATE CHECK */
+  if (isBulk && req.body.units?.length) {
+    const incomingPlotNos = req.body.units.map((u) => u.plotNo);
+
+    const existingUnits = await PropertyUnitModel.find({
+      buildingId,
+      floorId,
+      plotNo: { $in: incomingPlotNos },
+    });
+
+    if (existingUnits.length > 0) {
+      const duplicates = existingUnits.map((u) => u.plotNo).join(", ");
+
+      throw new ApiError(
+        409,
+        `These units already exist on this floor: ${duplicates}`,
+      );
+    }
+  }
+
+  /* 🔐 SINGLE DUPLICATE CHECK */
+  if (!isBulk && plotNo) {
+    const existingUnit = await PropertyUnitModel.findOne({
+      buildingId,
+      floorId,
+      plotNo,
+    });
+
+    if (existingUnit) {
+      throw new ApiError(409, `Unit ${plotNo} already exists on this floor`);
+    }
+  }
+
+  /* ---------- FILE HANDLING ---------- */
 
   let thumbnailUrl = null;
 
-  // manual creation → thumbnail required
   if (!isBulk) {
     const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
 
@@ -31,7 +64,6 @@ export const createUnit = asyncHandler(async (req, res) => {
     thumbnailUrl = await uploadFile(thumbnailLocalPath, "ThumbnailUrl");
   }
 
-  // bulk CSV → thumbnail optional
   if (isBulk) {
     const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
     if (thumbnailLocalPath) {
@@ -39,22 +71,19 @@ export const createUnit = asyncHandler(async (req, res) => {
     }
   }
 
-  // images upload
   let imageUrls = [];
   if (req.files?.images && Array.isArray(req.files.images)) {
-    const imageUploadPromises = req.files.images.map(async (file) => {
-      const uploadedUrl = await uploadFile(file.path, "Gallery");
-      return uploadedUrl;
-    });
-    imageUrls = await Promise.all(imageUploadPromises);
+    imageUrls = await Promise.all(
+      req.files.images.map((file) => uploadFile(file.path, "Gallery")),
+    );
   }
 
-  // documents upload
-  const documentFiles = req.files?.documents || [];
   const documents = [];
+  const documentFiles = req.files?.documents || [];
 
   for (const file of documentFiles) {
     const fileUrl = await uploadFile(file.path, "Document");
+
     documents.push({
       title: file.originalname,
       fileUrl,
@@ -64,12 +93,24 @@ export const createUnit = asyncHandler(async (req, res) => {
     });
   }
 
-  const unit = await PropertyUnitModel.create({
-    ...req.body,
-    thumbnailUrl,
-    documents,
-    images: imageUrls,
-  });
+  /* ---------- CREATE ---------- */
+
+  let unit;
+
+  try {
+    unit = await PropertyUnitModel.create({
+      ...req.body,
+      thumbnailUrl,
+      documents,
+      images: imageUrls,
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      throw new ApiError(409, "Unit already exists on this floor");
+    }
+
+    throw error;
+  }
 
   return res
     .status(200)
@@ -103,7 +144,7 @@ export const getUnitsByFloorIdAndBuildingId = asyncHandler(async (req, res) => {
 
 export const updateUnit = asyncHandler(async (req, res) => {
   const { unitId } = req.params;
-  const { buildingId, floorId, ...rest } = req.body;
+  const { buildingId, floorId, plotNo, ...rest } = req.body;
 
   if (!mongoose.Types.ObjectId.isValid(unitId)) {
     throw new ApiError(400, "Invalid unit ID");
@@ -113,7 +154,19 @@ export const updateUnit = asyncHandler(async (req, res) => {
   if (!unit) {
     throw new ApiError(404, "Unit not found");
   }
+  /* 🔐 DUPLICATE CHECK BEFORE UPDATE */
+  if (plotNo) {
+    const duplicate = await PropertyUnitModel.findOne({
+      buildingId: buildingId || unit.buildingId,
+      floorId: floorId || unit.floorId,
+      plotNo,
+      _id: { $ne: unitId },
+    });
 
+    if (duplicate) {
+      throw new ApiError(409, `Unit ${plotNo} already exists on this floor`);
+    }
+  }
   let thumbnailUrl = unit.thumbnailUrl;
   let images = unit.images || [];
 
