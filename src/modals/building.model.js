@@ -43,9 +43,44 @@ const buildingSchema = new Schema(
     brochureUrl: { type: String, default: null },
     brochureFileId: { type: String, default: null },
     amenities: { type: [String], default: [] },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   { timestamps: true },
 );
+
+buildingSchema.methods.softDelete = async function (userId) {
+  this.isDeleted = true;
+  this.deletedAt = new Date();
+  this.deletedBy = userId;
+  return this.save();
+};
+
+buildingSchema.methods.restore = async function () {
+  this.isDeleted = false;
+  this.deletedAt = null;
+  this.deletedBy = null;
+  return this.save();
+};
+
+buildingSchema.pre(/^find/, function (next) {
+  if (!this.getOptions()?.withDeleted) {
+    this.where({ isDeleted: false });
+  }
+  next();
+});
 
 buildingSchema.pre("findOneAndDelete", async function (next) {
   const building = await this.model.findOne(this.getQuery());

@@ -103,6 +103,11 @@ export const createBuilding = asyncHandler(async (req, res) => {
 export const getAllBuildings = asyncHandler(async (req, res) => {
   const buildings = await Building.aggregate([
     {
+      $match: {
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+      },
+    },
+    {
       $project: {
         _id: 1,
         projectName: 1,
@@ -125,7 +130,7 @@ export const getAllBuildings = asyncHandler(async (req, res) => {
     },
   ]);
 
-  if (!buildings || buildings.length === 0) {
+  if (!buildings.length) {
     throw new ApiError(404, "No buildings found");
   }
 
@@ -156,6 +161,7 @@ export const updateBuilding = asyncHandler(async (req, res) => {
   }
 
   const existingBuilding = await Building.findById(_id);
+
   if (!existingBuilding) {
     throw new ApiError(404, "Building not found");
   }
@@ -228,15 +234,15 @@ export const updateBuilding = asyncHandler(async (req, res) => {
 
 export const deleteBuilding = asyncHandler(async (req, res) => {
   const { _id } = req.params;
-  const deletedBuilding = await Building.findByIdAndDelete(_id);
 
-  if (!deletedBuilding) throw new ApiError(404, "Building not found.");
+  const building = await Building.findById(_id);
+  if (!building) throw new ApiError(404, "Building not found");
 
-  return res
-    .status(201)
-    .json(
-      new ApiResponse(200, deletedBuilding, "Building Deleted Successfully"),
-    );
+  await building.softDelete(req.user._id);
+
+  return res.json(
+    new ApiResponse(200, null, "Building moved to trash successfully"),
+  );
 });
 
 export const getUpcomingBuilding = asyncHandler(async (req, res) => {
@@ -294,4 +300,37 @@ export const getCompletedBuilding = asyncHandler(async (req, res) => {
         "Completed properties fetched successfully",
       ),
     );
+});
+
+export const getTrashedBuildings = asyncHandler(async (req, res) => {
+  const buildings = await Building.find({ isDeleted: true }, null, {
+    withDeleted: true,
+  });
+
+  res.json(new ApiResponse(200, buildings));
+});
+
+export const restoreBuilding = asyncHandler(async (req, res) => {
+  const building = await Building.findOne(
+    { _id: req.params.id, isDeleted: true },
+    null,
+    { withDeleted: true },
+  );
+
+  if (!building) throw new ApiError(404, "Building not found in trash");
+
+  await building.restore();
+
+  res.json(new ApiResponse(200, null, "Building restored successfully"));
+});
+
+export const deleteBuildingPermanently = asyncHandler(async (req, res) => {
+  const deletedBuilding = await Building.findOneAndDelete({
+    _id: req.params._id,
+    isDeleted: true,
+  });
+
+  if (!deletedBuilding) throw new ApiError(404, "Building not found in trash");
+
+  res.json(new ApiResponse(200, null, "Building permanently deleted"));
 });
