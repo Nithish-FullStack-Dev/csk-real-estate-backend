@@ -91,7 +91,7 @@ export const updateStatus = async (req, res) => {
   const issue = await SiteInspection.findByIdAndUpdate(
     req.params.id,
     { status },
-    { new: true }
+    { new: true },
   );
 
   res.json(issue);
@@ -99,20 +99,22 @@ export const updateStatus = async (req, res) => {
 
 export const addPhotosToInspection = async (req, res) => {
   const { id } = req.params;
-  const { photos } = req.body; // Array of URLs
+  const { photos } = req.body;
 
-  if (!Array.isArray(photos)) {
-    return res.status(400).json({ error: "Invalid photos data" });
+  if (!Array.isArray(photos) || !photos.every((p) => typeof p === "string")) {
+    return res.status(400).json({ error: "Photos must be URL strings" });
   }
 
   try {
     const updated = await SiteInspection.findByIdAndUpdate(
       id,
       { $push: { photos: { $each: photos } } },
-      { new: true }
+      { new: true },
     );
+
     res.json(updated);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Failed to add photos" });
   }
 };

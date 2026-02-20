@@ -94,7 +94,30 @@ export const getAllSiteVisits = async (req, res) => {
       .populate({
         path: "clientId",
         model: "Lead",
-        select: "_id name email propertyStatus addedBy",
+        select:
+          "name email propertyStatus isPropertyLead isPlotLead isLandLead property floorUnit unit openPlot innerPlot openLand",
+        populate: [
+          {
+            path: "property",
+            model: "Building",
+            select: "_id projectName location propertyType",
+          },
+          {
+            path: "floorUnit",
+            model: "FloorUnit",
+            select: "_id floorNumber unitType",
+          },
+          {
+            path: "unit",
+            model: "PropertyUnit",
+            select: "_id plotNo propertyType totalAmount",
+          },
+          {
+            path: "addedBy",
+            model: "User",
+            select: "name email role avatar",
+          },
+        ],
       })
       .sort({ createdAt: -1 });
 
@@ -131,7 +154,30 @@ export const getMyTeamSiteVisits = async (req, res) => {
       .populate({
         path: "clientId",
         model: "Lead",
-        select: "_id name email propertyStatus",
+        select:
+          "name email propertyStatus isPropertyLead isPlotLead isLandLead property floorUnit unit openPlot innerPlot openLand",
+        populate: [
+          {
+            path: "property",
+            model: "Building",
+            select: "_id projectName location propertyType",
+          },
+          {
+            path: "floorUnit",
+            model: "FloorUnit",
+            select: "_id floorNumber unitType",
+          },
+          {
+            path: "unit",
+            model: "PropertyUnit",
+            select: "_id plotNo propertyType totalAmount",
+          },
+          {
+            path: "addedBy",
+            model: "User",
+            select: "name email role avatar",
+          },
+        ],
       })
       .sort({ createdAt: -1 });
 
@@ -155,11 +201,12 @@ export const getSiteVisitById = async (req, res) => {
       .populate({
         path: "clientId",
         model: "Lead",
-        select: "_id name email propertyStatus",
+        select:
+          "name email propertyStatus isPropertyLead isPlotLead isLandLead property floorUnit unit openPlot innerPlot openLand",
         populate: [
           {
             path: "property",
-            model: "Property",
+            model: "Building",
             select: "_id projectName location propertyType",
           },
           {
@@ -271,14 +318,37 @@ export const getSiteVisitOfAgents = async (req, res) => {
     const siteVisits = await SiteVisit.find(accessQuery)
       .populate({
         path: "bookedBy",
-        match: { role: "agent" },
+        model: "User",
         select: "name email role",
       })
       .populate("vehicleId")
       .populate({
         path: "clientId",
         model: "Lead",
-        select: "_id name email propertyStatus",
+        select:
+          "name email propertyStatus isPropertyLead isPlotLead isLandLead property floorUnit unit openPlot innerPlot openLand",
+        populate: [
+          {
+            path: "property",
+            model: "Building",
+            select: "_id projectName location propertyType",
+          },
+          {
+            path: "floorUnit",
+            model: "FloorUnit",
+            select: "_id floorNumber unitType",
+          },
+          {
+            path: "unit",
+            model: "PropertyUnit",
+            select: "_id plotNo propertyType totalAmount",
+          },
+          {
+            path: "addedBy",
+            model: "User",
+            select: "name email role avatar",
+          },
+        ],
       });
 
     res.status(200).json(siteVisits);
