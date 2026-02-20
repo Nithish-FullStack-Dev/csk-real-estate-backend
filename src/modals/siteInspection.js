@@ -38,7 +38,7 @@ const siteInspectionSchema = new Schema(
     },
     type: {
       type: String,
-      enum: ["milestone", "routine", "quality issue"],
+      enum: ["milestone", "routine", "quality_issue"],
       required: true,
     },
     locations: {
@@ -53,7 +53,7 @@ const siteInspectionSchema = new Schema(
       type: String,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const SiteInspection = model("SiteInspection", siteInspectionSchema);

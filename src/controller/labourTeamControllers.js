@@ -86,32 +86,58 @@ export const recordAttendance = async (req, res) => {
     const { date, present, absent } = req.body;
 
     const team = await LaborTeam.findById(id);
-    if (!team) return res.status(404).json({ message: "Team not found" });
+    if (!team) {
+      return res.status(404).json({ message: "Team not found" });
+    }
 
-    // Create new attendance record
-    const newRecord = {
+    // 🔒 Validate numbers FIRST
+    if (present < 0 || present > team.members) {
+      return res.status(400).json({
+        message: "Present count cannot exceed total members",
+      });
+    }
+
+    if (present + absent !== team.members) {
+      return res.status(400).json({
+        message: "Invalid attendance numbers",
+      });
+    }
+
+    // prevent duplicate attendance
+    const existing = team.attendanceRecords.find(
+      (r) => r.date.toISOString().split("T")[0] === date,
+    );
+
+    if (existing) {
+      return res
+        .status(400)
+        .json({ message: "Attendance already recorded for this date" });
+    }
+
+    // ✅ Now it is safe to mutate
+    team.attendanceRecords.push({
       date: new Date(date),
       present,
       absent,
-    };
+    });
 
-    team.attendanceRecords.push(newRecord);
-
-    // Recalculate attendance percentage
     const totalPresent = team.attendanceRecords.reduce(
-      (acc, r) => acc + r.present,
-      present
+      (sum, r) => sum + r.present,
+      0,
     );
-    const totalDays = team.attendanceRecords.length + 1;
-    const totalPossible = totalDays * team.members;
 
-    const avgPercentage = Math.round((totalPresent / totalPossible) * 100);
-    team.attendancePercentage = avgPercentage;
+    const totalPossible = team.attendanceRecords.length * team.members;
+
+    team.attendancePercentage = Math.round(
+      (totalPresent / totalPossible) * 100,
+    );
 
     await team.save();
+
     res.status(200).json({
       message: "Attendance recorded",
-      attendancePercentage: avgPercentage,
+      attendancePercentage: team.attendancePercentage,
+      attendanceRecords: team.attendanceRecords,
     });
   } catch (err) {
     console.error("Error recording attendance:", err);

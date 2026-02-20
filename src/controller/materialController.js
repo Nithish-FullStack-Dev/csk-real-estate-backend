@@ -49,7 +49,18 @@ export const createMaterial = async (req, res) => {
       remarks,
     } = req.body;
 
-    const contractorId = req.user?._id || req.body.contractor; // Either from auth or manually passed
+    const contractorId = req.user?._id;
+    const existingMaterial = await Material.findOne({
+      poNumber,
+      project,
+    }).select("_id");
+
+    if (existingMaterial) {
+      return res.status(409).json({
+        message: "PO Number already exists for this project",
+        field: "poNumber",
+      });
+    }
 
     const material = new Material({
       name,
@@ -70,8 +81,17 @@ export const createMaterial = async (req, res) => {
     await material.save();
     res.status(201).json({ message: "Material added", material });
   } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({
+        message: "PO Number already exists for this project",
+        field: "poNumber",
+      });
+    }
+
     console.error("Error creating material:", err);
-    res.status(500).json({ message: "Failed to add material" });
+    return res.status(500).json({
+      message: "Failed to add material",
+    });
   }
 };
 
@@ -83,7 +103,7 @@ export const updateMaterialStatus = async (req, res) => {
     const updated = await Material.findByIdAndUpdate(
       materialId,
       { status },
-      { new: true }
+      { new: true },
     );
 
     if (!updated) {
