@@ -3,6 +3,7 @@ import FloorUnit from "../modals/floorUnit.model.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import propertyUnitModel from "../modals/propertyUnit.model.js";
 
 export const createFloor = asyncHandler(async (req, res) => {
   const {
@@ -104,15 +105,34 @@ export const updateFloorById = asyncHandler(async (req, res) => {
 
 export const deleteFloorById = asyncHandler(async (req, res) => {
   const { _id } = req.params;
-  if (!_id) throw new ApiError(400, `Floor ID not received properly: ${_id}`);
 
-  const deletedFloor = await FloorUnit.findByIdAndDelete(_id);
+  if (!mongoose.Types.ObjectId.isValid(_id)) {
+    return res.status(400).json(new ApiResponse(400, null, "Invalid floor ID"));
+  }
 
-  if (!deletedFloor) throw new ApiError(404, "Floor not found.");
+  const floor = await FloorUnit.findById(_id);
+
+  if (!floor) {
+    return res.status(404).json(new ApiResponse(404, null, "Floor not found"));
+  }
+
+  const pendingUnitsCount = await propertyUnitModel.countDocuments({
+    floorId: _id,
+    projectStatus: { $ne: "completed" },
+  });
+
+  if (pendingUnitsCount > 0) {
+    throw new ApiError(
+      409,
+      "Floor can be deleted only after all units in this floor are completed status",
+    );
+  }
+
+  await FloorUnit.findByIdAndDelete(_id);
 
   return res
-    .status(201)
-    .json(new ApiResponse(200, deletedFloor, "Floor Deleted Successfully"));
+    .status(200)
+    .json(new ApiResponse(200, null, "Floor deleted successfully"));
 });
 
 export const getAllFloorsByBuildingIdForDropDown = asyncHandler(
