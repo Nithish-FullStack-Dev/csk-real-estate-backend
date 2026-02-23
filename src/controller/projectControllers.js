@@ -247,6 +247,26 @@ export const updateProject = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, updatedProject, "Project updated successfully"));
 });
 
+export const deleteProject = asyncHandler(async (req, res) => {
+  const { projectId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(projectId)) {
+    throw new ApiError(400, "Invalid Project ID");
+  }
+
+  const project = await Project.findById(projectId);
+
+  if (!project) {
+    throw new ApiError(404, "Project not found");
+  }
+
+  await Project.findByIdAndDelete(projectId);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, null, "Project deleted successfully"));
+});
+
 export const getContractorsForSiteIncharge = async (req, res) => {
   try {
     const { role, _id: siteInchargeId } = req.user;
