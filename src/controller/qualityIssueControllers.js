@@ -28,25 +28,32 @@ export const createQualityIssue = async (req, res) => {
         .json({ error: "Missing or invalid required fields." });
     }
 
-    // Fetch contractor from Project
-    const projectDoc = await Project.findById(project).select("contractor");
+    if (contractor && !mongoose.Types.ObjectId.isValid(contractor)) {
+      return res.status(400).json({ error: "Invalid contractor ID." });
+    }
+
+    const projectDoc = await Project.findById(project);
     if (!projectDoc) {
       return res.status(404).json({ error: "Project not found." });
     }
 
-    // Create and save the issue
     const newIssue = new QualityIssue({
       user,
       title,
       project,
-      contractor,
+      contractor: contractor || undefined,
       severity,
       status: status || "open",
       description,
-      evidenceImages,
+      evidenceImages: Array.isArray(evidenceImages)
+        ? evidenceImages.map((img) =>
+            typeof img === "string" ? img : img?.secure_url || img?.url,
+          )
+        : [],
     });
 
     const savedIssue = await newIssue.save();
+
     res.status(201).json({
       message: "Quality issue created successfully",
       issue: savedIssue,

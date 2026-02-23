@@ -18,6 +18,7 @@ import {
   getCompletedTasksForUnit,
   getUnitProgressByBuilding,
   updateProject,
+  deleteProject,
 } from "../controller/projectControllers.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { upload } from "../middlewares/multer.js";
@@ -67,7 +68,7 @@ router.patch(
 );
 
 router.patch("/updateProject/:projectId", authenticate, updateProject);
-
+router.delete("/deleteProject/:projectId", authenticate, deleteProject);
 router.patch(
   "/site-incharge/:projectId/:taskId/task",
   authenticate,
