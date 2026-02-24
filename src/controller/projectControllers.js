@@ -119,6 +119,7 @@ export const getUserTasks = async (req, res) => {
       .populate("floorUnit", "_id floorNumber unitType")
       .populate("unit", "_id propertyType plotNo")
       .populate("contractors", "_id name")
+      .populate("siteIncharge", "_id name")
       .lean();
 
     const taskList = [];
@@ -128,6 +129,7 @@ export const getUserTasks = async (req, res) => {
       const floorNumber = project.floorUnit?.floorNumber || "N/A";
       const unitType = project.floorUnit?.unitType || "N/A";
       const plotNo = project.unit?.plotNo || "N/A";
+      const siteInchargeName = project.siteIncharge?.name || "N/A";
 
       const contractorMap = Object.fromEntries(
         (project.contractors || []).map((c) => [c._id.toString(), c.name]),
@@ -151,6 +153,7 @@ export const getUserTasks = async (req, res) => {
             contractorUploadedPhotos: task.contractorUploadedPhotos || [],
             projectId: project._id,
             contractorId: task.contractor,
+            siteInchargeName,
             _id: task._id,
           };
 
@@ -579,16 +582,27 @@ export const updateTaskByIdForContractor = async (req, res) => {
       const task = taskArray.find((t) => t._id.toString() === taskId);
 
       if (task) {
-        // Update fields
-        if (Array.isArray(newTask.photos)) {
+        // 🔥 1️⃣ REMOVE PHOTOS
+        if (
+          Array.isArray(newTask.removePhotos) &&
+          newTask.removePhotos.length > 0
+        ) {
+          task.contractorUploadedPhotos = task.contractorUploadedPhotos.filter(
+            (photo) => !newTask.removePhotos.includes(photo),
+          );
+        }
+
+        // 🔥 2️⃣ ADD NEW PHOTOS (THIS WAS MISSING)
+        if (Array.isArray(newTask.photos) && newTask.photos.length > 0) {
           task.contractorUploadedPhotos.push(...newTask.photos);
         }
 
+        // 🔥 3️⃣ Update other fields
         if (newTask.evidenceTitleByContractor)
           task.evidenceTitleByContractor = newTask.evidenceTitleByContractor;
 
-        if (newTask.status && role) {
-          if (role === "site_inchage")
+        if (newTask.status) {
+          if (role === "site_incharge")
             task.statusForSiteIncharge = newTask.status;
           else if (role === "contractor")
             task.statusForContractor = newTask.status;
@@ -616,7 +630,9 @@ export const updateTaskByIdForContractor = async (req, res) => {
         .json({ success: false, message: "Task not found in any unit" });
     }
 
+    project.markModified("units");
     await project.save();
+
     return res.status(200).json({ success: true });
   } catch (error) {
     console.error("Error updating task:", error);
@@ -817,7 +833,6 @@ export const assignTaskToContractor = async (req, res) => {
       title,
       contractorId,
       projectId,
-      unit,
       priority,
       deadline,
       phase,
@@ -825,54 +840,99 @@ export const assignTaskToContractor = async (req, res) => {
       description,
     } = req.body;
 
-    // 1. Validate contractor and project
+    // 1️⃣ Validate required fields
+    if (
+      !title ||
+      !contractorId ||
+      !projectId ||
+      !deadline ||
+      !phase ||
+      !qualityIssueId
+    ) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    // 2️⃣ Validate ObjectIds
+    if (
+      !mongoose.Types.ObjectId.isValid(contractorId) ||
+      !mongoose.Types.ObjectId.isValid(projectId) ||
+      !mongoose.Types.ObjectId.isValid(qualityIssueId)
+    ) {
+      return res.status(400).json({ message: "Invalid ID format" });
+    }
+
+    // 3️⃣ Validate contractor
     const contractor = await User.findById(contractorId);
     if (!contractor) {
       return res.status(404).json({ message: "Contractor not found" });
     }
 
+    // 4️⃣ Validate project
     const project = await Project.findById(projectId);
     if (!project) {
       return res.status(404).json({ message: "Project not found" });
     }
 
-    // 2. Create the new task object
+    // 5️⃣ Ensure project has unit
+    const unitKey = project.unit?.toString();
+    if (!unitKey) {
+      return res.status(400).json({ message: "Project unit not found" });
+    }
+
+    // 6️⃣ Ensure contractors array exists
+    if (!Array.isArray(project.contractors)) {
+      project.contractors = [];
+    }
+
+    // Safe ObjectId comparison
+    const contractorExists = project.contractors.some(
+      (id) => id.toString() === contractor._id.toString(),
+    );
+
+    if (!contractorExists) {
+      project.contractors.push(contractor._id);
+    }
+
+    // 7️⃣ Ensure units map exists
+    if (!project.units) {
+      project.units = new Map();
+    }
+
+    if (!project.units.has(unitKey)) {
+      project.units.set(unitKey, []);
+    }
+
+    const tasks = project.units.get(unitKey) || [];
+
+    // 8️⃣ Create new task
     const newTask = {
       contractor: contractor._id,
       title,
-      priority,
-      deadline,
+      priority: priority || "medium",
+      deadline: new Date(deadline),
       constructionPhase: phase,
-      description,
+      description: description || "",
       statusForContractor: "in_progress",
       statusForSiteIncharge: "pending verification",
       progressPercentage: 0,
     };
 
-    // 3. Add contractor to project if not already added
-    if (!project.contractors.includes(contractor._id)) {
-      project.contractors.push(contractor._id);
-    }
-
-    // 4. Add task to the correct unit
-    if (!project.units.has(unit)) {
-      project.units.set(unit, []);
-    }
-
-    const tasks = project.units.get(unit);
     tasks.push(newTask);
-    project.units.set(unit, tasks);
-    console.log(project);
-    // 5. Save the project
+    project.units.set(unitKey, tasks);
+
     await project.save();
 
-    // 6. Update the contractor in the quality issue
-    await QualityIssue.findByIdAndUpdate(qualityIssueId, {
-      contractor: contractor._id,
-    });
+    // 9️⃣ Update Quality Issue safely
+    const issue = await QualityIssue.findById(qualityIssueId);
+    if (!issue) {
+      return res.status(404).json({ message: "Quality issue not found" });
+    }
+
+    issue.contractor = contractor._id;
+    await issue.save();
 
     return res.status(200).json({
-      message: "Task assigned and contractor updated in quality issue",
+      message: "Task assigned successfully",
     });
   } catch (error) {
     console.error("Assignment error:", error);
