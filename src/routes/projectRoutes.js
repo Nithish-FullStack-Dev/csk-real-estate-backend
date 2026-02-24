@@ -19,6 +19,7 @@ import {
   getUnitProgressByBuilding,
   updateProject,
   deleteProject,
+  projectDropDownDataForSiteIncharge,
 } from "../controller/projectControllers.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { upload } from "../middlewares/multer.js";
@@ -46,6 +47,11 @@ router.get(
 );
 
 router.get("/projectsDropdown", authenticate, projectDropDownData);
+router.get(
+  "/projectsDropdown/site-incharge",
+  authenticate,
+  projectDropDownDataForSiteIncharge,
+);
 
 router.get("/contractorDropdown", authenticate, getAllContractors);
 
