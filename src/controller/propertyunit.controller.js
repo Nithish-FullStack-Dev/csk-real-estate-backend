@@ -144,7 +144,9 @@ export const getUnitsByFloorIdAndBuildingId = asyncHandler(async (req, res) => {
 
 export const updateUnit = asyncHandler(async (req, res) => {
   const { unitId } = req.params;
-  const { buildingId, floorId, plotNo, ...rest } = req.body;
+
+  // ✅ Destructure and explicitly extract IDs — don't let them pass through as-is
+  const { buildingId, floorId, plotNo, visibility, ...rest } = req.body;
 
   if (!mongoose.Types.ObjectId.isValid(unitId)) {
     throw new ApiError(400, "Invalid unit ID");
@@ -154,6 +156,7 @@ export const updateUnit = asyncHandler(async (req, res) => {
   if (!unit) {
     throw new ApiError(404, "Unit not found");
   }
+
   /* 🔐 DUPLICATE CHECK BEFORE UPDATE */
   if (plotNo) {
     const duplicate = await PropertyUnitModel.findOne({
@@ -167,6 +170,7 @@ export const updateUnit = asyncHandler(async (req, res) => {
       throw new ApiError(409, `Unit ${plotNo} already exists on this floor`);
     }
   }
+
   let thumbnailUrl = unit.thumbnailUrl;
   let images = unit.images || [];
 
@@ -189,7 +193,7 @@ export const updateUnit = asyncHandler(async (req, res) => {
         title: file.originalname,
         fileUrl,
         mimeType: file.mimetype,
-        visibility: req.body.visibility || "PURCHASER_ONLY",
+        visibility: visibility || "PURCHASER_ONLY",
         createdAt: new Date(),
       });
     }
@@ -198,12 +202,9 @@ export const updateUnit = asyncHandler(async (req, res) => {
 
   if (req.files?.images && Array.isArray(req.files.images)) {
     const newImages = await Promise.all(
-      req.files.images.map(async (file) => {
-        const uploadedUrl = await uploadFile(file.path, "Gallery");
-        return uploadedUrl;
-      }),
+      req.files.images.map((file) => uploadFile(file.path, "Gallery")),
     );
-    images = [...unit?.images, ...newImages];
+    images = [...unit.images, ...newImages];
   }
 
   const updatedData = {
@@ -211,6 +212,11 @@ export const updateUnit = asyncHandler(async (req, res) => {
     thumbnailUrl,
     documents,
     images,
+    // ✅ Only include buildingId/floorId if they are valid ObjectId strings
+    ...(buildingId &&
+      mongoose.Types.ObjectId.isValid(buildingId) && { buildingId }),
+    ...(floorId && mongoose.Types.ObjectId.isValid(floorId) && { floorId }),
+    ...(plotNo && { plotNo }),
   };
 
   const updatedUnit = await PropertyUnitModel.findByIdAndUpdate(
@@ -230,7 +236,6 @@ export const updateUnit = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, updatedUnit, "Unit updated successfully"));
 });
-
 export const deleteUnit = asyncHandler(async (req, res) => {
   const { unitId } = req.params;
 
@@ -239,21 +244,30 @@ export const deleteUnit = asyncHandler(async (req, res) => {
   }
 
   const unit = await PropertyUnitModel.findById(unitId);
+
   if (!unit) {
     throw new ApiError(404, "Unit not found");
   }
 
-  // Optionally, delete associated files from cloud storage
-  // This requires integration with your file storage service (e.g., Cloudinary)
-  // Example: await deleteFile(unit.thumbnailUrl);
+  if (unit.projectStatus !== "completed") {
+    throw new ApiError(
+      400,
+      "Unit can be deleted only after the project is completed",
+    );
+  }
 
   await PropertyUnitModel.findByIdAndDelete(unitId);
 
   return res
     .status(200)
-    .json(new ApiResponse(200, null, "Unit deleted successfully"));
+    .json(
+      new ApiResponse(
+        200,
+        null,
+        "Unit deleted successfully because the project is completed",
+      ),
+    );
 });
-
 export const getUnit = asyncHandler(async (req, res) => {
   const { unitId } = req.params;
 
