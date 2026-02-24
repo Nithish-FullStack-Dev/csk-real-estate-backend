@@ -161,7 +161,6 @@ export const updateBuilding = asyncHandler(async (req, res) => {
   }
 
   const existingBuilding = await Building.findById(_id);
-
   if (!existingBuilding) {
     throw new ApiError(404, "Building not found");
   }
@@ -182,12 +181,11 @@ export const updateBuilding = asyncHandler(async (req, res) => {
   }
 
   /* ---------------- BROCHURE REMOVE ---------------- */
-  // frontend must send: brochureRemoved = true
   if (body.brochureRemoved === "true" || body.brochureRemoved === true) {
     brochureUrl = "";
   }
 
-  /* ---------------- BROCHURE UPDATE (PDF) ---------------- */
+  /* ---------------- BROCHURE UPDATE ---------------- */
   if (brochureLocalPath) {
     const uploadedBrochure = await uploadPdfToCloudinary(
       brochureLocalPath,
@@ -200,13 +198,24 @@ export const updateBuilding = asyncHandler(async (req, res) => {
     brochureUrl = uploadedBrochure;
   }
 
-  /* ---------------- GALLERY UPDATE ---------------- */
+  /* ---------------- REMOVE SELECTED IMAGES ---------------- */
+  if (body.removedImages) {
+    const removed = Array.isArray(body.removedImages)
+      ? body.removedImages
+      : [body.removedImages];
+
+    images = images.filter((img) => !removed.includes(img));
+  }
+
+  /* ---------------- REPLACE FULL GALLERY ---------------- */
+  if (body.replaceGallery === "true") {
+    images = [];
+  }
+
+  /* ---------------- UPLOAD NEW IMAGES ---------------- */
   if (req.files?.images && Array.isArray(req.files.images)) {
     const newImages = await Promise.all(
-      req.files.images.map(async (file) => {
-        const uploadedUrl = await uploadFile(file.path, "Gallery");
-        return uploadedUrl;
-      }),
+      req.files.images.map((file) => uploadFile(file.path, "Gallery")),
     );
 
     images = [...images, ...newImages];
