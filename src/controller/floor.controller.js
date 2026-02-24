@@ -55,7 +55,7 @@ export const getAllFloorsByBuildingId = asyncHandler(async (req, res) => {
 
   const floors = await FloorUnit.find({
     buildingId: new mongoose.Types.ObjectId(buildingId),
-  });
+  }).sort({ floorNumber: 1 }); // ascending order
 
   // if (!floors || floors.length === 0) {
   //   throw new ApiError(404, "Floors not found");
@@ -148,8 +148,9 @@ export const getAllFloorsByBuildingIdForDropDown = asyncHandler(
 
     const floors = await FloorUnit.find({
       buildingId: new mongoose.Types.ObjectId(buildingId),
-    }).select("_id floorNumber unitType");
-
+    })
+      .sort({ floorNumber: 1 })
+      .select("_id floorNumber unitType");
     const message = floors.length
       ? "Floors retrieved successfully"
       : "No floors added yet";

@@ -165,6 +165,8 @@ export const updateOpenLand = asyncHandler(async (req, res) => {
   delete data.thumbnailUrl;
   delete data.brochureUrl;
 
+  /* ---------------- FILE PATHS ---------------- */
+
   const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
   const brochureLocalPath = getFilePath(req.files, "brochureUrl");
 
@@ -172,35 +174,60 @@ export const updateOpenLand = asyncHandler(async (req, res) => {
   let brochureUrl = existingLand.brochureUrl;
   let images = existingLand.images || [];
 
-  /* -------- thumbnail replace -------- */
+  /* ---------------- THUMBNAIL REPLACE ---------------- */
+
   if (thumbnailLocalPath) {
     const uploadedThumb = await uploadFile(
       thumbnailLocalPath,
       "OpenLand/Thumbnail",
     );
     if (!uploadedThumb) throw new ApiError(500, "Thumbnail upload failed");
+
     thumbnailUrl = uploadedThumb;
   }
 
-  /* -------- brochure removed -------- */
+  /* ---------------- BROCHURE REMOVE ---------------- */
+
   if (data.brochureRemoved === "true" || data.brochureRemoved === true) {
     brochureUrl = "";
   }
 
-  /* -------- brochure replace -------- */
+  /* ---------------- BROCHURE REPLACE ---------------- */
+
   if (brochureLocalPath) {
     const uploadedPdf = await uploadPdfToCloudinary(brochureLocalPath);
     if (!uploadedPdf) throw new ApiError(500, "Brochure upload failed");
+
     brochureUrl = uploadedPdf;
   }
 
-  /* -------- gallery images append -------- */
+  /* ===================================================== */
+  /* 🔥 PRODUCTION IMAGE REPLACEMENT LOGIC STARTS HERE 🔥 */
+  /* ===================================================== */
+
+  // frontend sends remaining old images
+  let existingImages = [];
+
+  if (data.existingImages) {
+    try {
+      existingImages = JSON.parse(data.existingImages);
+    } catch {
+      existingImages = [];
+    }
+  }
+
+  // upload newly added images
+  let newImages = [];
   if (req.files?.images) {
-    const newImages = await Promise.all(
+    newImages = await Promise.all(
       req.files.images.map((file) => uploadFile(file.path, "OpenLand/Gallery")),
     );
-    images = [...images, ...newImages];
   }
+
+  // FINAL overwrite
+  images = [...existingImages, ...newImages];
+
+  /* ===================================================== */
 
   const updatedLand = await OpenLand.findByIdAndUpdate(
     id,
