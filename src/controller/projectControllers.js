@@ -273,26 +273,18 @@ export const getContractorsForSiteIncharge = async (req, res) => {
 
     if (role !== "site_incharge" && role !== "accountant") {
       return res.status(403).json({
-        error: "Access denied. Only site incharges allowed.",
+        error: "Access denied",
       });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(siteInchargeId)) {
-      return res.status(400).json({ error: "Invalid Site Incharge ID" });
-    }
-
     const contractors = await Project.aggregate([
-      // 1️⃣ Match only projects assigned to this Site Incharge
       {
         $match: {
-          $or: [
-            { siteIncharge: new mongoose.Types.ObjectId(siteInchargeId) },
-            { siteIncharge: siteInchargeId.toString() },
-          ],
+          siteIncharge: new mongoose.Types.ObjectId(siteInchargeId),
         },
       },
 
-      // 2️⃣ Populate References (using lookup)
+      // Populate references
       {
         $lookup: {
           from: "buildings",
@@ -332,34 +324,40 @@ export const getContractorsForSiteIncharge = async (req, res) => {
         },
       },
 
-      // 3️⃣ Unwind contractors for grouping
       { $unwind: "$contractors" },
 
-      // 4️⃣ Flatten tasks inside units
+      // Convert Map to array safely
       {
         $project: {
-          _id: 1,
           projectName: "$projectId.projectName",
           floorNumber: "$floorUnit.floorNumber",
           unitType: "$unit.plotNo",
           contractor: "$contractors",
-          units: { $objectToArray: "$units" }, // Convert Map → Array
-        },
-      },
-      { $unwind: "$units" },
-      { $unwind: "$units.v" }, // Extract each task
-
-      // 5️⃣ Filter tasks for this contractor only
-      {
-        $match: {
-          "units.v.contractor": { $exists: true },
-          $expr: {
-            $eq: ["$units.v.contractor", "$contractor._id"],
+          unitsArray: {
+            $ifNull: [{ $objectToArray: "$units" }, []],
           },
         },
       },
 
-      // 6️⃣ Group tasks back by contractor
+      { $unwind: { path: "$unitsArray", preserveNullAndEmptyArrays: true } },
+
+      { $unwind: { path: "$unitsArray.v", preserveNullAndEmptyArrays: true } },
+
+      // Only count tasks belonging to this contractor
+      {
+        $addFields: {
+          isMyTask: {
+            $cond: [
+              {
+                $eq: ["$unitsArray.v.contractor", "$contractor._id"],
+              },
+              1,
+              0,
+            ],
+          },
+        },
+      },
+
       {
         $group: {
           _id: "$contractor._id",
@@ -370,15 +368,31 @@ export const getContractorsForSiteIncharge = async (req, res) => {
           specialization: { $first: "$contractor.specialization" },
           status: { $first: "$contractor.status" },
 
-          totalTasks: { $sum: 1 },
+          totalTasks: {
+            $sum: {
+              $cond: [{ $eq: ["$isMyTask", 1] }, 1, 0],
+            },
+          },
+
           completedTasks: {
             $sum: {
               $cond: [
                 {
-                  $or: [
-                    { $eq: ["$units.v.statusForSiteIncharge", "approved"] },
-                    { $eq: ["$units.v.isApprovedBySiteManager", true] },
-                    { $gte: ["$units.v.progressPercentage", 100] },
+                  $and: [
+                    { $eq: ["$isMyTask", 1] },
+                    {
+                      $or: [
+                        {
+                          $eq: [
+                            "$unitsArray.v.statusForSiteIncharge",
+                            "approved",
+                          ],
+                        },
+                        {
+                          $gte: ["$unitsArray.v.progressPercentage", 100],
+                        },
+                      ],
+                    },
                   ],
                 },
                 1,
@@ -387,24 +401,8 @@ export const getContractorsForSiteIncharge = async (req, res) => {
             },
           },
 
-          projectDetails: {
-            $push: {
-              projectName: "$projectName",
-              unit: "$units.k",
-              floorNumber: "$floorNumber",
-              unitType: "$unitType",
-              taskTitle: "$units.v.title",
-              progressPercentage: "$units.v.progressPercentage",
-              statusForContractor: "$units.v.statusForContractor",
-              statusForSiteIncharge: "$units.v.statusForSiteIncharge",
-              priority: "$units.v.priority",
-              isApprovedBySiteManager: "$units.v.isApprovedBySiteManager",
-            },
-          },
-
           projects: {
             $addToSet: {
-              _id: "$_id",
               projectName: "$projectName",
               floorNumber: "$floorNumber",
               unitType: "$unitType",
@@ -413,7 +411,6 @@ export const getContractorsForSiteIncharge = async (req, res) => {
         },
       },
 
-      // 7️⃣ Calculate progress for each contractor
       {
         $addFields: {
           completionRate: {
@@ -433,20 +430,10 @@ export const getContractorsForSiteIncharge = async (req, res) => {
               0,
             ],
           },
-          overallProgress: {
-            $cond: [
-              { $gt: ["$totalTasks", 0] },
-              {
-                $round: [{ $avg: "$projectDetails.progressPercentage" }, 1],
-              },
-              0,
-            ],
-          },
         },
       },
 
-      // 8️⃣ Final sorting
-      { $sort: { completedTasks: -1 } },
+      { $sort: { totalTasks: -1 } },
     ]);
 
     res.status(200).json(contractors);
@@ -768,20 +755,26 @@ export const addContractorForSiteIncharge = async (req, res) => {
   try {
     const { contractor, project, taskTitle, deadline, priority } = req.body;
 
+    if (!contractor || !project || !taskTitle || !deadline) {
+      return res.status(400).json({
+        message: "Missing required fields",
+      });
+    }
+
     const projectDoc = await Project.findById(project)
       .populate("floorUnit", "_id floorNumber unitType")
       .populate("unit", "_id unitName");
 
     if (!projectDoc) {
-      return res
-        .status(404)
-        .json(new ApiResponse(404, null, "Project not found"));
+      return res.status(404).json({
+        message: "Project not found",
+      });
     }
 
-    const unitId =
-      projectDoc?.unit?._id || `Unit-${projectDoc?._id.toString().slice(-4)}`;
+    const unitId = projectDoc.unit._id.toString();
 
-    if (!projectDoc.contractors.includes(contractor)) {
+    // Add contractor if not already
+    if (!projectDoc.contractors.some((id) => id.toString() === contractor)) {
       projectDoc.contractors.push(contractor);
     }
 
@@ -790,29 +783,27 @@ export const addContractorForSiteIncharge = async (req, res) => {
       title: taskTitle,
       statusForContractor: "in_progress",
       statusForSiteIncharge: "pending verification",
-      deadline: deadline ? new Date(deadline) : new Date(),
+      deadline: new Date(deadline),
       progressPercentage: 0,
-      priority: priority || "normal",
+      priority: priority || "medium",
     };
 
     if (!projectDoc.units.has(unitId)) {
       projectDoc.units.set(unitId, []);
     }
 
-    const unitTasks = projectDoc.units.get(unitId);
-    unitTasks.push(newTask);
-    projectDoc.units.set(unitId, unitTasks);
+    projectDoc.units.get(unitId).push(newTask);
 
-    const projects = await projectDoc.save();
+    projectDoc.markModified("units");
+
+    await projectDoc.save();
 
     return res.status(201).json({
-      message: `Task added to ${unitId} successfully`,
-
-      contractor,
+      message: "Contractor assigned successfully",
       task: newTask,
-      unit: unitId,
     });
   } catch (err) {
+    console.error("Assign contractor error:", err);
     return res.status(500).json({
       message: "Server Error",
       error: err.message,
@@ -1009,6 +1000,33 @@ export const projectDropDownData = asyncHandler(async (req, res) => {
 
   res.status(200).json(new ApiResponse(201, projects, message));
 });
+
+export const projectDropDownDataForSiteIncharge = asyncHandler(
+  async (req, res) => {
+    const { role, _id: siteInchargeId } = req.user;
+
+    if (role !== "site_incharge") {
+      return res.status(403).json(new ApiResponse(403, null, "Access denied"));
+    }
+
+    const projects = await Project.find({
+      siteIncharge: siteInchargeId,
+    })
+      .select("_id projectId floorUnit unit")
+      .populate("projectId", "_id projectName")
+      .populate("floorUnit", "_id floorNumber unitType")
+      .populate("unit", "_id plotNo propertyType");
+
+    let message;
+    if (!projects || projects.length === 0) {
+      message = "No projects found";
+    } else {
+      message = "Projects fetched successfully";
+    }
+
+    res.status(200).json(new ApiResponse(200, projects, message));
+  },
+);
 
 export const getAllContractors = asyncHandler(async (req, res) => {
   const assignedContractors = await ContractorModel.distinct("userId");

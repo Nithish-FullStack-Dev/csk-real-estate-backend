@@ -65,12 +65,34 @@ export const saveCarAllocation = async (req, res) => {
 // ✅ Get All Car Allocations
 export const getAllCarAllocations = async (req, res) => {
   try {
-    // You could add query parameters for filtering, e.g., req.query.status
+    const now = new Date();
+
+    // 1️⃣ Auto-expire allocations
+    await CarAllocation.updateMany(
+      {
+        status: "assigned",
+        "assignedTo.assignedUntil": { $lt: now },
+      },
+      {
+        $set: {
+          status: "available",
+          assignedTo: {
+            agent: null,
+            assignedUntil: null,
+          },
+          assignedBy: null,
+          assignedAt: null,
+        },
+      },
+    );
+
+    // 2️⃣ Apply optional status filter
     const query = {};
     if (req.query.status) {
       query.status = req.query.status;
     }
 
+    // 3️⃣ Fetch updated data
     const carAllocations = await CarAllocation.find(query)
       .populate("assignedTo.agent")
       .populate("assignedBy");
@@ -156,7 +178,7 @@ export const updateCarAllocation = async (req, res) => {
         const logToUpdate = vehicle.usageLogs.findLast(
           (log) =>
             log.agent.toString() === previousAssignedAgentId &&
-            !log.actualReturnAt
+            !log.actualReturnAt,
         );
         if (logToUpdate) {
           logToUpdate.actualReturnAt = vehicle.actualReturnAt;
