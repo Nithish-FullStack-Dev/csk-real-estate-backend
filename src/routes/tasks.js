@@ -126,23 +126,30 @@ router.get("/", async (req, res) => {
       return res.status(401).json({ error: "User not found" });
     }
 
-    const role = currentUser.role?.toUpperCase();
+    // const role = currentUser.role?.toUpperCase();
 
     const where = {};
 
-    // ADMIN can view selected user's tasks
-    if (role === "ADMIN") {
-      if (userId) {
-        
-        where.userId = new ObjectId(userId);
-      }
-      // else: admin sees all tasks
-    }
-    // NON-ADMIN: only own tasks
-    else {
-      
+    if (userId === currentUserId) {
       where.userId = currentUserId;
+      
+    }else{
+      where.userId = new ObjectId(userId);
     }
+
+    // ADMIN can view selected user's tasks
+    // if (role === "ADMIN") {
+    //   if (userId) {
+        
+    //     where.userId = new ObjectId(userId);
+    //   }
+    //   // else: admin sees all tasks
+    // }
+    // // NON-ADMIN: only own tasks
+    // else {
+      
+    //   where.userId = currentUserId;
+    // }
 
     const tasks = await db
       .collection("tasks")
@@ -159,6 +166,7 @@ router.get("/", async (req, res) => {
         },
       ])
       .toArray();
+      console.log("taskkss", tasks);
       
     res.json({ success: true, tasks });
   } catch (err) {
