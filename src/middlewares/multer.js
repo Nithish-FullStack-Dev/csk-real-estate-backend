@@ -1,14 +1,13 @@
-// top of your multer.js or multer.ts file
+// src/middlewares/multer.js
 import multer from "multer";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// 🧠 Recreate __dirname for ESM
+// recreate __dirname (ESM)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ✅ Then safely create your upload path
 const uploadDir = path.join(__dirname, "..", "uploads", "tmp");
 
 if (!fs.existsSync(uploadDir)) {
@@ -21,9 +20,16 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, file.fieldname + "-" + uniqueSuffix);
+    cb(
+      null,
+      file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname),
+    );
   },
 });
 
-export const upload = multer({ storage });
-
+export const upload = multer({
+  storage,
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 🔥 100MB
+  },
+});

@@ -145,10 +145,21 @@ export const updateOpenPlot = asyncHandler(async (req, res) => {
   }
 
   /* -------- append gallery images -------- */
+  /* -------- REMOVE SELECTED IMAGES -------- */
+  if (req.body.removedImages) {
+    const removed = Array.isArray(req.body.removedImages)
+      ? req.body.removedImages
+      : [req.body.removedImages];
+
+    images = images.filter((img) => !removed.includes(img));
+  }
+
+  /* -------- ADD NEW IMAGES -------- */
   if (req.files?.images && Array.isArray(req.files.images)) {
     const newImages = await Promise.all(
       req.files.images.map((file) => uploadFile(file.path, "OpenPlot/Gallery")),
     );
+
     images = [...images, ...newImages];
   }
 
