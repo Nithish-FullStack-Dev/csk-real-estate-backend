@@ -69,12 +69,23 @@ export const createQualityIssue = async (req, res) => {
 export const getQualityIssuesByUserId = async (req, res) => {
   try {
     const userId = req.user._id;
+    const role = req.user.role;
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ error: "Invalid user ID" });
     }
 
-    const issues = await QualityIssue.find({ user: userId })
+    let filter = {};
+
+    if (role === "siteIncharge") {
+      filter = { user: userId };
+    } else if (role === "contractor") {
+      filter = { contractor: userId };
+    } else if (role === "admin") {
+      filter = {};
+    }
+
+    const issues = await QualityIssue.find(filter)
       .populate({
         path: "project",
         populate: [

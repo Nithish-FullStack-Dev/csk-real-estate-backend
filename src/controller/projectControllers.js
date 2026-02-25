@@ -60,6 +60,18 @@ export const createProject = async (req, res) => {
       status,
     } = req.body;
 
+    const existingProject = await Project.findOne({
+      projectId,
+      floorUnit,
+      unit,
+    });
+
+    if (existingProject) {
+      return res.status(400).json({
+        message: "Project already exists for this Building + Floor + Unit",
+      });
+    }
+
     const newProject = new Project({
       projectId,
       clientName, // 🔥 explicitly saved
@@ -516,6 +528,9 @@ export const getContractorTasksUnderSiteIncharge = async (req, res) => {
               floorNumber,
               unitType,
               unit: unitName,
+              unitId: project.unit?._id,
+              plotNo: project.unit?.plotNo,
+              propertyType: project.unit?.propertyType,
               constructionPhase: task.constructionPhase,
               status: isCompleted ? "completed" : task.statusForSiteIncharge,
               priority: task.priority || "unspecified",
@@ -1089,19 +1104,16 @@ export const projectDropDownDataForSiteIncharge = asyncHandler(
 );
 
 export const getAllContractors = asyncHandler(async (req, res) => {
-  const assignedContractors = await ContractorModel.distinct("userId");
-
   const contractors = await User.find({
     role: "contractor",
-    _id: { $nin: assignedContractors },
   }).select("_id name");
-  let message;
-  if (!contractors || contractors.length === 0) {
-    message = "No contractors found";
-  } else {
-    message = "Contractors fetched successfully";
-  }
-  res.status(200).json(new ApiResponse(201, contractors, message));
+
+  const message =
+    contractors.length === 0
+      ? "No contractors found"
+      : "Contractors fetched successfully";
+
+  res.status(200).json(new ApiResponse(200, contractors, message));
 });
 
 export const getCompletedTasksForUnit = asyncHandler(async (req, res) => {
