@@ -2,9 +2,11 @@ import Lead from "../modals/leadModal.js";
 import Property from "../modals/propertyModel.js";
 import Commission from "../modals/commissionsModal.js";
 import TeamManagement from "../modals/teamManagementModal.js";
+import User from "../modals/user.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
+import { createNotification } from "../utils/notificationHelper.js";
 
 export const saveLead = asyncHandler(async (req, res) => {
   const leadData = req.body;
@@ -13,6 +15,17 @@ export const saveLead = asyncHandler(async (req, res) => {
 
   const newLead = new Lead(leadData);
   const savedLead = await newLead.save();
+
+  // 🔔 Notify Sales Managers about new lead
+  const managers = await User.find({ role: "sales_manager" });
+  for (const manager of managers) {
+    await createNotification({
+      userId: manager._id,
+      title: "New Lead Added",
+      message: `A new lead for ${savedLead.name} has been added by ${req.user.name}.`,
+      triggeredBy: req.user._id,
+    });
+  }
 
   res
     .status(201)
@@ -281,6 +294,16 @@ export const updateLeadById = async (req, res) => {
       new: true,
       runValidators: true,
     });
+
+    // 🔔 Notify lead owner if status changed
+    if (status && status !== lead.status) {
+      await createNotification({
+        userId: updatedLead.addedBy,
+        title: "Lead Status Updated",
+        message: `Lead ${updatedLead.name} status changed from ${lead.status} to ${status}.`,
+        triggeredBy: req.user._id,
+      });
+    }
 
     res.status(200).json({
       message: "Lead updated successfully",
