@@ -2,10 +2,12 @@ import Lead from "../modals/leadModal.js";
 import Property from "../modals/propertyModel.js";
 import Commission from "../modals/commissionsModal.js";
 import TeamManagement from "../modals/teamManagementModal.js";
+import User from "../modals/user.js";
 import TeamLeads from "../modals/TeamLeadmanagement.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
+import { createNotification } from "../utils/notificationHelper.js";
 
 export const saveLead = asyncHandler(async (req, res) => {
   const leadData = req.body;
@@ -15,6 +17,17 @@ export const saveLead = asyncHandler(async (req, res) => {
 
   const newLead = new Lead(leadData);
   const savedLead = await newLead.save();
+
+  // 🔔 Notify Sales Managers about new lead
+  const managers = await User.find({ role: "sales_manager" });
+  for (const manager of managers) {
+    await createNotification({
+      userId: manager._id,
+      title: "New Lead Added",
+      message: `A new lead for ${savedLead.name} has been added by ${req.user.name}.`,
+      triggeredBy: req.user._id,
+    });
+  }
 
   res
     .status(201)
@@ -315,12 +328,16 @@ export const updateLeadById = async (req, res) => {
       runValidators: true,
     });
 
-    if (
-      oldPropertyStatus !== "Closed" &&
-      updatedLead.propertyStatus === "Closed"
-    ) {
-      await generateCommissionIfNotExists(updatedLead);
+    // 🔔 Notify lead owner if status changed
+    if (status && status !== lead.status) {
+      await createNotification({
+        userId: updatedLead.addedBy,
+        title: "Lead Status Updated",
+        message: `Lead ${updatedLead.name} status changed from ${lead.status} to ${status}.`,
+        triggeredBy: req.user._id,
+      });
     }
+
     res.status(200).json({
       message: "Lead updated successfully",
       updatedLead,
@@ -477,36 +494,3 @@ export const getLeadsByOpenLandId = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, leads, "Open land leads fetched successfully"));
 });
-
-// 🔥 AUTO COMMISSION GENERATOR (Safe Version)
-const generateCommissionIfNotExists = async (lead) => {
-  try {
-    const existingCommission = await Commission.findOne({
-      clientId: lead._id,
-    });
-
-    if (existingCommission) {
-      return; // Already created
-    }
-
-    // Get sale value from unit
-    const populatedLead = await Lead.findById(lead._id).populate("unit");
-
-    const saleValue = populatedLead?.unit?.totalAmount || 0;
-
-    if (!saleValue) return;
-
-    const commissionPercent = 3; // Default 3%
-    const commissionAmount = (saleValue * commissionPercent) / 100;
-
-    await Commission.create({
-      clientId: lead._id,
-      commissionAmount: `₹${commissionAmount.toLocaleString("en-IN")}`,
-      commissionPercent: `${commissionPercent}%`,
-      saleDate: new Date(),
-      status: "pending",
-    });
-  } catch (err) {
-    console.error("Commission Auto Generation Error:", err.message);
-  }
-};

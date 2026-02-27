@@ -1,4 +1,6 @@
 import EnquiryForm from "../modals/enquiryForm.js";
+import User from "../modals/user.js";
+import { createNotification } from "../utils/notificationHelper.js";
 
 // CREATE ENQUIRY
 export const createEnquiryForm = async (req, res) => {
@@ -30,6 +32,17 @@ export const createEnquiryForm = async (req, res) => {
     });
 
     await newEnquiry.save();
+
+    // 🔔 Notify all Admins and Sales Managers
+    const admins = await User.find({ role: { $in: ["admin", "sales_manager"] } });
+    for (const admin of admins) {
+      await createNotification({
+        userId: admin._id,
+        title: "New Enquiry Received",
+        message: `A new enquiry has been submitted by ${name} for ${propertyType}.`,
+      });
+    }
+
     res
       .status(201)
       .json({ message: "Enquiry submitted successfully", data: newEnquiry });
