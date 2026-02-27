@@ -3,6 +3,7 @@ import Property from "../modals/propertyModel.js";
 import Commission from "../modals/commissionsModal.js";
 import TeamManagement from "../modals/teamManagementModal.js";
 import User from "../modals/user.js";
+import TeamLeads from "../modals/TeamLeadmanagement.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
@@ -117,29 +118,55 @@ export const getAllLeads = async (req, res) => {
     let query = {};
 
     // ADMIN & SALES MANAGER → see all
-    if (role === "admin" || role === "sales_manager") {
+    if (role === "admin" || role === "owner") {
       query = {};
     }
 
-    // AGENT → only their leads
-    else if (role === "agent") {
-      query = { addedBy: _id };
+    // ================= SALES MANAGER =================
+    else if (role === "sales_manager") {
+      // 1️⃣ Get Team Leads under this Sales Manager
+      const teamLeads = await TeamLeads.find({ salesId: _id }).select(
+        "teamLeadId",
+      );
+
+      const teamLeadIds = teamLeads.map((t) => t.teamLeadId);
+
+      // 2️⃣ Get Agents under those Team Leads
+      const agents = await TeamManagement.find({
+        teamLeadId: { $in: teamLeadIds },
+      }).select("agentId");
+
+      const agentIds = agents.map((a) => a.agentId);
+
+      // 3️⃣ Build query
+      query = {
+        $or: [
+          { addedBy: _id }, // sales own leads
+          { addedBy: { $in: teamLeadIds } }, // team lead leads
+          { addedBy: { $in: agentIds } }, // agent leads
+        ],
+      };
     }
 
-    // TEAM LEAD → only their team agents leads
+    // ================= TEAM LEAD =================
     else if (role === "team_lead") {
-      const teamAgents = await TeamManagement.find({ teamLeadId: _id }).select(
-        "agentId",
-      );
+      const teamAgents = await TeamManagement.find({
+        teamLeadId: _id,
+      }).select("agentId");
 
       const agentIds = teamAgents.map((t) => t.agentId);
 
       query = {
         $or: [
-          { addedBy: _id }, // team lead own leads
-          { addedBy: { $in: agentIds } }, // team agents leads
+          { addedBy: _id }, // own leads
+          { addedBy: { $in: agentIds } }, // agents
         ],
       };
+    }
+
+    // ================= AGENT =================
+    else if (role === "agent") {
+      query = { addedBy: _id };
     }
 
     const leads = await Lead.find(query)
@@ -290,6 +317,8 @@ export const updateLeadById = async (req, res) => {
       update.innerPlot = null;
     }
 
+    const oldPropertyStatus = lead.propertyStatus;
+
     const updatedLead = await Lead.findByIdAndUpdate(id, update, {
       new: true,
       runValidators: true,
@@ -326,17 +355,13 @@ export const deleteLeadById = asyncHandler(async (req, res) => {
 
   if (!lead) throw new ApiError(404, "Lead not found");
 
-  if (
-    role !== "admin" &&
-    role !== "sales_manager" &&
-    lead.addedBy.toString() !== _id.toString()
-  ) {
-    throw new ApiError(403, "Unauthorized");
-  }
-
   await lead.deleteOne();
 
-  res.status(200).json(new ApiResponse(200, lead, "Lead deleted successfully"));
+  res
+    .status(200)
+    .json(
+      new ApiResponse(200, null, "Lead and related data deleted successfully"),
+    );
 });
 
 export const getAvailableProperties = async (req, res) => {

@@ -9,7 +9,7 @@ const PerformanceSchema = new mongoose.Schema(
     conversionRate: { type: Number, default: 0 },
     lastActivity: { type: Date, default: Date.now },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const TeamLeadManagement = new mongoose.Schema(
@@ -17,6 +17,7 @@ const TeamLeadManagement = new mongoose.Schema(
     salesId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
+      index: true,
     },
     performance: { type: PerformanceSchema, default: {} },
     status: {
@@ -28,9 +29,10 @@ const TeamLeadManagement = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       default: null,
+      index: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.models.TeamLeads ||
