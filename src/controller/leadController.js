@@ -12,6 +12,7 @@ import { createNotification } from "../utils/notificationHelper.js";
 export const saveLead = asyncHandler(async (req, res) => {
   const leadData = req.body;
   leadData.addedBy = req.user._id;
+  leadData.createdBy = req.user._id;
   leadData.isPropertyLead = true;
 
   const newLead = new Lead(leadData);
@@ -65,6 +66,7 @@ export const createOpenPlotLead = asyncHandler(async (req, res) => {
     isPropertyLead: false,
 
     addedBy: req.user._id,
+    createdBy: req.user._id,
   });
 
   res
@@ -104,6 +106,7 @@ export const createOpenLandLead = asyncHandler(async (req, res) => {
     isPropertyLead: false,
 
     addedBy: req.user._id,
+    createdBy: req.user._id,
   });
 
   res
@@ -280,6 +283,7 @@ export const updateLeadById = async (req, res) => {
       propertyStatus,
       notes,
       lastContact: new Date(),
+      updatedBy: req.user._id,
     };
 
     /* ---------------- Lead-type enforcement ---------------- */
@@ -354,6 +358,9 @@ export const deleteLeadById = asyncHandler(async (req, res) => {
   const lead = await Lead.findById(id);
 
   if (!lead) throw new ApiError(404, "Lead not found");
+
+  lead.deletedBy = _id;
+  await lead.save();
 
   await lead.deleteOne();
 

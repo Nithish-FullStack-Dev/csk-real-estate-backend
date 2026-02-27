@@ -352,26 +352,29 @@ export const getPurchasedCustomerUnits = asyncHandler(async (req, res) => {
   }
 
   const customers = await Customer.aggregate([
-    { $unwind: "$properties" },
-    { $match: { "properties.unit": new mongoose.Types.ObjectId(unitId) } },
+    {
+      $match: {
+        unit: new mongoose.Types.ObjectId(unitId),
+      },
+    },
     {
       $lookup: {
         from: "users",
-        localField: "user",
+        localField: "customerId",
         foreignField: "_id",
-        as: "userDetails",
+        as: "customerDetails",
       },
     },
-    { $unwind: "$userDetails" },
+    { $unwind: "$customerDetails" },
     {
       $project: {
         _id: 0,
-        name: "$userDetails.name",
-        email: "$userDetails.email",
-        bookingDate: "$properties.bookingDate",
-        finalPrice: "$properties.finalPrice",
-        paymentStatus: "$properties.paymentStatus",
-        paymentPlan: "$properties.paymentPlan",
+        name: "$customerDetails.name",
+        email: "$customerDetails.email",
+        bookingDate: "$bookingDate",
+        finalPrice: "$finalPrice",
+        paymentStatus: "$paymentStatus",
+        paymentPlan: "$paymentPlan",
       },
     },
   ]);
