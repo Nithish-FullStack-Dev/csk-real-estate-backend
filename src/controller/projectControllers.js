@@ -84,6 +84,7 @@ export const createProject = async (req, res) => {
       teamSize,
       siteIncharge,
       status,
+      createdBy: req.user._id,
     });
 
     await newProject.save();
@@ -237,7 +238,7 @@ export const getUserTasks = async (req, res) => {
 
 export const updateProject = asyncHandler(async (req, res) => {
   const { projectId } = req.params;
-  const updateData = req.body;
+  const updateData = { ...req.body, updatedBy: req.user._id };
 
   if (!projectId) {
     throw new ApiError(400, "Project ID is required");
@@ -275,7 +276,8 @@ export const deleteProject = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Project not found");
   }
 
-  await Project.findByIdAndDelete(projectId);
+  project.deletedBy = req.user._id;
+  await project.deleteOne();
 
   return res
     .status(200)
@@ -646,6 +648,7 @@ export const updateTaskByIdForContractor = async (req, res) => {
     }
 
     project.markModified("units");
+    project.updatedBy = req.user._id;
     await project.save();
 
     return res.status(200).json({ success: true });
@@ -698,7 +701,8 @@ export const miniUpdateTaskByIdForContractor = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Task not found in project" });
     }
-
+    project.markModified("units");
+    project.updatedBy = req.user._id;
     await project.save();
 
     return res.status(200).json({
@@ -770,7 +774,8 @@ export const updateTaskByIdForSiteIncharge = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Task not found in any unit" });
     }
-
+    project.markModified("units");
+    project.updatedBy = req.user._id;
     await project.save();
     return res.status(200).json({
       success: true,
@@ -826,7 +831,7 @@ export const addContractorForSiteIncharge = async (req, res) => {
     projectDoc.units.get(unitId).push(newTask);
 
     projectDoc.markModified("units");
-
+    projectDoc.updatedBy = req.user._id;
     await projectDoc.save();
 
     return res.status(201).json({
@@ -934,7 +939,8 @@ export const assignTaskToContractor = async (req, res) => {
 
     tasks.push(newTask);
     project.units.set(unitKey, tasks);
-
+    project.markModified("units");
+    project.updatedBy = req.user._id;
     await project.save();
 
     // 9️⃣ Update Quality Issue safely
@@ -944,6 +950,7 @@ export const assignTaskToContractor = async (req, res) => {
     }
 
     issue.contractor = contractor._id;
+    issue.updatedBy = req.user._id;
     await issue.save();
 
     return res.status(200).json({
@@ -978,7 +985,6 @@ export const createTaskForProjectUnit = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Project not found" });
     }
-    console.log("project", project);
 
     const newTask = {
       title,
@@ -989,6 +995,10 @@ export const createTaskForProjectUnit = async (req, res) => {
       priority,
     };
     const unit = project?.unit;
+
+    if (!project.units) {
+      project.units = new Map();
+    }
     // Initialize unit if not present
     if (!project.units.has(unit)) {
       project.units.set(unit, []);
@@ -998,7 +1008,8 @@ export const createTaskForProjectUnit = async (req, res) => {
     taskArray.push(newTask);
 
     project.units.set(unit, taskArray);
-
+    project.markModified("units");
+    project.updatedBy = req.user._id;
     await project.save();
 
     return res
@@ -1012,7 +1023,6 @@ export const createTaskForProjectUnit = async (req, res) => {
 
 export const assignContractorToUnit = async (req, res) => {
   try {
-    console.log(req.body);
     const { projectId, unit, contractorId } = req.body;
 
     if (!projectId || !unit || !contractorId) {
@@ -1036,10 +1046,12 @@ export const assignContractorToUnit = async (req, res) => {
     }
 
     // 1. Add to contractors array if not already present
-    if (!project.contractors.includes(contractorId)) {
+    if (!project.contractors.some((id) => id.toString() === contractorId)) {
       project.contractors.push(contractorId);
     }
-
+    if (!project.assignedContractors) {
+      project.assignedContractors = new Map();
+    }
     // 2. Add contractor to assignedContractors map for the unit
     const currentAssigned = project.assignedContractors.get(unit) || [];
 
@@ -1048,6 +1060,7 @@ export const assignContractorToUnit = async (req, res) => {
       project.assignedContractors.set(unit, currentAssigned);
     }
 
+    project.updatedBy = req.user._id;
     await project.save();
 
     res
@@ -1080,7 +1093,7 @@ export const projectDropDownDataForSiteIncharge = asyncHandler(
   async (req, res) => {
     const { role, _id: siteInchargeId } = req.user;
 
-    if (role !== "site_incharge") {
+    if (role !== "site_incharge" && role !== "accountant") {
       return res.status(403).json(new ApiResponse(403, null, "Access denied"));
     }
 
@@ -1123,7 +1136,7 @@ export const getCompletedTasksForUnit = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid Project ID");
   }
 
-  const project = await Project.findOne({ projectId })
+  const project = await Project.findOne({ _id: projectId })
     .populate("contractors", "_id name email")
     .populate("siteIncharge", "_id name email")
     .lean();

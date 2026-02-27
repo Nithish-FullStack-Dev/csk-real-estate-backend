@@ -10,7 +10,7 @@ const PerformanceSchema = new mongoose.Schema(
     conversionRate: { type: Number, default: 0 },
     lastActivity: { type: Date, default: Date.now },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const TeamManagement = new mongoose.Schema(
@@ -19,6 +19,7 @@ const TeamManagement = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       unique: true,
+      index: true,
     },
     performance: { type: PerformanceSchema, default: {} },
     status: {
@@ -30,9 +31,10 @@ const TeamManagement = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       default: null,
+      index: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.models.TeamAgent ||

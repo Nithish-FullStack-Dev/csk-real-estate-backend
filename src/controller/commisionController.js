@@ -3,7 +3,21 @@ import Commission from "../modals/commissionsModal.js";
 //! POST /api/commissions
 export const createCommission = async (req, res) => {
   try {
-    const commission = await Commission.create(req.body);
+    const { clientId } = req.body;
+
+    const existing = await Commission.findOne({ clientId });
+
+    if (existing) {
+      return res
+        .status(400)
+        .json({ message: "Commission already exists for this lead" });
+    }
+
+    const commission = await Commission.create({
+      ...req.body,
+      createdBy: req.user._id,
+    });
+
     res.status(201).json(commission);
   } catch (error) {
     res.status(500).json({ message: "Failed to create commission", error });
@@ -88,13 +102,25 @@ export const getCommissionById = async (req, res) => {
 //! PATCH /api/commissions/:id
 export const updateCommission = async (req, res) => {
   try {
+    const {
+      commissionAmount,
+      commissionPercent,
+      saleDate,
+      paymentDate,
+      status,
+    } = req.body;
+
     const updated = await Commission.findByIdAndUpdate(
       req.params.id,
-      req.body,
       {
-        new: true,
-        runValidators: true,
-      }
+        commissionAmount,
+        commissionPercent,
+        saleDate,
+        paymentDate,
+        status,
+        updatedBy: req.user._id,
+      },
+      { new: true, runValidators: true },
     );
 
     if (!updated) {
@@ -110,7 +136,13 @@ export const updateCommission = async (req, res) => {
 //! DELETE /api/commissions/:id
 export const deleteCommission = async (req, res) => {
   try {
-    const deleted = await Commission.findByIdAndDelete(req.params.id);
+    const id = req.params.id;
+
+    await Commission.findByIdAndUpdate(id, {
+      deletedBy: req.user._id,
+    });
+
+    const deleted = await Commission.findByIdAndDelete(id);
 
     if (!deleted) {
       return res.status(404).json({ message: "Commission not found" });

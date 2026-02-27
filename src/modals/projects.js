@@ -128,7 +128,7 @@ const ProjectSchema = new Schema(
     units: {
       type: Map,
       of: [TaskSchema], // map of unit name -> array of tasks
-      default: {},
+      default: () => new Map(),
     },
     deadline: {
       type: Date,
@@ -177,7 +177,23 @@ const ProjectSchema = new Schema(
           ref: "User",
         },
       ],
-      default: {},
+      default: () => new Map(),
+    },
+
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
     },
   },
   { timestamps: true },

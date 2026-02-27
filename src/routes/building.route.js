@@ -33,6 +33,7 @@ router.post(
       maxCount: 5,
     },
   ]),
+  authenticate,
   createBuilding,
 );
 

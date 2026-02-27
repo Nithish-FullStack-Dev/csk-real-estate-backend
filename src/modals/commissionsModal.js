@@ -6,14 +6,18 @@ const CommissionSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Lead",
       required: true,
+      unique: true,
+      index: true,
     },
     commissionAmount: {
-      type: String,
+      type: Number,
       required: true,
+      min: 0,
     },
     commissionPercent: {
-      type: String,
+      type: Number,
       required: true,
+      min: 0,
     },
     saleDate: {
       type: Date,
@@ -28,8 +32,23 @@ const CommissionSchema = new mongoose.Schema(
       enum: ["pending", "paid"],
       default: "pending",
     },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.models.Commission ||

@@ -26,7 +26,7 @@ import { upload } from "../middlewares/multer.js";
 
 const router = express.Router();
 
-router.post("/create-project", createProject);
+router.post("/create-project", authenticate, createProject);
 
 router.get("/projects", authenticate, getUserProjects);
 

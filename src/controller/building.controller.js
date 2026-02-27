@@ -32,9 +32,6 @@ export const createBuilding = asyncHandler(async (req, res) => {
   ) {
     throw new ApiError(400, "Required fields are missing");
   }
-  console.log("HEADERS:", req.headers["content-type"]);
-  console.log("FILES:", req.files);
-  console.log("BODY:", req.body);
 
   const thumbnailLocalPath = req.files?.thumbnailUrl?.[0]?.path;
 
@@ -86,6 +83,7 @@ export const createBuilding = asyncHandler(async (req, res) => {
     googleMapsLocation,
     brochureUrl: brochureUrl || "",
     amenities,
+    createdBy: req.user._id,
   });
 
   const createdBuilding = await Building.findById(building._id);
@@ -227,6 +225,7 @@ export const updateBuilding = asyncHandler(async (req, res) => {
     thumbnailUrl,
     brochureUrl,
     images,
+    updatedBy: req.user._id,
   };
 
   const updatedBuilding = await Building.findByIdAndUpdate(_id, updatedData, {

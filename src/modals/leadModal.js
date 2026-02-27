@@ -67,8 +67,51 @@ const leadSchema = new mongoose.Schema(
       required: true,
     },
     notes: { type: String, default: "" },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   { timestamps: true },
+);
+
+leadSchema.pre(
+  "deleteOne",
+  { document: true, query: false },
+  async function (next) {
+    try {
+      const leadId = this._id;
+
+      // Dynamically get models (avoids circular import)
+      const Commission = mongoose.model("Commission");
+      const AgentSchedule = mongoose.model("AgentSchedule");
+      const SiteVisit = mongoose.model("SiteVisit");
+
+      // 1️⃣ Delete related commissions
+      await Commission.deleteMany({ clientId: leadId });
+
+      // 2️⃣ Delete agent schedules (FIX FIELD NAME IF NEEDED)
+      await AgentSchedule.deleteMany({ lead: leadId });
+
+      // 3️⃣ Delete site visits
+      await SiteVisit.deleteMany({ clientId: leadId });
+
+      next();
+    } catch (error) {
+      next(error);
+    }
+  },
 );
 
 export default mongoose.model("Lead", leadSchema);
