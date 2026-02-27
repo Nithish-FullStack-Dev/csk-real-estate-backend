@@ -1080,7 +1080,7 @@ export const projectDropDownDataForSiteIncharge = asyncHandler(
   async (req, res) => {
     const { role, _id: siteInchargeId } = req.user;
 
-    if (role !== "site_incharge") {
+    if (role !== "site_incharge" || role !== "accountant") {
       return res.status(403).json(new ApiResponse(403, null, "Access denied"));
     }
 
