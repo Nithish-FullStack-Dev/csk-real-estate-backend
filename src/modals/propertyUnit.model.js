@@ -92,6 +92,22 @@ const PropertyUnitSchema = new Schema(
     enquiryCustomerContact: { type: String },
     purchasedCustomerName: { type: String },
     purchasedCustomerContact: { type: String },
+
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   { timestamps: true },
 );

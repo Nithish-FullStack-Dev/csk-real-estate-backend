@@ -16,6 +16,7 @@ const router = Router();
 
 router.post(
   "/createUnit",
+  authenticate,
   upload.fields([
     {
       name: "thumbnailUrl",
@@ -30,25 +31,25 @@ router.post(
       maxCount: 5,
     },
   ]),
-  createUnit
+  createUnit,
 );
 
 router.get(
   "/getUnitsByFloorIdAndBuildingId/:buildingId/:floorId",
   authenticate,
-  getUnitsByFloorIdAndBuildingId
+  getUnitsByFloorIdAndBuildingId,
 );
 
 router.get(
   "/getAvailableUnitsByFloorIdAndBuildingIdForDropDown/:buildingId/:floorId",
   authenticate,
-  getAvailableUnitsByFloorIdAndBuildingIdForDropDown
+  getAvailableUnitsByFloorIdAndBuildingIdForDropDown,
 );
 
 router.get(
   "/getUnitsByFloorIdAndBuildingIdForDropDown/:buildingId/:floorId",
   authenticate,
-  getUnitsByFloorIdAndBuildingIdForDropDown
+  getUnitsByFloorIdAndBuildingIdForDropDown,
 );
 
 router.get("/getUnit/:unitId", authenticate, getUnit);
@@ -56,17 +57,18 @@ router.get("/getUnit/:unitId", authenticate, getUnit);
 router.get(
   "/getCustomersByUnit/:unitId",
   authenticate,
-  getPurchasedCustomerUnits
+  getPurchasedCustomerUnits,
 );
 
 router.patch(
   "/updateUnit/:unitId",
+  authenticate,
   upload.fields([
     { name: "thumbnailUrl", maxCount: 1 },
     { name: "documents", maxCount: 5 },
     { name: "images", maxCount: 5 },
   ]),
-  updateUnit
+  updateUnit,
 );
 
 router.delete("/deleteUnit/:unitId", authenticate, deleteUnit);

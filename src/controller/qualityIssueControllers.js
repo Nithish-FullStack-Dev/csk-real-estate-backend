@@ -51,7 +51,7 @@ export const createQualityIssue = async (req, res) => {
           )
         : [],
     });
-
+    newIssue.createdBy = user;
     const savedIssue = await newIssue.save();
 
     res.status(201).json({
@@ -77,7 +77,7 @@ export const getQualityIssuesByUserId = async (req, res) => {
 
     let filter = {};
 
-    if (role === "siteIncharge") {
+    if (role === "site_incharge") {
       filter = { user: userId };
     } else if (role === "contractor") {
       filter = { contractor: userId };
@@ -131,9 +131,13 @@ export const updateStatus = async (req, res) => {
 
   const issue = await QualityIssue.findByIdAndUpdate(
     req.params.id,
-    { status },
+    { status, updatedBy: req.user._id },
     { new: true },
   );
+
+  if (!issue) {
+    return res.status(404).json({ error: "Issue not found" });
+  }
 
   res.json(issue);
 };

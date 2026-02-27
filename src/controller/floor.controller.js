@@ -39,6 +39,7 @@ export const createFloor = asyncHandler(async (req, res) => {
     totalSubUnits,
     availableSubUnits,
     priceRange,
+    createdBy: req.user._id,
   });
 
   return res
@@ -93,10 +94,14 @@ export const updateFloorById = asyncHandler(async (req, res) => {
     }
   }
 
-  const updatedFloor = await FloorUnit.findByIdAndUpdate(_id, data, {
-    new: true,
-    runValidators: true,
-  });
+  const updatedFloor = await FloorUnit.findByIdAndUpdate(
+    _id,
+    { ...data, updatedBy: req.user._id },
+    {
+      new: true,
+      runValidators: true,
+    },
+  );
 
   return res
     .status(200)
@@ -128,7 +133,8 @@ export const deleteFloorById = asyncHandler(async (req, res) => {
     );
   }
 
-  await FloorUnit.findByIdAndDelete(_id);
+  floor.deletedBy = req.user._id;
+  await floor.deleteOne();
 
   return res
     .status(200)
