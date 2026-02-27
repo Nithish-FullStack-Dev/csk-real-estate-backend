@@ -13,7 +13,10 @@ export const createCommission = async (req, res) => {
         .json({ message: "Commission already exists for this lead" });
     }
 
-    const commission = await Commission.create(req.body);
+    const commission = await Commission.create({
+      ...req.body,
+      createdBy: req.user._id,
+    });
 
     res.status(201).json(commission);
   } catch (error) {
@@ -115,6 +118,7 @@ export const updateCommission = async (req, res) => {
         saleDate,
         paymentDate,
         status,
+        updatedBy: req.user._id,
       },
       { new: true, runValidators: true },
     );
@@ -132,7 +136,13 @@ export const updateCommission = async (req, res) => {
 //! DELETE /api/commissions/:id
 export const deleteCommission = async (req, res) => {
   try {
-    const deleted = await Commission.findByIdAndDelete(req.params.id);
+    const id = req.params.id;
+
+    await Commission.findByIdAndUpdate(id, {
+      deletedBy: req.user._id,
+    });
+
+    const deleted = await Commission.findByIdAndDelete(id);
 
     if (!deleted) {
       return res.status(404).json({ message: "Commission not found" });
