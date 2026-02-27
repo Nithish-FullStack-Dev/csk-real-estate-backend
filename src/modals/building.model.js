@@ -57,6 +57,16 @@ const buildingSchema = new Schema(
       ref: "User",
       default: null,
     },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   { timestamps: true },
 );
@@ -72,6 +82,7 @@ buildingSchema.methods.restore = async function () {
   this.isDeleted = false;
   this.deletedAt = null;
   this.deletedBy = null;
+  this.updatedBy = userId;
   return this.save();
 };
 

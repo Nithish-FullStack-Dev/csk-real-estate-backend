@@ -159,10 +159,10 @@ export const startStream = async () => {
       {
         $match: {
           operationType: { $in: ["insert", "update", "delete", "replace"] },
-          ...(collectionsToWatch.length
-            ? { "ns.coll": { $in: collectionsToWatch } }
-            : {}),
-          "ns.coll": { $ne: INTERNAL_AUDIT_COLLECTION },
+          "ns.coll": {
+            $in: collectionsToWatch,
+            $ne: INTERNAL_AUDIT_COLLECTION,
+          },
         },
       },
     ];
@@ -204,4 +204,5 @@ export const startStream = async () => {
     setTimeout(startStream, 5000);
   }
 };
+
 export default startStream;

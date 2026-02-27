@@ -103,6 +103,7 @@ export const createUnit = asyncHandler(async (req, res) => {
       thumbnailUrl,
       documents,
       images: imageUrls,
+      createdBy: req.user._id,
     });
   } catch (error) {
     if (error.code === 11000) {
@@ -219,11 +220,11 @@ export const updateUnit = asyncHandler(async (req, res) => {
     thumbnailUrl,
     documents,
     images,
-    // ✅ Only include buildingId/floorId if they are valid ObjectId strings
     ...(buildingId &&
       mongoose.Types.ObjectId.isValid(buildingId) && { buildingId }),
     ...(floorId && mongoose.Types.ObjectId.isValid(floorId) && { floorId }),
     ...(plotNo && { plotNo }),
+    updatedBy: req.user._id,
   };
 
   const updatedUnit = await PropertyUnitModel.findByIdAndUpdate(
@@ -243,6 +244,7 @@ export const updateUnit = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, updatedUnit, "Unit updated successfully"));
 });
+
 export const deleteUnit = asyncHandler(async (req, res) => {
   const { unitId } = req.params;
 
@@ -263,7 +265,8 @@ export const deleteUnit = asyncHandler(async (req, res) => {
     );
   }
 
-  await PropertyUnitModel.findByIdAndDelete(unitId);
+  unit.deletedBy = req.user._id;
+  await unit.deleteOne();
 
   return res
     .status(200)
@@ -275,6 +278,7 @@ export const deleteUnit = asyncHandler(async (req, res) => {
       ),
     );
 });
+
 export const getUnit = asyncHandler(async (req, res) => {
   const { unitId } = req.params;
 
