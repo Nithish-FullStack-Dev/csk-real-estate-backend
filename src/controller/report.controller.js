@@ -4,12 +4,19 @@ import asyncHandler from "../utils/asyncHandler.js";
 
 export const getReportByType = asyncHandler(async (req, res) => {
   const { type } = req.params;
-  const { dateFrom, dateTo, groupBy } = req.query;
+  const { dateFrom, dateTo, groupBy = "month" } = req.query;
+
+  if (!dateFrom || !dateTo) {
+    return res.status(400).json({
+      success: false,
+      message: "dateFrom and dateTo are required",
+    });
+  }
 
   const filters = {
     dateFrom: new Date(dateFrom),
     dateTo: new Date(dateTo),
-    groupBy: groupBy || "month",
+    groupBy,
   };
 
   const data = await reportService.generateReport(type, filters);
@@ -18,6 +25,7 @@ export const getReportByType = asyncHandler(async (req, res) => {
     success: true,
     type,
     filters,
+    count: data.length,
     data,
   });
 });
