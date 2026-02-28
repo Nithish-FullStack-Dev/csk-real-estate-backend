@@ -6,7 +6,11 @@ export const createTeamLeadMapping = async (req, res) => {
   try {
     const { salesId, teamLeadId, performance, status } = req.body;
 
-    const exists = await TeamLeads.findOne({ teamLeadId });
+    const exists = await TeamLeads.findOne({
+      $or: [{ salesId }, { teamLeadId }],
+      isDeleted: false,
+    });
+
     if (exists) {
       return res.status(400).json({ error: "Team Lead already mapped." });
     }
@@ -16,6 +20,7 @@ export const createTeamLeadMapping = async (req, res) => {
       teamLeadId,
       performance,
       status,
+      createdBy: req.user._id,
     });
 
     await newEntry.save();
@@ -30,7 +35,7 @@ export const createTeamLeadMapping = async (req, res) => {
 // READ all team members
 export const getAllTeamMembers = async (req, res) => {
   try {
-    const teamMembers = await TeamLeads.find()
+    const teamMembers = await TeamLeads.find({ isDeleted: false })
       .populate("salesId")
       .populate("teamLeadId");
     res.status(200).json(teamMembers);
@@ -45,7 +50,7 @@ export const getAllTeamMembers = async (req, res) => {
 export const getTeamMemberBySalesId = async (req, res) => {
   try {
     const { salesId } = req.params;
-    const member = await TeamLeads.findOne({ salesId })
+    const member = await TeamLeads.findOne({ salesId, isDeleted: false })
       .populate("salesId")
       .populate("teamLeadId");
 
@@ -64,7 +69,7 @@ export const getAllTeamLeadBySales = async (req, res) => {
   try {
     const salesId = req.user._id;
 
-    const teamLeads = await TeamLeads.find({ salesId })
+    const teamLeads = await TeamLeads.find({ salesId, isDeleted: false })
       .populate("salesId")
       .populate("teamLeadId");
 
@@ -78,12 +83,16 @@ export const getAllTeamLeadBySales = async (req, res) => {
 export const updateTeamMember = async (req, res) => {
   try {
     const { id } = req.params;
-    const update = req.body;
+    const update = { ...req.body, updatedBy: req.user._id };
 
-    const updated = await TeamLeads.findByIdAndUpdate(id, update, {
-      new: true,
-      runValidators: true,
-    });
+    const updated = await TeamLeads.findOneAndUpdate(
+      { _id: id, isDeleted: false },
+      update,
+      {
+        new: true,
+        runValidators: true,
+      },
+    );
 
     if (!updated) {
       return res.status(404).json({ error: "Team member not found" });
@@ -102,7 +111,12 @@ export const deleteTeamMember = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const deleted = await TeamLeads.findByIdAndDelete(id);
+    const deleted = await TeamLeads.findOneAndUpdate(
+      { _id: id, isDeleted: false },
+      { isDeleted: true, deletedBy: req.user._id },
+      { new: true },
+    );
+
     if (!deleted) {
       return res.status(404).json({ error: "Team member not found" });
     }
@@ -123,6 +137,7 @@ export const getUnassignedTeamLead = async (req, res) => {
     // Step 2: Find agents (role: 'agent') who are NOT assigned
     const unassignedteamLead = await User.find({
       role: "team_lead",
+      isDeleted: false,
       _id: { $nin: assignedteamLeadIds },
     }).select("-password");
 

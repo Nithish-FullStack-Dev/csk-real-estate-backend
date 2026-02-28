@@ -14,6 +14,7 @@ export const addTeamMember = async (req, res) => {
       status,
       performance,
       teamLeadId,
+      createdBy: req.user._id,
     });
 
     await teamAgent.save();
@@ -38,7 +39,7 @@ export const getAllAgentsByTeamLead = async (req, res) => {
 
     // ADMIN sees all
     if (role === "admin") {
-      const allAgents = await TeamManagement.find()
+      const allAgents = await TeamManagement.find({ isDeleted: false })
         .populate("agentId")
         .populate("teamLeadId");
 
@@ -46,7 +47,10 @@ export const getAllAgentsByTeamLead = async (req, res) => {
     }
 
     // TEAM LEAD sees only his agents
-    const agents = await TeamManagement.find({ teamLeadId: userId })
+    const agents = await TeamManagement.find({
+      teamLeadId: userId,
+      isDeleted: false,
+    })
       .populate("agentId")
       .populate("teamLeadId");
 
@@ -59,7 +63,7 @@ export const getAllAgentsByTeamLead = async (req, res) => {
 
 export const getAllTeamMembers = async (req, res) => {
   try {
-    const teamMembers = await TeamManagement.find()
+    const teamMembers = await TeamManagement.find({ isDeleted: false })
       .populate("agentId")
       .populate("teamLeadId");
     res.status(200).json(teamMembers);
@@ -75,7 +79,7 @@ export const updateTeamAgentById = async (req, res) => {
     const role = req.user.role;
     const userId = new mongoose.Types.ObjectId(req.user._id);
 
-    const agent = await TeamManagement.findById(id);
+    const agent = await TeamManagement.findOne({ _id: id, isDeleted: false });
 
     if (!agent) {
       return res.status(404).json({ message: "Team agent not found" });
@@ -86,10 +90,14 @@ export const updateTeamAgentById = async (req, res) => {
       return res.status(403).json({ message: "Unauthorized action" });
     }
 
-    const updatedAgent = await TeamManagement.findByIdAndUpdate(id, req.body, {
-      new: true,
-      runValidators: true,
-    });
+    const updatedAgent = await TeamManagement.findOneAndUpdate(
+      { _id: id, isDeleted: false },
+      { ...req.body, updatedBy: req.user._id },
+      {
+        new: true,
+        runValidators: true,
+      },
+    );
 
     res.status(200).json({ message: "Team agent updated", updatedAgent });
   } catch (error) {
@@ -104,7 +112,7 @@ export const deleteTeamAgentById = async (req, res) => {
     const role = req.user.role;
     const userId = new mongoose.Types.ObjectId(req.user._id);
 
-    const agent = await TeamManagement.findById(id);
+    const agent = await TeamManagement.findOne({ _id: id, isDeleted: false });
 
     if (!agent) {
       return res.status(404).json({ message: "Team agent not found" });
@@ -115,7 +123,10 @@ export const deleteTeamAgentById = async (req, res) => {
       return res.status(403).json({ message: "Unauthorized action" });
     }
 
-    await TeamManagement.findByIdAndDelete(id);
+    await TeamManagement.findOneAndUpdate(
+      { _id: id, isDeleted: false },
+      { isDeleted: true, deletedBy: req.user._id },
+    );
 
     res.status(200).json({ message: "Team agent deleted successfully" });
   } catch (error) {
@@ -127,7 +138,7 @@ export const deleteTeamAgentById = async (req, res) => {
 export const getTeamAgentById = async (req, res) => {
   try {
     const { id } = req.params;
-    const agent = await TeamManagement.findById(id);
+    const agent = await TeamManagement.findOne({ _id: id, isDeleted: false });
     if (!agent) {
       return res.status(404).json({ message: "Team agent not found" });
     }
@@ -150,6 +161,7 @@ export const getUnassignedAgents = async (req, res) => {
     // Step 2: Find agents (role: 'agent') who are NOT assigned
     const unassignedAgents = await User.find({
       role: "agent",
+      isDeleted: false,
       _id: { $nin: excludeIds },
     }).select("-password"); // Exclude password field for safety
 

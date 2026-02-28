@@ -73,7 +73,7 @@ export const addContractor = asyncHandler(async (req, res) => {
   if (exists) {
     throw new ApiError(
       409,
-      "Contractor with same Name GST or PAN already exists"
+      "Contractor with same Name GST or PAN already exists",
     );
   }
 
@@ -106,6 +106,7 @@ export const addContractor = asyncHandler(async (req, res) => {
     billProcessedByAccountant,
     finalPaymentDate,
     isActive,
+    createdBy: req.user._id,
   });
 
   return res
@@ -154,7 +155,7 @@ export const getAllContractorsById = asyncHandler(async (req, res) => {
 });
 
 export const getAllContractorList = asyncHandler(async (req, res) => {
-  const contractors = await ContractorModel.find()
+  const contractors = await ContractorModel.find({ isDeleted: false })
     .populate("userId", "name email phone")
     .populate("siteIncharge", "name email phone")
     .populate("accountsIncharge", "name email phone")
@@ -182,7 +183,7 @@ export const getAllContractorList = asyncHandler(async (req, res) => {
   res
     .status(200)
     .json(
-      new ApiResponse(200, contractors, "contractors fetched successfully")
+      new ApiResponse(200, contractors, "contractors fetched successfully"),
     );
 });
 
@@ -283,6 +284,7 @@ export const updateContractor = asyncHandler(async (req, res) => {
     billProcessedByAccountant,
     finalPaymentDate,
     isActive,
+    updatedBy: req.user._id,
   };
 
   if (uploadedBillCopy) updateData.billCopy = uploadedBillCopy;
@@ -307,7 +309,14 @@ export const deleteContractor = asyncHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(id))
     throw new ApiError(400, "Invalid contractor ID");
 
-  const contractor = await ContractorModel.findByIdAndDelete(id);
+  const contractor = await ContractorModel.findByIdAndUpdate(
+    id,
+    {
+      isDeleted: true,
+      deletedBy: req.user._id,
+    },
+    { new: true },
+  );
 
   if (!contractor) throw new ApiError(404, "Contractor not found");
 
@@ -319,12 +328,12 @@ export const deleteContractor = asyncHandler(async (req, res) => {
 export const getContractorsForDropDown = asyncHandler(async (req, res) => {
   const contractors = await ContractorModel.find({}, "userId").populate(
     "userId",
-    "_id name email phone"
+    "_id name email phone",
   );
 
   res
     .status(200)
     .json(
-      new ApiResponse(200, contractors, "contractors fetched successfully")
+      new ApiResponse(200, contractors, "contractors fetched successfully"),
     );
 });
