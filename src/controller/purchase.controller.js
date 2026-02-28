@@ -45,6 +45,7 @@ export const createPurchase = asyncHandler(async (req, res) => {
     nextPaymentDate,
     paymentDetails,
     notes,
+    createdBy: req.user._id,
   });
 
   return res
@@ -53,7 +54,7 @@ export const createPurchase = asyncHandler(async (req, res) => {
 });
 
 export const getAllPurchases = asyncHandler(async (req, res) => {
-  const purchases = await Purchase.find()
+  const purchases = await Purchase.find({ isDeleted: false })
     .populate({
       path: "project",
       select: "projectId floorUnit unit",
@@ -90,8 +91,8 @@ export const getPurchaseById = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid purchase ID");
   }
 
-  const purchase = await Purchase.findById(id)
-    .populate("projectId", "_id projectName")
+  const purchase = await Purchase.findOne({ _id: id, isDeleted: false })
+    .populate("project", "_id projectName")
     .populate("agent", "_id name email");
 
   if (!purchase) {
@@ -110,14 +111,16 @@ export const updatePurchase = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid purchase ID");
   }
 
-  const purchase = await Purchase.findById(id);
+  const purchase = await Purchase.findOne({ _id: id, isDeleted: false });
   if (!purchase) {
     throw new ApiError(404, "Purchase not found");
   }
 
   Object.assign(purchase, req.body);
 
-  await purchase.save(); // triggers balance recalculation
+  purchase.updatedBy = req.user._id;
+
+  await purchase.save();
 
   return res
     .status(200)
@@ -131,7 +134,11 @@ export const deletePurchase = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid purchase ID");
   }
 
-  const purchase = await Purchase.findByIdAndDelete(id);
+  const purchase = await Purchase.findOneAndUpdate(
+    { _id: id, isDeleted: false },
+    { isDeleted: true, deletedBy: req.user._id },
+    { new: true },
+  );
 
   if (!purchase) {
     throw new ApiError(404, "Purchase not found");

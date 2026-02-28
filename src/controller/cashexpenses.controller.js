@@ -49,12 +49,13 @@ export const createTransaction = asyncHandler(async (req, res) => {
     expenseCategory,
     notes,
     proofBillUrl,
+    createdBy: req.user._id,
   });
 
   return res
     .status(201)
     .json(
-      new ApiResponse(201, transaction, "Transaction created successfully")
+      new ApiResponse(201, transaction, "Transaction created successfully"),
     );
 });
 
@@ -68,7 +69,7 @@ export const getAllTransactions = asyncHandler(async (req, res) => {
     toDate,
   } = req.query;
 
-  const filter = {};
+  const filter = { isDeleted: false };
 
   if (project) filter.project = project;
   if (company) filter.company = company;
@@ -89,7 +90,7 @@ export const getAllTransactions = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(
-      new ApiResponse(200, transactions, "Transactions fetched successfully")
+      new ApiResponse(200, transactions, "Transactions fetched successfully"),
     );
 });
 
@@ -100,7 +101,10 @@ export const getTransactionById = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid transaction ID");
   }
 
-  const transaction = await CashExpensesModel.findById(id)
+  const transaction = await CashExpensesModel.findOne({
+    _id: id,
+    isDeleted: false,
+  })
     .populate("project", "_id name")
     .populate("company", "_id name");
 
@@ -111,7 +115,7 @@ export const getTransactionById = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(
-      new ApiResponse(200, transaction, "Transaction fetched successfully")
+      new ApiResponse(200, transaction, "Transaction fetched successfully"),
     );
 });
 
@@ -122,7 +126,10 @@ export const updateTransaction = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid transaction ID");
   }
 
-  const transaction = await CashExpensesModel.findById(id);
+  const transaction = await CashExpensesModel.findOne({
+    _id: id,
+    isDeleted: false,
+  });
 
   if (!transaction) {
     throw new ApiError(404, "Transaction not found");
@@ -139,8 +146,9 @@ export const updateTransaction = asyncHandler(async (req, res) => {
     {
       ...req.body,
       proofBillUrl,
+      updatedBy: req.user._id,
     },
-    { new: true, runValidators: true }
+    { new: true, runValidators: true },
   );
 
   return res
@@ -149,8 +157,8 @@ export const updateTransaction = asyncHandler(async (req, res) => {
       new ApiResponse(
         200,
         updatedTransaction,
-        "Transaction updated successfully"
-      )
+        "Transaction updated successfully",
+      ),
     );
 });
 
@@ -161,7 +169,11 @@ export const deleteTransaction = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid transaction ID");
   }
 
-  const transaction = await CashExpensesModel.findByIdAndDelete(id);
+  const transaction = await CashExpensesModel.findOneAndUpdate(
+    { _id: id, isDeleted: false },
+    { isDeleted: true, deletedBy: req.user._id },
+    { new: true },
+  );
 
   if (!transaction) {
     throw new ApiError(404, "Transaction not found");

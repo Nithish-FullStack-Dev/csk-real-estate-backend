@@ -31,6 +31,27 @@ const TeamLeadManagement = new mongoose.Schema(
       default: null,
       index: true,
     },
+
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   { timestamps: true },
 );

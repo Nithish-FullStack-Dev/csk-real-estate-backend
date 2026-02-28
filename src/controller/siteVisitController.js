@@ -41,6 +41,7 @@ export const createSiteVisit = async (req, res) => {
 
     const lead = await Lead.findOne({
       _id: req.body.clientId,
+      isDeleted: false,
       ...accessQuery,
     });
 
@@ -70,6 +71,7 @@ export const createSiteVisit = async (req, res) => {
       notes: req.body.notes,
       bookedBy: req.user._id,
       status: "pending",
+      createdBy: req.user._id,
       ...(req.body.vehicleId && { vehicleId: req.body.vehicleId }),
     });
 
@@ -88,7 +90,10 @@ export const getAllSiteVisits = async (req, res) => {
   try {
     const accessQuery = await buildSiteVisitAccessQuery(req.user);
 
-    const siteVisits = await SiteVisit.find(accessQuery)
+    const siteVisits = await SiteVisit.find({
+      ...accessQuery,
+      isDeleted: false,
+    })
       .populate("vehicleId")
       .populate("bookedBy", "name email role")
       .populate({
@@ -111,6 +116,21 @@ export const getAllSiteVisits = async (req, res) => {
             path: "unit",
             model: "PropertyUnit",
             select: "_id plotNo propertyType totalAmount",
+          },
+          {
+            path: "openPlot",
+            model: "OpenPlot",
+            select: "_id projectName openPlotNo",
+          },
+          {
+            path: "innerPlot",
+            model: "InnerPlot",
+            select: "_id plotNo",
+          },
+          {
+            path: "openLand",
+            model: "OpenLand",
+            select: "_id projectName location landType",
           },
           {
             path: "addedBy",
@@ -139,15 +159,17 @@ export const getMyTeamSiteVisits = async (req, res) => {
     const teamLeadId = req.user._id;
 
     // 1️⃣ find agents under this TL
-    const teamAgents = await TeamManagement.find({ teamLeadId }).select(
-      "agentId",
-    );
+    const teamAgents = await TeamManagement.find({
+      teamLeadId,
+      isDeleted: false,
+    }).select("agentId");
 
     const agentIds = teamAgents.map((t) => t.agentId);
 
     // 2️⃣ fetch site visits booked by those agents
     const visits = await SiteVisit.find({
       bookedBy: { $in: agentIds },
+      isDeleted: false,
     })
       .populate("bookedBy", "name email role avatar")
       .populate("vehicleId")
@@ -196,6 +218,7 @@ export const getSiteVisitById = async (req, res) => {
 
     const siteVisits = await SiteVisit.find({
       bookedBy,
+      isDeleted: false,
       ...accessQuery,
     })
       .populate({
@@ -239,13 +262,16 @@ export const getSiteVisitById = async (req, res) => {
 };
 
 //* UPDATE a site visit
-//* UPDATE a site visit
 export const updateSiteVisit = async (req, res) => {
   try {
     const { id } = req.params;
     const accessQuery = await buildSiteVisitAccessQuery(req.user);
 
-    const visit = await SiteVisit.findOne({ _id: id, ...accessQuery });
+    const visit = await SiteVisit.findOne({
+      _id: id,
+      isDeleted: false,
+      ...accessQuery,
+    });
 
     if (!visit) {
       return res.status(403).json({ error: "Unauthorized or visit not found" });
@@ -257,11 +283,15 @@ export const updateSiteVisit = async (req, res) => {
       date: req.body.date,
       time: req.body.time,
       notes: req.body.notes,
+      updatedBy: req.user._id,
     };
 
     // VEHICLE VALIDATION ON UPDATE
     if (req.body.vehicleId) {
-      const vehicle = await CarAllocation.findById(req.body.vehicleId);
+      const vehicle = await CarAllocation.findOne({
+        _id: req.body.vehicleId,
+        isDeleted: false,
+      });
 
       if (!vehicle) {
         return res.status(404).json({ error: "Vehicle not found" });
@@ -294,13 +324,20 @@ export const deleteSiteVisit = async (req, res) => {
     const { id } = req.params;
     const accessQuery = await buildSiteVisitAccessQuery(req.user);
 
-    const visit = await SiteVisit.findOne({ _id: id, ...accessQuery });
+    const visit = await SiteVisit.findOne({
+      _id: id,
+      isDeleted: false,
+      ...accessQuery,
+    });
 
     if (!visit) {
       return res.status(403).json({ error: "Unauthorized or visit not found" });
     }
 
-    await SiteVisit.findByIdAndDelete(id);
+    await SiteVisit.findByIdAndUpdate(id, {
+      isDeleted: true,
+      deletedBy: req.user._id,
+    });
 
     res.status(200).json({ message: "Site visit deleted successfully" });
   } catch (error) {
@@ -315,7 +352,10 @@ export const getSiteVisitOfAgents = async (req, res) => {
   try {
     const accessQuery = await buildSiteVisitAccessQuery(req.user);
 
-    const siteVisits = await SiteVisit.find(accessQuery)
+    const siteVisits = await SiteVisit.find({
+      ...accessQuery,
+      isDeleted: false,
+    })
       .populate({
         path: "bookedBy",
         model: "User",
@@ -370,16 +410,21 @@ export const approvalOrRejectStatus = async (req, res) => {
 
     const visit = await SiteVisit.findOne({
       _id: visitId,
+      isDeleted: false,
       ...accessQuery,
     });
 
-    if (!visit && role !== "admin" && role !== "sales_manager") {
+    if (!visit) {
+      return res.status(404).json({ error: "Visit not found" });
+    }
+
+    if (role !== "admin" && role !== "sales_manager") {
       return res.status(403).json({ error: "Unauthorized approval" });
     }
 
     const updatedVisit = await SiteVisit.findByIdAndUpdate(
       visitId,
-      { status, approvalNotes },
+      { status, approvalNotes, updatedBy: req.user._id },
       { new: true },
     );
 
