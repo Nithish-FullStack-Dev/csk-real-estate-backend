@@ -418,10 +418,6 @@ export const approvalOrRejectStatus = async (req, res) => {
       return res.status(404).json({ error: "Visit not found" });
     }
 
-    if (role !== "admin" && role !== "sales_manager") {
-      return res.status(403).json({ error: "Unauthorized approval" });
-    }
-
     const updatedVisit = await SiteVisit.findByIdAndUpdate(
       visitId,
       { status, approvalNotes, updatedBy: req.user._id },
