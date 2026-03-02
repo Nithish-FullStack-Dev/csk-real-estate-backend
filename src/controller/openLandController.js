@@ -39,6 +39,7 @@ export const createOpenLand = asyncHandler(async (req, res) => {
   }
 
   const existingLand = await OpenLand.findOne({
+    isDeleted: false,
     surveyNumber: data.surveyNumber,
     location: data.location,
   });
@@ -83,10 +84,11 @@ export const createOpenLand = asyncHandler(async (req, res) => {
     thumbnailUrl,
     brochureUrl,
     images: imageUrls,
+    createdBy: req.user._id,
   });
 
   const populated = await populateOpenLand(
-    OpenLand.findById(newLand._id),
+    OpenLand.findOne({ _id: newLand._id, isDeleted: false }),
   ).exec();
 
   res
@@ -100,7 +102,7 @@ export const createOpenLand = asyncHandler(async (req, res) => {
 
 export const getAllOpenLand = asyncHandler(async (req, res) => {
   const lands = await populateOpenLand(
-    OpenLand.find().sort({ createdAt: -1 }),
+    OpenLand.find({ isDeleted: false }).sort({ createdAt: -1 }),
   ).exec();
 
   res.status(200).json(new ApiResponse(200, lands));
@@ -117,7 +119,9 @@ export const getOpenLandById = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid ID");
   }
 
-  const land = await populateOpenLand(OpenLand.findById(id)).exec();
+  const land = await populateOpenLand(
+    OpenLand.findOne({ _id: id, isDeleted: false }),
+  ).exec();
 
   if (!land) throw new ApiError(404, "Open land not found");
 
@@ -135,7 +139,11 @@ export const deleteOpenLandById = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid land ID");
   }
 
-  const land = await OpenLand.findByIdAndDelete(id);
+  const land = await OpenLand.findOneAndUpdate(
+    { _id: id, isDeleted: false },
+    { isDeleted: true, deletedAt: new Date(), deletedBy: req.user._id },
+    { new: true },
+  );
 
   if (!land) throw new ApiError(404, "Open land not found");
 
@@ -155,7 +163,7 @@ export const updateOpenLand = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid Open Land ID");
   }
 
-  const existingLand = await OpenLand.findById(id);
+  const existingLand = await OpenLand.findOne({ _id: id, isDeleted: false });
   if (!existingLand) throw new ApiError(404, "Open Land not found");
 
   const data = { ...req.body };
@@ -229,19 +237,20 @@ export const updateOpenLand = asyncHandler(async (req, res) => {
 
   /* ===================================================== */
 
-  const updatedLand = await OpenLand.findByIdAndUpdate(
-    id,
+  const updatedLand = await OpenLand.findOneAndUpdate(
+    { _id: id, isDeleted: false },
     {
       ...data,
       thumbnailUrl,
       brochureUrl,
       images,
+      updatedBy: req.user._id,
     },
     { new: true, runValidators: true },
   );
 
   const populated = await populateOpenLand(
-    OpenLand.findById(updatedLand._id),
+    OpenLand.findOne({ _id: updatedLand._id, isDeleted: false }),
   ).exec();
 
   res
@@ -260,8 +269,16 @@ export const addInterestedCustomer = asyncHandler(async (req, res) => {
     throw new ApiError(400, "leadId and agentId required");
   }
 
-  const land = await OpenLand.findById(id);
+  const land = await OpenLand.findOne({ _id: id, isDeleted: false });
   if (!land) throw new ApiError(404, "Open land not found");
+
+  const alreadyExists = land.interestedCustomers.some(
+    (c) => c.lead.toString() === leadId,
+  );
+
+  if (alreadyExists) {
+    throw new ApiError(400, "Lead already marked as interested");
+  }
 
   land.interestedCustomers.push({
     lead: leadId,
@@ -271,7 +288,9 @@ export const addInterestedCustomer = asyncHandler(async (req, res) => {
 
   await land.save();
 
-  const populated = await populateOpenLand(OpenLand.findById(id)).exec();
+  const populated = await populateOpenLand(
+    OpenLand.findOne({ _id: id, isDeleted: false }),
+  ).exec();
 
   res.status(200).json(new ApiResponse(200, populated));
 });
@@ -280,7 +299,7 @@ export const updateInterestedCustomer = asyncHandler(async (req, res) => {
   const { id, interestId } = req.params;
   const { leadId, agentId } = req.body;
 
-  const land = await OpenLand.findById(id);
+  const land = await OpenLand.findOne({ _id: id, isDeleted: false });
   if (!land) throw new ApiError(404, "Land not found");
 
   const entry = land.interestedCustomers.id(interestId);
@@ -292,7 +311,9 @@ export const updateInterestedCustomer = asyncHandler(async (req, res) => {
 
   await land.save();
 
-  const populated = await populateOpenLand(OpenLand.findById(id)).exec();
+  const populated = await populateOpenLand(
+    OpenLand.findOne({ _id: id, isDeleted: false }),
+  ).exec();
 
   res.status(200).json(new ApiResponse(200, populated));
 });
@@ -300,11 +321,17 @@ export const updateInterestedCustomer = asyncHandler(async (req, res) => {
 export const removeInterestedCustomer = asyncHandler(async (req, res) => {
   const { id, interestId } = req.params;
 
-  await OpenLand.findByIdAndUpdate(id, {
-    $pull: { interestedCustomers: { _id: interestId } },
-  });
+  await OpenLand.findOneAndUpdate(
+    { _id: id, isDeleted: false },
+    {
+      $pull: { interestedCustomers: { _id: interestId } },
+    },
+    { new: true },
+  );
 
-  const populated = await populateOpenLand(OpenLand.findById(id)).exec();
+  const populated = await populateOpenLand(
+    OpenLand.findOne({ _id: id, isDeleted: false }),
+  ).exec();
 
   res.status(200).json(new ApiResponse(200, populated));
 });
@@ -325,8 +352,11 @@ export const markAsSold = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Buyer required");
   }
 
-  const land = await OpenLand.findById(id);
+  const land = await OpenLand.findOne({ _id: id, isDeleted: false });
   if (!land) throw new ApiError(404, "Open land not found");
+  if (land.landStatus === "Sold") {
+    throw new ApiError(400, "Land is already sold");
+  }
 
   land.landStatus = "Sold";
   land.soldToCustomer = soldToCustomerId;
@@ -334,7 +364,9 @@ export const markAsSold = asyncHandler(async (req, res) => {
 
   await land.save();
 
-  const populated = await populateOpenLand(OpenLand.findById(id)).exec();
+  const populated = await populateOpenLand(
+    OpenLand.findOne({ _id: id, isDeleted: false }),
+  ).exec();
 
   res.status(200).json(new ApiResponse(200, populated));
 });
@@ -344,7 +376,9 @@ export const markAsSold = asyncHandler(async (req, res) => {
 /* ------------------------------------------------------- */
 
 export const getOpenLandDropdown = asyncHandler(async (req, res) => {
-  const openLands = await OpenLand.find().select("_id projectName");
+  const openLands = await OpenLand.find({ isDeleted: false }).select(
+    "_id projectName",
+  );
 
   res
     .status(200)
