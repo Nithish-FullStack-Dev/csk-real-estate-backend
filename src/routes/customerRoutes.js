@@ -16,35 +16,38 @@ const router = express.Router();
 
 router.post(
   "/addCustomer",
+  authenticate,
   upload.fields([
     {
       name: "documents",
       maxCount: 5,
     },
   ]),
-  createCustomer
+  createCustomer,
 );
-router.get("/getAllCustomers", getAllCustomers);
-router.get("/getCustomerById/:id", getCustomerById);
+router.get("/getAllCustomers", authenticate, getAllCustomers);
+router.get("/getCustomerById/:id", authenticate, getCustomerById);
 router.get("/getCustomerByUser", authenticate, getCustomerByUser);
-router.get("/getAllPurchasedProp", getPurchasedProperties);
+router.get("/getAllPurchasedProp", authenticate, getPurchasedProperties);
 router.put(
   "/updateCustomer/:id",
+  authenticate,
   upload.fields([
     {
       name: "documents",
       maxCount: 5,
     },
   ]),
-  updateCustomer
+  updateCustomer,
 );
 
 router.put(
   "/customers/:id/upload-pdf",
+  authenticate,
   upload.single("pdf"),
-  uploadCustomerPdf
+  uploadCustomerPdf,
 );
 
-router.delete("/deleteCustomer/:id", deleteCustomer);
+router.delete("/deleteCustomer/:id", authenticate, deleteCustomer);
 
 export default router;

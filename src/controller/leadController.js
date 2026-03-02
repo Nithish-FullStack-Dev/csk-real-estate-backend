@@ -19,7 +19,7 @@ export const saveLead = asyncHandler(async (req, res) => {
   const savedLead = await newLead.save();
 
   // 🔔 Notify Sales Managers about new lead
-  const managers = await User.find({ role: "sales_manager" });
+  const managers = await User.find({ role: "sales_manager", isDeleted: false });
   for (const manager of managers) {
     await createNotification({
       userId: manager._id,
@@ -128,15 +128,17 @@ export const getAllLeads = async (req, res) => {
     // ================= SALES MANAGER =================
     else if (role === "sales_manager") {
       // 1️⃣ Get Team Leads under this Sales Manager
-      const teamLeads = await TeamLeads.find({ salesId: _id }).select(
-        "teamLeadId",
-      );
+      const teamLeads = await TeamLeads.find({
+        salesId: _id,
+        isDeleted: false,
+      }).select("teamLeadId");
 
       const teamLeadIds = teamLeads.map((t) => t.teamLeadId);
 
       // 2️⃣ Get Agents under those Team Leads
       const agents = await TeamManagement.find({
         teamLeadId: { $in: teamLeadIds },
+        isDeleted: false,
       }).select("agentId");
 
       const agentIds = agents.map((a) => a.agentId);
@@ -155,6 +157,7 @@ export const getAllLeads = async (req, res) => {
     else if (role === "team_lead") {
       const teamAgents = await TeamManagement.find({
         teamLeadId: _id,
+        isDeleted: false,
       }).select("agentId");
 
       const agentIds = teamAgents.map((t) => t.agentId);
@@ -172,7 +175,7 @@ export const getAllLeads = async (req, res) => {
       query = { addedBy: _id };
     }
 
-    const leads = await Lead.find(query)
+    const leads = await Lead.find({ ...query, isDeleted: false })
       .populate("property", "projectName location propertyType")
       .populate("floorUnit", "floorNumber unitType")
       .populate("unit", "plotNo propertyType")
@@ -205,9 +208,10 @@ export const buildLeadAccessQuery = async (user) => {
   }
 
   if (role === "team_lead") {
-    const teamAgents = await TeamManagement.find({ teamLeadId: _id }).select(
-      "agentId",
-    );
+    const teamAgents = await TeamManagement.find({
+      teamLeadId: _id,
+      isDeleted: false,
+    }).select("agentId");
     const agentIds = teamAgents.map((t) => t.agentId);
 
     return {
@@ -222,7 +226,7 @@ export const getLeadsByUserId = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    const leads = await Lead.find({ addedBy: userId })
+    const leads = await Lead.find({ addedBy: userId, isDeleted: false })
       .populate("property", "projectName location propertyType")
       .populate("floorUnit", "floorNumber unitType")
       .populate("unit", "plotNo propertyType")
@@ -244,7 +248,7 @@ export const updateLeadById = async (req, res) => {
     const { id } = req.params;
     const { role, _id } = req.user;
 
-    const lead = await Lead.findById(id);
+    const lead = await Lead.findOne({ _id: id, isDeleted: false });
     if (!lead) {
       return res.status(404).json({ message: "Lead not found" });
     }
@@ -323,10 +327,14 @@ export const updateLeadById = async (req, res) => {
 
     const oldPropertyStatus = lead.propertyStatus;
 
-    const updatedLead = await Lead.findByIdAndUpdate(id, update, {
-      new: true,
-      runValidators: true,
-    });
+    const updatedLead = await Lead.findOneAndUpdate(
+      { _id: id, isDeleted: false },
+      update,
+      {
+        new: true,
+        runValidators: true,
+      },
+    );
 
     // 🔔 Notify lead owner if status changed
     if (status && status !== lead.status) {
@@ -355,11 +363,14 @@ export const deleteLeadById = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { role, _id } = req.user;
 
-  const lead = await Lead.findById(id);
+  const lead = await Lead.findOne({ _id: id, isDeleted: false });
 
   if (!lead) throw new ApiError(404, "Lead not found");
 
+  lead.isDeleted = true;
   lead.deletedBy = _id;
+  lead.updatedBy = _id;
+
   await lead.save();
 
   await lead.deleteOne();
@@ -374,6 +385,7 @@ export const deleteLeadById = asyncHandler(async (req, res) => {
 export const getAvailableProperties = async (req, res) => {
   try {
     const properties = await Property.find({
+      isDeleted: false,
       "customerInfo.propertyStatus": {
         $in: ["Available", "Upcoming", "Under Construction"],
       },
@@ -391,13 +403,17 @@ export const getAvailableProperties = async (req, res) => {
 export const getClosedLeads = asyncHandler(async (req, res) => {
   const accessQuery = await buildLeadAccessQuery(req.user);
 
-  const commissionedLeadRecords = await Commission.find({}, "clientId").lean();
+  const commissionedLeadRecords = await Commission.find(
+    { isDeleted: false },
+    "clientId",
+  ).lean();
   const commissionedLeadIds = commissionedLeadRecords.map((r) =>
     r.clientId.toString(),
   );
 
   const closedLeads = await Lead.find({
     ...accessQuery,
+    isDeleted: false,
     propertyStatus: "Closed",
     _id: { $nin: commissionedLeadIds },
   })
@@ -431,6 +447,7 @@ export const getLeadsByUnitId = asyncHandler(async (req, res) => {
 
   const leads = await Lead.find({
     unit: _id,
+    isDeleted: false,
     ...accessQuery,
   })
     .populate("property", "_id projectName location propertyType")
@@ -456,6 +473,7 @@ export const getLeadsByOpenPlotId = asyncHandler(async (req, res) => {
 
   const leads = await Lead.find({
     innerPlot: _id,
+    isDeleted: false,
     isPlotLead: true,
     ...accessQuery,
   })
@@ -486,6 +504,7 @@ export const getLeadsByOpenLandId = asyncHandler(async (req, res) => {
   const leads = await Lead.find({
     openLand: _id,
     isLandLead: true,
+    isDeleted: false,
     ...accessQuery,
   })
     .populate("openLand", "_id projectName location landType")

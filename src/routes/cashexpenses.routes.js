@@ -7,13 +7,24 @@ import {
   deleteTransaction,
 } from "../controller/cashexpenses.controller.js";
 import { upload } from "../middlewares/multer.js";
+import { authenticate } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/addCashExp", upload.single("proofBill"), createTransaction);
-router.get("/getAllCashExp", getAllTransactions);
-router.get("/getCashExpById/:id", getTransactionById);
-router.put("/updateCashExp/:id", upload.single("proofBill"), updateTransaction);
-router.delete("/deleteCashExp/:id", deleteTransaction);
+router.post(
+  "/addCashExp",
+  authenticate,
+  upload.single("proofBill"),
+  createTransaction,
+);
+router.get("/getAllCashExp", authenticate, getAllTransactions);
+router.get("/getCashExpById/:id", authenticate, getTransactionById);
+router.put(
+  "/updateCashExp/:id",
+  authenticate,
+  upload.single("proofBill"),
+  updateTransaction,
+);
+router.delete("/deleteCashExp/:id", authenticate, deleteTransaction);
 
 export default router;

@@ -20,7 +20,6 @@ const collectionsToWatch = [
   "materials",
   "budgets",
   "invoices",
-  "reports",
   "sitevisits",
   "siteinspections",
   "laborteams",
@@ -66,12 +65,14 @@ const extractUserId = (change) => {
   const { fullDocument, updateDescription, fullDocumentBeforeChange } = change;
 
   return (
+    updateDescription?.updatedFields?.deletedBy ||
     updateDescription?.updatedFields?.updatedBy ||
+    fullDocument?.deletedBy ||
     fullDocument?.updatedBy ||
     fullDocument?.createdBy ||
+    fullDocumentBeforeChange?.deletedBy ||
     fullDocumentBeforeChange?.updatedBy ||
     fullDocumentBeforeChange?.createdBy ||
-    fullDocumentBeforeChange?.deletedBy ||
     null
   );
 };
@@ -126,22 +127,17 @@ const buildAuditDoc = (change) => {
       });
     }
 
+    const isSoftDelete =
+      updatedFields?.isDeleted === true ||
+      (updatedFields?.deletedBy && fullDocument?.isDeleted === true);
+
     return {
       ...base,
-      fullDocument: null,
+      operationType: isSoftDelete ? "delete" : "update",
+      fullDocument: isSoftDelete ? fullDocument : null,
       updatedFields,
       removedFields,
       previousFields,
-    };
-  }
-
-  if (operationType === "delete") {
-    return {
-      ...base,
-      fullDocument: fullDocumentBeforeChange || null,
-      updatedFields: null,
-      removedFields: [],
-      previousFields: null,
     };
   }
 
@@ -158,11 +154,8 @@ export const startStream = async () => {
     const pipeline = [
       {
         $match: {
-          operationType: { $in: ["insert", "update", "delete", "replace"] },
-          "ns.coll": {
-            $in: collectionsToWatch,
-            $ne: INTERNAL_AUDIT_COLLECTION,
-          },
+          operationType: { $in: ["insert", "update", "replace"] },
+          "ns.coll": { $in: collectionsToWatch },
         },
       },
     ];
@@ -206,3 +199,6 @@ export const startStream = async () => {
 };
 
 export default startStream;
+
+// contractor.model.js
+// siteVisitModal.js frontend

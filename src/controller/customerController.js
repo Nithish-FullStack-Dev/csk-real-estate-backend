@@ -86,6 +86,7 @@ export const createCustomer = asyncHandler(async (req, res) => {
     finalPrice,
     paymentStatus,
     images: uploadedDocuments,
+    createdBy: req.user?._id,
   });
 
   res
@@ -95,7 +96,7 @@ export const createCustomer = asyncHandler(async (req, res) => {
 
 //! GET ALL CUSTOMERS
 export const getAllCustomers = asyncHandler(async (req, res) => {
-  const purchases = await Customer.find()
+  const purchases = await Customer.find({ isDeleted: false })
     .populate("customerId", "_id name email phone avatar")
     .populate("purchasedFrom", "_id name email role")
     .populate("property", "_id projectName location propertyType")
@@ -112,7 +113,10 @@ export const getAllCustomers = asyncHandler(async (req, res) => {
 
 //! GET SINGLE CUSTOMER
 export const getCustomerById = asyncHandler(async (req, res) => {
-  const purchase = await Customer.findById(req.params.id)
+  const purchase = await Customer.findOne({
+    _id: req.params.id,
+    isDeleted: false,
+  })
     .populate("customerId", "_id name email phone avatar")
     .populate("purchasedFrom", "_id name email role")
     .populate("property", "_id projectName location propertyType")
@@ -140,9 +144,12 @@ export const updateCustomer = asyncHandler(async (req, res) => {
 
   if (!id) throw new ApiError(400, "Customer ID is required");
 
-  const updateData = { ...req.body };
+  const updateData = { ...req.body, updatedBy: req.user?._id };
 
-  const existing = await Customer.findById(id);
+  const existing = await Customer.findOne({
+    _id: id,
+    isDeleted: false,
+  });
   if (!existing) throw new ApiError(404, "Customer not found");
 
   let uploadedDocuments = [];
@@ -189,7 +196,14 @@ export const deleteCustomer = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Customer ID is required");
   }
 
-  const deleted = await Customer.findByIdAndDelete(id);
+  const deleted = await Customer.findByIdAndUpdate(
+    id,
+    {
+      isDeleted: true,
+      deletedBy: req.user?._id,
+    },
+    { new: true },
+  );
 
   if (!deleted) {
     throw new ApiError(404, "Customer not found");
@@ -208,7 +222,10 @@ export const getCustomerByUser = asyncHandler(async (req, res) => {
     throw new ApiError(401, "Unauthorized");
   }
 
-  const purchases = await Customer.find({ customerId: userId })
+  const purchases = await Customer.find({
+    customerId: userId,
+    isDeleted: false,
+  })
     .populate("customerId", "_id name email avatar phone")
     .populate("purchasedFrom", "_id name email phone role")
     .populate("property", "_id projectName location propertyType")
@@ -225,15 +242,19 @@ export const getCustomerByUser = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(
-      new ApiResponse(200, purchases, "Successfully fetched customer purchases")
+      new ApiResponse(
+        200,
+        purchases,
+        "Successfully fetched customer purchases",
+      ),
     );
 });
 
 //! Get All Purchased Property
 export const getPurchasedProperties = asyncHandler(async (req, res) => {
-  const purchases = await Customer.find().populate(
+  const purchases = await Customer.find({ isDeleted: false }).populate(
     "unit",
-    "status plotNo propertyType"
+    "status plotNo propertyType",
   );
 
   if (!purchases || purchases.length === 0) {
@@ -252,14 +273,17 @@ export const getPurchasedProperties = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(
-      new ApiResponse(200, result, "Successfully fetched purchased properties")
+      new ApiResponse(200, result, "Successfully fetched purchased properties"),
     );
 });
 
 export const uploadCustomerPdf = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const customer = await Customer.findById(id);
+  const customer = await Customer.findOne({
+    _id: id,
+    isDeleted: false,
+  });
   if (!customer) throw new ApiError(404, "Customer not found");
 
   // Multer validation
@@ -283,7 +307,7 @@ export const uploadCustomerPdf = asyncHandler(async (req, res) => {
         customerId: customer._id,
         pdfDocument: customer.pdfDocument,
       },
-      "PDF uploaded successfully"
-    )
+      "PDF uploaded successfully",
+    ),
   );
 });

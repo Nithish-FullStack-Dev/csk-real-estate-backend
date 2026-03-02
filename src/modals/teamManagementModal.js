@@ -18,7 +18,6 @@ const TeamManagement = new mongoose.Schema(
     agentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      unique: true,
       index: true,
     },
     performance: { type: PerformanceSchema, default: {} },
@@ -33,8 +32,34 @@ const TeamManagement = new mongoose.Schema(
       default: null,
       index: true,
     },
+
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   { timestamps: true },
+);
+
+TeamManagement.index(
+  { agentId: 1 },
+  { unique: true, partialFilterExpression: { isDeleted: false } },
 );
 
 export default mongoose.models.TeamAgent ||
