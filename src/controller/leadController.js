@@ -417,9 +417,19 @@ export const getClosedLeads = asyncHandler(async (req, res) => {
     propertyStatus: "Closed",
     _id: { $nin: commissionedLeadIds },
   })
+    // PROPERTY LEADS
     .populate("property", "_id projectName location propertyType")
     .populate("floorUnit", "_id floorNumber unitType")
     .populate("unit", "_id plotNo propertyType totalAmount")
+
+    // OPEN PLOT LEADS
+    .populate("openPlot", "_id projectName openPlotNo")
+    .populate("innerPlot", "_id plotNo")
+
+    // OPEN LAND LEADS
+    .populate("openLand", "_id projectName location landType")
+
+    // USER
     .populate("addedBy", "name email role avatar");
 
   res
