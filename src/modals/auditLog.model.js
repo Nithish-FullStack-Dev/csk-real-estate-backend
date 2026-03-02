@@ -11,7 +11,11 @@ const auditLogSchema = new mongoose.Schema(
     previousFields: { type: mongoose.Schema.Types.Mixed, default: null },
     removedFields: { type: [String], default: [] },
 
-    userId: { type: mongoose.Schema.Types.Mixed, default: null },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   { timestamps: true },
 );
