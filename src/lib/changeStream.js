@@ -89,6 +89,7 @@ const buildAuditDoc = (change) => {
 
   if (!ns || !ns.db || !ns.coll) return null;
   if (!documentKey || !documentKey._id) return null;
+  if (!collectionsToWatch.includes(ns.coll)) return null;
 
   // Avoid auditing our own audit collection
   if (ns.coll.toLowerCase() === INTERNAL_AUDIT_COLLECTION.toLowerCase()) {
