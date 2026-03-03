@@ -93,6 +93,11 @@ const PropertyUnitSchema = new Schema(
     purchasedCustomerName: { type: String },
     purchasedCustomerContact: { type: String },
 
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
     deletedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
