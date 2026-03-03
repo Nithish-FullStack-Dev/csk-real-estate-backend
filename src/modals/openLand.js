@@ -126,10 +126,39 @@ const openLandSchema = new Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
+
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   { timestamps: true },
 );
-openLandSchema.index({ surveyNumber: 1, location: 1 }, { unique: true });
+
+openLandSchema.index(
+  { surveyNumber: 1, location: 1 },
+  { unique: true, partialFilterExpression: { isDeleted: false } },
+);
 
 const OpenLand = mongoose.model("OpenLand", openLandSchema);
 export default OpenLand;

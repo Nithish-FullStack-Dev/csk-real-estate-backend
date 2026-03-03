@@ -65,6 +65,7 @@ import MultiTaskGroupRoute from "./src/routes/multiTaskGroup.js";
 import stt from "./src/routes/stt.js";
 import InnerPlot from "./src/routes/innerPlot.routes.js";
 import reportsDynamic from "./src/routes/report.routes.js";
+import auditRoutes from "./src/routes/audit.route.js";
 dotenv.config();
 
 // Create Express app and HTTP server
@@ -204,6 +205,7 @@ app.use("/api/kanban", MultiTaskGroupRoute);
 app.use("/api/speech", stt);
 app.use("/api/reports", reportsDynamic);
 app.use("/api/innerPlot", InnerPlot);
+app.use("/api/audit", auditRoutes);
 
 app.use(errorHandler);
 

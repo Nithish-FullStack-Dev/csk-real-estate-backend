@@ -12,7 +12,6 @@ const OpenPlotSchema = new mongoose.Schema(
     openPlotNo: {
       type: String,
       required: true,
-      unique: true,
     },
 
     surveyNo: {
@@ -73,8 +72,41 @@ const OpenPlotSchema = new mongoose.Schema(
     brochureFileId: { type: String, default: null },
 
     googleMapsLocation: { type: String },
+
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   { timestamps: true },
+);
+
+OpenPlotSchema.index(
+  { openPlotNo: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { isDeleted: false },
+  },
 );
 
 export default mongoose.model("OpenPlot", OpenPlotSchema);

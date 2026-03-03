@@ -18,7 +18,6 @@ const TeamManagement = new mongoose.Schema(
     agentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      index: true,
     },
     performance: { type: PerformanceSchema, default: {} },
     status: {

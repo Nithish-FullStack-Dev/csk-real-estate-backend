@@ -42,7 +42,7 @@ export const createOpenPlot = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Required fields are missing");
   }
 
-  const existingPlot = await OpenPlot.findOne({ openPlotNo });
+  const existingPlot = await OpenPlot.findOne({ openPlotNo, isDeleted: false });
   if (existingPlot) {
     throw new ApiError(409, "Open Plot already exists");
   }
@@ -93,6 +93,7 @@ export const createOpenPlot = asyncHandler(async (req, res) => {
     thumbnailUrl,
     images: imageUrls,
     googleMapsLocation,
+    createdBy: req.user._id,
   });
 
   res
@@ -109,7 +110,7 @@ export const updateOpenPlot = asyncHandler(async (req, res) => {
 
   if (!_id) throw new ApiError(400, "Open Plot ID required");
 
-  const existingPlot = await OpenPlot.findById(_id);
+  const existingPlot = await OpenPlot.findOne({ _id, isDeleted: false });
   if (!existingPlot) throw new ApiError(404, "Open Plot not found");
 
   let thumbnailUrl = existingPlot.thumbnailUrl;
@@ -163,13 +164,14 @@ export const updateOpenPlot = asyncHandler(async (req, res) => {
     images = [...images, ...newImages];
   }
 
-  const updatedPlot = await OpenPlot.findByIdAndUpdate(
-    _id,
+  const updatedPlot = await OpenPlot.findOneAndUpdate(
+    { _id, isDeleted: false },
     {
       ...req.body,
       thumbnailUrl,
       brochureUrl,
       images,
+      updatedBy: req.user._id,
     },
     { new: true, runValidators: true },
   );
@@ -184,7 +186,9 @@ export const updateOpenPlot = asyncHandler(async (req, res) => {
 /* ========================================================= */
 
 export const getAllOpenPlots = asyncHandler(async (req, res) => {
-  const openPlots = await OpenPlot.find().sort({ createdAt: -1 });
+  const openPlots = await OpenPlot.find({ isDeleted: false }).sort({
+    createdAt: -1,
+  });
   res.status(200).json(new ApiResponse(200, openPlots));
 });
 
@@ -197,7 +201,7 @@ export const getOpenPlotById = asyncHandler(async (req, res) => {
 
   if (!_id) throw new ApiError(400, "Open Plot ID required");
 
-  const plot = await OpenPlot.findById(_id);
+  const plot = await OpenPlot.findOne({ _id, isDeleted: false });
   if (!plot) throw new ApiError(404, "Open Plot not found");
 
   res.status(200).json(new ApiResponse(200, plot));
@@ -212,10 +216,14 @@ export const deleteOpenPlot = asyncHandler(async (req, res) => {
 
   if (!_id) throw new ApiError(400, "Open Plot ID required");
 
-  const plot = await OpenPlot.findById(_id);
+  const plot = await OpenPlot.findOne({ _id, isDeleted: false });
   if (!plot) throw new ApiError(404, "Open Plot not found");
 
-  await OpenPlot.findByIdAndDelete(_id);
+  await OpenPlot.findByIdAndUpdate(_id, {
+    isDeleted: true,
+    deletedAt: new Date(),
+    deletedBy: req.user._id,
+  });
 
   res
     .status(200)
@@ -223,7 +231,7 @@ export const deleteOpenPlot = asyncHandler(async (req, res) => {
 });
 
 export const getOpenPlotDropdown = asyncHandler(async (req, res) => {
-  const openPlots = await OpenPlot.find();
+  const openPlots = await OpenPlot.find({ isDeleted: false });
 
   return res
     .status(200)
