@@ -12,6 +12,10 @@ import SiteVisit from "../modals/siteVisitModal.js";
 import TeamAgent from "../modals/teamManagementModal.js";
 import Project from "../modals/projects.js";
 import Customer from "../modals/customerSchema.js";
+import SiteInspection from "../modals/siteInspection.js";
+import Invoice from "../modals/invoice.js";
+import Budget from "../modals/budget.js";
+import User from "../modals/user.js";
 
 import { format, addMonths, addWeeks, addDays } from "date-fns";
 export const generateReport = async (type, filters) => {
@@ -582,38 +586,83 @@ export const salesManagerReport = async ({ dateFrom, dateTo, groupBy }) => {
   return result;
 };
 
-/* ACCOUNTING REPORT */
+export const accountingReport = async ({ dateFrom, dateTo, groupBy }) => {
+  const dateGroup = getDateGroupStage(groupBy, "$issueDate");
 
-const accountingReport = async ({ dateFrom, dateTo, groupBy }) => {
-  const dateGroup = getDateGroupStage(groupBy, "$createdAt");
-
-  return await invoice.aggregate([
+  const invoiceAgg = await Invoice.aggregate([
     {
       $match: {
-        createdAt: { $gte: dateFrom, $lte: dateTo },
+        issueDate: { $gte: new Date(dateFrom), $lte: new Date(dateTo) },
+        createdBy: "contractor",
       },
     },
+
+    {
+      $addFields: {
+        period: dateGroup,
+      },
+    },
+
     {
       $group: {
-        _id: dateGroup,
-        revenueTotal: { $sum: "$amount" },
+        _id: {
+          accountantId: "$approvedByAccountant",
+          period: "$period",
+        },
+
         invoicesReceived: { $sum: 1 },
+
         invoicesApproved: {
-          $sum: {
-            $cond: [{ $eq: ["$status", "approved"] }, 1, 0],
-          },
+          $sum: { $cond: [{ $eq: ["$status", "approved"] }, 1, 0] },
+        },
+
+        invoicesRejected: {
+          $sum: { $cond: [{ $eq: ["$status", "rejected"] }, 1, 0] },
+        },
+
+        invoicesPaid: {
+          $sum: { $cond: [{ $eq: ["$status", "paid"] }, 1, 0] },
         },
       },
     },
+
+    {
+      $lookup: {
+        from: "users",
+        localField: "_id.accountantId",
+        foreignField: "_id",
+        as: "accountant",
+      },
+    },
+
+    {
+      $unwind: {
+        path: "$accountant",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+
     {
       $project: {
-        date: "$_id",
-        revenueTotal: 1,
+        period: "$_id.period",
+        accountantId: "$_id.accountantId",
+        accountantName: {
+          $ifNull: ["$accountant.name", "Unassigned"],
+        },
         invoicesReceived: 1,
         invoicesApproved: 1,
+        invoicesRejected: 1,
+        invoicesPaid: 1,
       },
     },
   ]);
+
+  return invoiceAgg.map((row) => ({
+    ...row,
+    taxUploads: 0,
+    taxClaims: 0,
+    budgetUtilizedPercent: 0,
+  }));
 };
 
 /* CONTRACTOR REPORT */
@@ -621,7 +670,11 @@ const accountingReport = async ({ dateFrom, dateTo, groupBy }) => {
 export const contractorReport = async ({ dateFrom, dateTo, groupBy }) => {
   const dateGroup = getDateGroupStage(groupBy, "$createdAt");
 
-  const result = await Project.aggregate([
+  /* ===============================
+     1️⃣ TASK AGGREGATION
+  =============================== */
+
+  const taskAgg = await Project.aggregate([
     {
       $match: {
         createdAt: { $gte: new Date(dateFrom), $lte: new Date(dateTo) },
@@ -630,7 +683,7 @@ export const contractorReport = async ({ dateFrom, dateTo, groupBy }) => {
 
     {
       $addFields: {
-        period: dateGroup, // 🔥 compute date first
+        period: dateGroup,
       },
     },
 
@@ -658,7 +711,7 @@ export const contractorReport = async ({ dateFrom, dateTo, groupBy }) => {
       $group: {
         _id: {
           contractorId: "$contractor._id",
-          period: "$period", // 🔥 use computed field
+          period: "$period",
         },
 
         contractorName: { $first: "$contractor.name" },
@@ -698,38 +751,72 @@ export const contractorReport = async ({ dateFrom, dateTo, groupBy }) => {
         },
       },
     },
-
-    {
-      $project: {
-        contractorId: "$_id.contractorId",
-        contractorName: 1,
-        period: "$_id.period",
-        tasksCreated: 1,
-        tasksApproved: 1,
-        tasksRejected: 1,
-        photoEvidenceCount: 1,
-        avgProgressPercent: {
-          $round: ["$avgProgressPercent", 1],
-        },
-      },
-    },
-
-    { $sort: { period: -1 } },
   ]);
 
-  return result;
-};
-export const siteInchargeReport = async ({ dateFrom, dateTo, groupBy }) => {
-  const dateGroup = getDateGroupStage(groupBy, "$createdAt");
+  /* ===============================
+     2️⃣ INVOICE AGGREGATION
+  =============================== */
+  const invoiceDateGroup = getDateGroupStage(groupBy, "$createdAt");
 
-  const result = await Project.aggregate([
+  const invoiceAgg = await Invoice.aggregate([
     {
       $match: {
         createdAt: { $gte: new Date(dateFrom), $lte: new Date(dateTo) },
+        createdBy: "contractor",
+      },
+    },
+    {
+      $group: {
+        _id: "$user", // ❌ remove period
+        invoicesCreated: { $sum: 1 },
+      },
+    },
+  ]);
+  /* ===============================
+   3️⃣ MERGE BOTH RESULTS (FIXED)
+=============================== */
+
+  const invoiceMap = new Map();
+
+  invoiceAgg.forEach((inv) => {
+    invoiceMap.set(inv._id.toString(), inv.invoicesCreated);
+  });
+
+  const finalResult = taskAgg.map((row) => {
+    const contractorId = row._id.contractorId?.toString();
+
+    return {
+      contractorId: row._id.contractorId,
+      contractorName: row.contractorName,
+      period: row._id.period,
+      tasksCreated: row.tasksCreated,
+      tasksApproved: row.tasksApproved,
+      tasksRejected: row.tasksRejected,
+      invoicesCreated: invoiceMap.get(contractorId) || 0,
+      photoEvidenceCount: row.photoEvidenceCount,
+      avgProgressPercent: Number((row.avgProgressPercent || 0).toFixed(1)),
+    };
+  });
+
+  return finalResult.sort((a, b) => (a.period < b.period ? 1 : -1));
+};
+
+/* SITE INCHARGE REPORT */
+
+export const siteInchargeReport = async ({ dateFrom, dateTo, groupBy }) => {
+  const projectDateGroup = getDateGroupStage(groupBy, "$createdAt");
+  const inspectionDateGroup = getDateGroupStage(groupBy, "$date");
+
+  /* ===============================
+     1️⃣ PROJECT + UNIT AGGREGATION
+  =============================== */
+
+  const projectAgg = await Project.aggregate([
+    {
+      $match: {
         siteIncharge: { $ne: null },
       },
     },
-
     {
       $lookup: {
         from: "users",
@@ -742,7 +829,7 @@ export const siteInchargeReport = async ({ dateFrom, dateTo, groupBy }) => {
 
     {
       $addFields: {
-        period: dateGroup,
+        period: projectDateGroup,
         unitsArray: { $objectToArray: "$units" },
       },
     },
@@ -773,16 +860,6 @@ export const siteInchargeReport = async ({ dateFrom, dateTo, groupBy }) => {
           },
         },
 
-        inspections: {
-          $sum: {
-            $cond: [
-              { $eq: ["$unitsArray.v.statusForSiteIncharge", "rework"] },
-              1,
-              0,
-            ],
-          },
-        },
-
         avgProgressPercent: {
           $avg: "$unitsArray.v.progressPercentage",
         },
@@ -797,15 +874,54 @@ export const siteInchargeReport = async ({ dateFrom, dateTo, groupBy }) => {
         projectsActive: { $size: "$projectsActive" },
         qcTasksCreated: 1,
         tasksVerified: 1,
-        inspections: 1,
         avgProgressPercent: {
           $round: ["$avgProgressPercent", 1],
         },
       },
     },
-
-    { $sort: { period: -1 } },
   ]);
 
-  return result;
+  /* ===============================
+     2️⃣ INSPECTION AGGREGATION
+  =============================== */
+
+  const inspectionAgg = await SiteInspection.aggregate([
+    {
+      $match: {
+        date: { $gte: new Date(dateFrom), $lte: new Date(dateTo) },
+      },
+    },
+    {
+      $group: {
+        _id: {
+          siteInchargeId: "$site_incharge",
+          period: inspectionDateGroup,
+        },
+        inspections: {
+          $sum: {
+            $cond: [{ $eq: ["$status", "completed"] }, 1, 0],
+          },
+        },
+      },
+    },
+  ]);
+
+  /* ===============================
+     3️⃣ MERGE BOTH RESULTS
+  =============================== */
+
+  const finalResult = projectAgg.map((row) => {
+    const inspectionMatch = inspectionAgg.find(
+      (i) =>
+        i._id.siteInchargeId?.toString() === row.siteInchargeId?.toString() &&
+        i._id.period === row.period,
+    );
+
+    return {
+      ...row,
+      inspections: inspectionMatch ? inspectionMatch.inspections : 0,
+    };
+  });
+
+  return finalResult.sort((a, b) => (a.period < b.period ? 1 : -1));
 };

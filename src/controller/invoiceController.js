@@ -6,42 +6,50 @@ import Payment from "../modals/payment.js";
 export const createInvoice = async (req, res) => {
   try {
     const user = req.user._id;
-    let role;
-    if (req.user.role === "contractor") {
-      role = "contractor";
-    } else if (req.user.role === "accountant") {
-      role = "accountant";
-    } else if (req.user.role === "admin") {
-      role = "admin";
-    } else if (req.user.role === "owner") {
-      role = "owner";
-    }
+    const role = req.user.role;
+
     const {
       project,
       task,
       issueDate,
       dueDate,
       items,
-      sgst,
-      cgst,
+      sgst = 0,
+      cgst = 0,
       notes,
       unit,
       floorUnit,
     } = req.body;
 
-    console.log(req.body);
+    // 🔥 VALIDATION (important)
+    if (
+      !project ||
+      !issueDate ||
+      !dueDate ||
+      !unit ||
+      !floorUnit ||
+      !Array.isArray(items) ||
+      items.length === 0
+    ) {
+      return res.status(400).json({
+        error: "Missing required fields or invoice items",
+      });
+    }
 
+    // 🔥 SAFE subtotal calculation
     const subtotal = items.reduce((sum, item) => {
-      const amount = item.quantity * item.rate;
+      const quantity = Number(item.quantity) || 0;
+      const rate = Number(item.rate) || 0;
+      const amount = quantity * rate;
+
       item.amount = amount;
       return sum + amount;
     }, 0);
 
-    const sgstAmount = (sgst / 100) * subtotal;
-    const cgstAmount = (cgst / 100) * subtotal;
+    const sgstAmount = (Number(sgst) / 100) * subtotal;
+    const cgstAmount = (Number(cgst) / 100) * subtotal;
     const total = subtotal + sgstAmount + cgstAmount;
 
-    // Step 1: Create invoice (without invoiceNumber first)
     const invoice = new Invoice({
       project,
       task: task || null,
@@ -55,26 +63,24 @@ export const createInvoice = async (req, res) => {
       subtotal,
       total,
       unit,
-      createdBy: role,
       floorUnit,
+      createdBy: role,
     });
 
-    // Step 2: Save to generate _id
     await invoice.save();
 
-    // Step 3: Generate readable invoice number
-    const shortId = invoice._id.toString().slice(0, 6); // or use slice(-6) for last 6 chars
+    const shortId = invoice._id.toString().slice(0, 6);
     const year = new Date().getFullYear();
-    const invoiceNumber = `INV-${year}-${shortId.toUpperCase()}`;
+    invoice.invoiceNumber = `INV-${year}-${shortId.toUpperCase()}`;
 
-    // Step 4: Update invoice with invoiceNumber
-    invoice.invoiceNumber = invoiceNumber;
-    await invoice.save(); // update with invoiceNumber
+    await invoice.save();
 
     return res.status(201).json(invoice);
   } catch (error) {
     console.error("Invoice creation error:", error);
-    return res.status(500).json({ error: "Internal Server Error" });
+    return res.status(500).json({
+      error: error.message || "Internal Server Error",
+    });
   }
 };
 
@@ -90,7 +96,7 @@ export const getCompletedTasksForContractor = async (req, res) => {
 
     // Populate projectId to get actual project details (like name)
     const projects = await Project.find({ contractors: contractor }).populate(
-      "projectId"
+      "projectId",
     );
 
     const completedTasks = [];
@@ -185,7 +191,7 @@ export const getAllInvoices = async (req, res) => {
 
           for (const [unitName, taskArray] of unitsMap.entries()) {
             const matchedTask = taskArray.find(
-              (task) => task._id.toString() === invoice.task.toString()
+              (task) => task._id.toString() === invoice.task.toString(),
             );
             if (matchedTask) {
               // Attach the full task object to the invoice
@@ -195,7 +201,7 @@ export const getAllInvoices = async (req, res) => {
             }
           }
         }
-      })
+      }),
     );
 
     res.status(200).json(invoices);
@@ -205,6 +211,35 @@ export const getAllInvoices = async (req, res) => {
   }
 };
 
+export const updateInvoice = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const invoice = await Invoice.findById(id);
+
+    if (!invoice) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+
+    // Update fields
+    Object.assign(invoice, req.body);
+
+    // ✅ VERY IMPORTANT — store last accountant who edited
+    if (req.user.role === "accountant") {
+      invoice.approvedByAccountant = req.user._id;
+    }
+
+    await invoice.save();
+
+    res.status(200).json(invoice);
+  } catch (error) {
+    console.error("Update invoice error:", error);
+    res.status(500).json({
+      message: "Failed to update invoice",
+      error: error.message,
+    });
+  }
+};
 // export const markInvoiceAsPaid = async (req, res) => {
 //   const { id } = req.params;
 //   const { paymentMethod } = req.body;
@@ -223,35 +258,39 @@ export const markInvoiceAsPaid = async (req, res) => {
 
   try {
     if (!reconcile) {
-      const invoice = await Invoice.findByIdAndUpdate(
-        id,
-        { status: "paid", paymentMethod, paymentDate: Date.now() },
-        { new: true }
-      );
+      const invoice = await Invoice.findById(id);
 
       if (!invoice) {
         return res.status(404).json({ message: "Invoice not found" });
       }
 
-      // Step 2: Create new Payment record
+      invoice.status = "paid";
+      invoice.paymentMethod = paymentMethod;
+      invoice.paymentDate = new Date();
+
+      // ✅ VERY IMPORTANT
+      invoice.approvedByAccountant = req.user._id;
+
+      await invoice.save();
+
       const payment = new Payment({
         accountant: req.user._id,
         invoice: id,
-        paymentNumber: "", // temp, will be updated after saving
+        paymentNumber: "",
       });
 
       await payment.save();
 
-      // Step 3: Generate readable payment number
       const shortId = payment._id.toString().slice(0, 6);
       const year = new Date().getFullYear();
       payment.paymentNumber = `PAY-${year}-${shortId.toUpperCase()}`;
+      await payment.save();
 
-      await payment.save(); // update with generated payment number
-
-      res
-        .status(200)
-        .json({ message: "Invoice marked as paid", invoice, payment });
+      return res.status(200).json({
+        message: "Invoice marked as paid",
+        invoice,
+        payment,
+      });
     }
 
     const invoice = await Invoice.findById(id);
@@ -263,7 +302,7 @@ export const markInvoiceAsPaid = async (req, res) => {
     // Step 1: If reconcile is true, update invoice total and add to reconciliation history
     if (reconcile && reconciliationAmount != null && reconciledItemId) {
       const item = invoice.items.find(
-        (it) => it._id.toString() === reconciledItemId.toString()
+        (it) => it._id.toString() === reconciledItemId.toString(),
       );
 
       if (!item) {
@@ -276,7 +315,7 @@ export const markInvoiceAsPaid = async (req, res) => {
       // Recalculate subtotal from all items
       const newSubtotal = invoice.items.reduce(
         (acc, curr) => acc + curr.amount,
-        0
+        0,
       );
       invoice.subtotal = newSubtotal;
 
@@ -327,26 +366,39 @@ export const markInvoiceAsPaid = async (req, res) => {
 export const verifyInvoiceByAccountant = async (req, res) => {
   const { id } = req.params;
   const { status, notes } = req.body;
+
   try {
-    const invoice = await Invoice.findByIdAndUpdate(
-      id,
-      {
-        isApprovedByAccountant: status === "approved",
-        noteByAccountant: notes,
-      },
-      { new: true } // return updated doc
-    );
+    if (!["approved", "rejected"].includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+
+    const invoice = await Invoice.findById(id);
 
     if (!invoice) {
       return res.status(404).json({ message: "Invoice not found" });
     }
 
-    res.status(200).json({
-      message: "Invoice verification updated successfully",
+    // ✅ update status
+    invoice.status = status;
+
+    // ✅ VERY IMPORTANT: save accountant id
+    invoice.approvedByAccountant = req.user._id;
+
+    // ✅ save note
+    invoice.noteByAccountant = notes || "";
+
+    // ❌ remove old boolean
+    invoice.set("isApprovedByAccountant", undefined);
+
+    await invoice.save();
+
+    return res.status(200).json({
+      message: `Invoice ${status} successfully`,
       invoice,
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error("Verify error:", error);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
