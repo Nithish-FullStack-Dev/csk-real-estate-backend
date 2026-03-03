@@ -9,8 +9,8 @@ export const createCommission = async (req, res) => {
 
     if (existing) {
       return res
-        .status(400)
-        .json({ message: "Commission already exists for this lead" });
+        .status(409)
+        .json({ message: "A commission already exists for this lead." });
     }
 
     const commission = await Commission.create({
@@ -20,7 +20,14 @@ export const createCommission = async (req, res) => {
 
     res.status(201).json(commission);
   } catch (error) {
-    res.status(500).json({ message: "Failed to create commission", error });
+    if (error.code === 11000) {
+      return res
+        .status(409)
+        .json({ message: "A commission already exists for this lead." });
+    }
+
+    console.error("createCommission error:", error);
+    res.status(500).json({ message: "Failed to create commission." });
   }
 };
 
@@ -138,18 +145,15 @@ export const deleteCommission = async (req, res) => {
   try {
     const id = req.params.id;
 
-    await Commission.findByIdAndUpdate(id, {
-      deletedBy: req.user._id,
-    });
-
     const deleted = await Commission.findByIdAndDelete(id);
 
     if (!deleted) {
-      return res.status(404).json({ message: "Commission not found" });
+      return res.status(404).json({ message: "Commission not found." });
     }
 
-    res.status(200).json({ message: "Commission deleted successfully" });
+    res.status(200).json({ message: "Commission deleted successfully." });
   } catch (error) {
-    res.status(500).json({ message: "Failed to delete commission", error });
+    console.error("deleteCommission error:", error);
+    res.status(500).json({ message: "Failed to delete commission." });
   }
 };
