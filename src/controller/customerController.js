@@ -311,3 +311,70 @@ export const uploadCustomerPdf = asyncHandler(async (req, res) => {
     ),
   );
 });
+
+// controllers/customer.controller.js
+
+export const getMyPurchase = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+
+  const page = Math.max(parseInt(req.query.page) || 1, 1);
+  const limit = Math.min(parseInt(req.query.limit) || 6, 20);
+  const skip = (page - 1) * limit;
+
+  const filter = {
+    customerId: userId,
+    isDeleted: false,
+  };
+
+  const total = await Customer.countDocuments(filter);
+
+  const purchases = await Customer.find(filter)
+    .select(
+      `
+      property
+      floorUnit
+      unit
+      bookingDate
+      registrationStatus
+      constructionStage
+      expectedDeliveryDate
+      totalAmount
+      advanceReceived
+      paymentStatus
+      `,
+    )
+    .populate({
+      path: "property",
+      select:
+        "projectName location propertyType thumbnailUrl constructionStatus",
+    })
+    .populate({
+      path: "floorUnit",
+      select: "floorNumber",
+    })
+    .populate({
+      path: "unit",
+      select: "plotNo",
+    })
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit)
+    .lean();
+
+  const formatted = purchases.map((p) => ({
+    ...p,
+    balance: (p.totalAmount || 0) - (p.advanceReceived || 0),
+  }));
+
+  res.status(200).json(
+    new ApiResponse(200, {
+      purchases: formatted,
+      pagination: {
+        total,
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        limit,
+      },
+    }),
+  );
+});
