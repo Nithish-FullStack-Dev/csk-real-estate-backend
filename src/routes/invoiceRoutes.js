@@ -6,47 +6,54 @@ import {
   markInvoiceAsPaid,
   verifyInvoiceByAccountant,
   getMonthlyRevenues,
+  updateInvoice,
 } from "../controller/invoiceController.js";
 import { authenticate, authorizeRoles } from "../middlewares/authMiddleware.js";
-
+import Invoice from "../modals/invoice.js";
 const router = express.Router();
 
 router.post(
   "/",
   authenticate,
   authorizeRoles("contractor", "accountant", "owner", "admin"),
-  createInvoice
+  createInvoice,
 );
 router.get(
   "/",
   authenticate,
   authorizeRoles("contractor", "accountant", "owner", "admin"),
-  getAllInvoices
+  getAllInvoices,
 );
 router.get(
   "/completed/tasks",
   authenticate,
   authorizeRoles("contractor", "accountant", "owner", "admin"),
-  getCompletedTasksForContractor
+  getCompletedTasksForContractor,
 );
 router.put(
   "/:id/mark-paid",
   authenticate,
   authorizeRoles("accountant", "owner", "admin"),
-  markInvoiceAsPaid
+  markInvoiceAsPaid,
 );
 router.put(
   "/:id/accountant-verify",
   authenticate,
   authorizeRoles("accountant", "owner", "admin"),
-  verifyInvoiceByAccountant
+  verifyInvoiceByAccountant,
 );
 
 router.get(
   "/revenues",
   authenticate,
   authorizeRoles("owner", "admin"),
-  getMonthlyRevenues
+  getMonthlyRevenues,
+);
+router.put(
+  "/:id",
+  authenticate,
+  authorizeRoles("accountant", "owner", "admin"),
+  updateInvoice,
 );
 
 export default router;

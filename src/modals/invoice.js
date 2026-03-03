@@ -23,7 +23,7 @@ const InvoiceSchema = new Schema(
       required: true,
     },
     unit: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "PropertyUnit",
       required: true,
     },
@@ -36,8 +36,8 @@ const InvoiceSchema = new Schema(
       type: String,
     },
     task: {
-      type: Boolean,
-      default: false, // optional
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
     },
     user: {
       type: Types.ObjectId,
@@ -82,9 +82,9 @@ const InvoiceSchema = new Schema(
       enum: ["draft", "pending", "approved", "rejected", "paid"],
       default: "pending",
     },
-    isApprovedByAccountant: {
-      type: Boolean,
-      default: false,
+    approvedByAccountant: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
     },
     noteByAccountant: {
       type: String,
@@ -112,7 +112,7 @@ const InvoiceSchema = new Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 export default model("Invoice", InvoiceSchema);

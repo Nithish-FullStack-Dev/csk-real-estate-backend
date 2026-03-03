@@ -7,8 +7,8 @@ const router = express.Router();
 router.get(
   "/accountant",
   authenticate,
-  authorizeRoles("accountant", "owner"),
-  getAccountantPayments
+  authorizeRoles("accountant", "owner", "admin"),
+  getAccountantPayments,
 );
 
 export default router;
