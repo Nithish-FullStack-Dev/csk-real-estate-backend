@@ -5,7 +5,7 @@ import { authenticate,authorizeRoles } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-router.get("/admin",authenticate,authorizeRoles("admin"),async (req, res) => {
+router.get("/admin",authenticate,authorizeRoles("admin", "owner"),async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
     const newUsers = await User.countDocuments({
