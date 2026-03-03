@@ -7,7 +7,8 @@ import csrf from "csurf";
 import cookieParser from "cookie-parser";
 import http from "http";
 import { Server } from "socket.io";
-
+import path from "path";
+import { fileURLToPath } from "url";
 // Routes
 import propertyRoutes from "./src/routes/propertyRoute.js";
 import userRoutes from "./src/routes/userRoutes.js";
@@ -65,6 +66,7 @@ import MultiTaskGroupRoute from "./src/routes/multiTaskGroup.js";
 import stt from "./src/routes/stt.js";
 import InnerPlot from "./src/routes/innerPlot.routes.js";
 import reportsDynamic from "./src/routes/report.routes.js";
+import auditRoutes from "./src/routes/audit.route.js";
 dotenv.config();
 
 // Create Express app and HTTP server
@@ -128,10 +130,12 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
   }),
 );
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 app.use(express.json());
 app.use(cookieParser());
-
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // CSRF middleware setup (store token in cookies)
 const csrfProtection = csrf({
   cookie: {
@@ -204,6 +208,7 @@ app.use("/api/kanban", MultiTaskGroupRoute);
 app.use("/api/speech", stt);
 app.use("/api/reports", reportsDynamic);
 app.use("/api/innerPlot", InnerPlot);
+app.use("/api/audit", auditRoutes);
 
 app.use(errorHandler);
 

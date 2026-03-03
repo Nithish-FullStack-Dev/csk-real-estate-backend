@@ -309,8 +309,8 @@ export const deleteContractor = asyncHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(id))
     throw new ApiError(400, "Invalid contractor ID");
 
-  const contractor = await ContractorModel.findByIdAndUpdate(
-    id,
+  const contractor = await ContractorModel.findOneAndUpdate(
+    { _id: id, isDeleted: false },
     {
       isDeleted: true,
       deletedBy: req.user._id,
