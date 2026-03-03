@@ -84,7 +84,7 @@ export const updateRole = async (req, res) => {
     const updatedRole = await Role.findByIdAndUpdate(
       id,
       { $set: { name, description, color, permissions } },
-      { new: true }
+      { new: true },
     );
 
     if (!updatedRole) {
@@ -132,7 +132,7 @@ export const updateRolesOFUsers = async (req, res) => {
     const updatedRole = await Role.findOneAndUpdate(
       { name },
       { $set: { description, color } },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
+      { new: true, upsert: true, setDefaultsOnInsert: true },
     );
 
     return res.status(200).json(updatedRole);
@@ -146,7 +146,7 @@ export const getRoles = async (req, res) => {
   try {
     const roles = await Role.find(
       {},
-      "name description color permissions"
+      "name description color permissions",
     ).lean(); // fetch only needed fields
     res.status(200).json(roles);
   } catch (error) {
@@ -163,7 +163,7 @@ export const clearRoleMeta = async (req, res) => {
     const updatedRole = await Role.findByIdAndUpdate(
       id,
       { $unset: { description: "", color: "" } },
-      { new: true }
+      { new: true },
     );
 
     if (!updatedRole) {
@@ -185,7 +185,7 @@ export const getRolePermissions = async (req, res) => {
     if (!roleName)
       return res.status(400).json({ message: "roleName is required" });
 
-    const role = await Role.findOne({ name: roleName });
+    const role = await Role.findOne({ name: roleName.toLowerCase().trim() });
 
     if (!role) return res.status(404).json({ message: "Role not found" });
 
@@ -216,7 +216,7 @@ export const getRolesWithUserCount = async (req, res) => {
 
     // Convert to Map for quick lookup
     const countMap = new Map(
-      userCounts.map((u) => [u._id.toString(), u.count])
+      userCounts.map((u) => [u._id.toString(), u.count]),
     );
 
     // Step 3: Combine roles with user count

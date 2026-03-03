@@ -7,7 +7,8 @@ import csrf from "csurf";
 import cookieParser from "cookie-parser";
 import http from "http";
 import { Server } from "socket.io";
-
+import path from "path";
+import { fileURLToPath } from "url";
 // Routes
 import propertyRoutes from "./src/routes/propertyRoute.js";
 import userRoutes from "./src/routes/userRoutes.js";
@@ -129,10 +130,12 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
   }),
 );
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 app.use(express.json());
 app.use(cookieParser());
-
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // CSRF middleware setup (store token in cookies)
 const csrfProtection = csrf({
   cookie: {
