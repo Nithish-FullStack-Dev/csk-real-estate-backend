@@ -5,9 +5,6 @@ import OpenLand from "../modals/openLand.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import { getFilePath } from "../utils/getFilePath.js";
-import { uploadFile } from "../utils/uploadFile.js";
-import { uploadPdfToCloudinary } from "../config/cloudinary.js";
 
 /* ------------------------------------------------------- */
 /* POPULATE HELPER */
