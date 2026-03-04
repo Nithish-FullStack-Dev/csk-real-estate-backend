@@ -3,8 +3,8 @@ import Building from "../modals/building.model.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import { getFilePath } from "../utils/getFilePath.js";
 // import { uploadFile } from "../utils/uploadFile.js";
+import Customer from "../modals/customerSchema.js";
 
 export const createBuilding = asyncHandler(async (req, res) => {
   const {
@@ -100,11 +100,27 @@ export const createBuilding = asyncHandler(async (req, res) => {
 });
 
 export const getAllBuildings = asyncHandler(async (req, res) => {
+  const userId = req.user?._id;
+  const role = req.user?.role;
+
+  let matchCondition = {
+    $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+  };
+
+  if (role === "customer_purchased") {
+    const purchases = await Customer.find({
+      customerId: userId,
+      isDeleted: false,
+    }).select("property");
+
+    const buildingIds = purchases.map((p) => p.property);
+
+    matchCondition._id = { $in: buildingIds };
+  }
+
   const buildings = await Building.aggregate([
     {
-      $match: {
-        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
-      },
+      $match: matchCondition,
     },
     {
       $project: {

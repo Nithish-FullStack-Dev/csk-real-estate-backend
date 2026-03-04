@@ -1,3 +1,4 @@
+// import { uploadPdfToCloudinary } from "../config/cloudinary.js";
 // src/controller/openPlotController.js
 
 import mongoose from "mongoose";
@@ -5,6 +6,9 @@ import OpenPlot from "../modals/openPlot.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
+// import { getFilePath } from "../utils/getFilePath.js";
+// import { uploadFile } from "../utils/uploadFile.js";
+import Customer from "../modals/customerSchema.js";
 
 /* ========================================================= */
 /* CREATE OPEN PLOT */
@@ -192,9 +196,21 @@ export const updateOpenPlot = asyncHandler(async (req, res) => {
 /* ========================================================= */
 
 export const getAllOpenPlots = asyncHandler(async (req, res) => {
-  const openPlots = await OpenPlot.find({ isDeleted: false }).sort({
-    createdAt: -1,
-  });
+  let query = { isDeleted: false };
+
+  // If logged user is customer → restrict plots
+  if (req.user?.role === "customer_purchased") {
+    const purchasedPlots = await Customer.find({
+      customerId: req.user._id,
+      purchaseType: "PLOT",
+    }).select("openPlot");
+
+    const openPlotIds = purchasedPlots.map((p) => p.openPlot).filter(Boolean);
+
+    query._id = { $in: openPlotIds };
+  }
+
+  const openPlots = await OpenPlot.find(query).sort({ createdAt: -1 });
   res.status(200).json(new ApiResponse(200, openPlots));
 });
 

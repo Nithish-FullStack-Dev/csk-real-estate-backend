@@ -5,6 +5,7 @@ import InnerPlot from "../modals/InnerPlot.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
+import Customer from "../modals/customerSchema.js";
 
 /* ================= CREATE INNER PLOT ================= */
 export const createInnerPlot = asyncHandler(async (req, res) => {
@@ -95,9 +96,26 @@ export const getAllInnerPlot = asyncHandler(async (req, res) => {
     throw new ApiError(400, "openPlotId is required");
   }
 
-  const innerPlots = await InnerPlot.find({ openPlotId }).sort({
-    createdAt: -1,
-  });
+  let query = { openPlotId };
+
+  // If logged in user is a customer → filter purchased plots
+  if (req.user?.role === "customer_purchased") {
+    const purchasedPlots = await Customer.find({
+      customerId: req.user._id,
+      purchaseType: "PLOT",
+      openPlot: openPlotId,
+    }).select("innerPlot");
+
+    const innerPlotIds = [
+      ...new Set(
+        purchasedPlots.map((p) => p.innerPlot?.toString()).filter(Boolean),
+      ),
+    ];
+
+    query._id = { $in: innerPlotIds };
+  }
+
+  const innerPlots = await InnerPlot.find(query).sort({ createdAt: -1 });
 
   return res
     .status(200)

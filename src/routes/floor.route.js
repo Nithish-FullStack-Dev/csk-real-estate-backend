@@ -13,9 +13,14 @@ const router = Router();
 
 router.post("/createFloor", authenticate, upload.none(), createFloor);
 
-router.get("/getAllFloorsByBuildingId/:buildingId", getAllFloorsByBuildingId);
+router.get(
+  "/getAllFloorsByBuildingId/:buildingId",
+  authenticate,
+  getAllFloorsByBuildingId,
+);
 router.get(
   "/getAllFloorsByBuildingIdForDropDown/:buildingId",
+  authenticate,
   getAllFloorsByBuildingIdForDropDown,
 );
 router.patch(

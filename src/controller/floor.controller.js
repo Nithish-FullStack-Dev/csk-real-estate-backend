@@ -3,6 +3,7 @@ import FloorUnit from "../modals/floorUnit.model.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import Customer from "../modals/customerSchema.js";
 import propertyUnitModel from "../modals/propertyUnit.model.js";
 
 export const createFloor = asyncHandler(async (req, res) => {
@@ -54,17 +55,30 @@ export const getAllFloorsByBuildingId = asyncHandler(async (req, res) => {
     throw new ApiError(400, `Building ID not received properly: ${buildingId}`);
   }
 
-  const floors = await FloorUnit.find({
-    buildingId: new mongoose.Types.ObjectId(buildingId),
-  }).sort({ floorNumber: 1 }); // ascending order
+  const role = req.user?.role;
+  const userId = req.user?._id;
 
-  // if (!floors || floors.length === 0) {
-  //   throw new ApiError(404, "Floors not found");
-  // }
+  let query = {
+    buildingId: new mongoose.Types.ObjectId(buildingId),
+  };
+
+  if (role === "customer_purchased") {
+    const purchases = await Customer.find({
+      customerId: userId,
+      property: buildingId,
+      isDeleted: false,
+    }).select("floorUnit");
+
+    const floorIds = [...new Set(purchases.map((p) => p.floorUnit.toString()))];
+
+    query._id = { $in: floorIds };
+  }
+
+  const floors = await FloorUnit.find(query).sort({ floorNumber: 1 });
 
   const message = floors.length
     ? "Floors retrieved successfully"
-    : "No floors added yet";
+    : "No floors available";
 
   return res.status(200).json(new ApiResponse(200, floors, message));
 });

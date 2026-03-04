@@ -26,19 +26,42 @@ const purchaseSchema = new Schema(
     property: {
       type: Types.ObjectId,
       ref: "Building",
-      required: [true, "Property (Building) is required"],
+      default: null,
     },
 
     floorUnit: {
       type: Types.ObjectId,
       ref: "FloorUnit",
-      required: [true, "Floor Unit is required"],
+      default: null,
     },
 
     unit: {
       type: Types.ObjectId,
       ref: "PropertyUnit",
-      required: [true, "Property Unit is required"],
+      default: null,
+    },
+
+    openPlot: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "OpenPlot",
+      default: null,
+    },
+    innerPlot: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "InnerPlot",
+      default: null,
+    },
+    openLand: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "OpenLand",
+      default: null,
+    },
+
+    purchaseType: {
+      type: String,
+      enum: ["BUILDING", "PLOT", "LAND"],
+      required: true,
+      index: true,
     },
 
     // Referral details
@@ -216,5 +239,33 @@ const purchaseSchema = new Schema(
   },
   { timestamps: true },
 );
+
+purchaseSchema.index({ property: 1 });
+purchaseSchema.index({ openPlot: 1 });
+purchaseSchema.index({ openLand: 1 });
+
+purchaseSchema.pre("validate", function (next) {
+  if (this.purchaseType === "BUILDING") {
+    if (!this.property || !this.floorUnit || !this.unit) {
+      return next(
+        new Error("Building purchase requires property, floorUnit and unit"),
+      );
+    }
+  }
+
+  if (this.purchaseType === "PLOT") {
+    if (!this.openPlot || !this.innerPlot) {
+      return next(new Error("Plot purchase requires openPlot or innerPlot"));
+    }
+  }
+
+  if (this.purchaseType === "LAND") {
+    if (!this.openLand) {
+      return next(new Error("Land purchase requires openLand"));
+    }
+  }
+
+  next();
+});
 
 export default model("Customer", purchaseSchema);

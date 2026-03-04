@@ -3,6 +3,10 @@ import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import { uploadFile } from "../utils/uploadFile.js";
+// import { uploadPdfToCloudinary } from "../config/cloudinary.js";
+import InnerPlot from "../modals/InnerPlot.js";
+import PropertyUnitModel from "../modals/propertyUnit.model.js";
+import OpenLand from "../modals/openLand.js";
 
 export const createCustomer = asyncHandler(async (req, res) => {
   const {
@@ -12,6 +16,10 @@ export const createCustomer = asyncHandler(async (req, res) => {
     property,
     floorUnit,
     unit,
+    openPlot,
+    innerPlot,
+    openLand,
+    purchaseType,
     referralName,
     referralContact,
     registrationStatus,
@@ -32,23 +40,29 @@ export const createCustomer = asyncHandler(async (req, res) => {
     paymentStatus,
   } = req.body;
 
-  if (
-    !customerId ||
-    !projectCompany ||
-    !property ||
-    !floorUnit ||
-    !unit ||
-    !totalAmount ||
-    !contractorId ||
-    !siteInchargeId
-  ) {
+  if (!customerId || !purchasedFrom || !purchaseType || !totalAmount) {
     throw new ApiError(400, "Required fields are missing");
   }
 
-  const existCustomer = await Customer.findOne({ customerId });
+  let duplicateQuery = { customerId };
+
+  if (purchaseType === "BUILDING") {
+    duplicateQuery.unit = unit;
+  }
+
+  if (purchaseType === "PLOT") {
+    duplicateQuery.openPlot = openPlot;
+    duplicateQuery.innerPlot = innerPlot;
+  }
+
+  if (purchaseType === "LAND") {
+    duplicateQuery.openLand = openLand;
+  }
+
+  const existCustomer = await Customer.findOne(duplicateQuery);
 
   if (existCustomer)
-    throw new ApiError(409, "Customer already exists with this Customer ID");
+    throw new ApiError(409, "Customer already owns this asset");
 
   // Upload documents (images only)
   const documentLocalfile = req.files?.documents || [];
@@ -66,6 +80,10 @@ export const createCustomer = asyncHandler(async (req, res) => {
     property,
     floorUnit,
     unit,
+    openPlot,
+    innerPlot,
+    openLand,
+    purchaseType,
     referralName,
     referralContact,
     registrationStatus,
@@ -88,6 +106,31 @@ export const createCustomer = asyncHandler(async (req, res) => {
     createdBy: req.user?._id,
   });
 
+  if (purchaseType === "BUILDING" && unit) {
+    await PropertyUnit.findByIdAndUpdate(unit, {
+      status: "Sold",
+      customerId: newCustomer._id,
+      customerStatus: "Purchased",
+      updatedBy: req.user?._id,
+    });
+  }
+
+  if (purchaseType === "PLOT" && innerPlot) {
+    await InnerPlot.findByIdAndUpdate(innerPlot, {
+      status: "Sold",
+      customerId: newCustomer._id,
+    });
+  }
+
+  if (purchaseType === "LAND" && openLand) {
+    await OpenLand.findByIdAndUpdate(openLand, {
+      landStatus: "Sold",
+      soldToCustomer: newCustomer._id,
+      soldDate: new Date(),
+      updatedBy: req.user?._id,
+    });
+  }
+
   res
     .status(201)
     .json(new ApiResponse(201, newCustomer, "Successfully added Customer"));
@@ -101,9 +144,11 @@ export const getAllCustomers = asyncHandler(async (req, res) => {
     .populate("property", "_id projectName location propertyType")
     .populate("floorUnit", "_id floorNumber unitType")
     .populate("unit", "_id plotNo propertyType")
+    .populate("openPlot", "_id projectName openPlotNo")
+    .populate("innerPlot", "_id plotNumber")
+    .populate("openLand", "_id projectName surveyNumber landType")
     .populate("contractorId", "_id name email phone")
-    .populate("siteInchargeId", "_id name email phone")
-    .populate("images");
+    .populate("siteInchargeId", "_id name email phone");
 
   res
     .status(200)
@@ -121,9 +166,11 @@ export const getCustomerById = asyncHandler(async (req, res) => {
     .populate("property", "_id projectName location propertyType")
     .populate("floorUnit", "_id floorNumber unitType")
     .populate("unit", "_id plotNo propertyType")
+    .populate("openPlot", "_id projectName openPlotNo")
+    .populate("innerPlot", "_id plotNo plotType")
+    .populate("openLand", "_id projectName landType")
     .populate("contractorId", "_id name email phone")
-    .populate("siteInchargeId", "_id name email phone")
-    .populate("images");
+    .populate("siteInchargeId", "_id name email phone");
 
   if (!purchase) {
     return res
@@ -143,13 +190,13 @@ export const updateCustomer = asyncHandler(async (req, res) => {
 
   if (!id) throw new ApiError(400, "Customer ID is required");
 
-  const updateData = { ...req.body, updatedBy: req.user?._id };
-
   const existing = await Customer.findOne({
     _id: id,
     isDeleted: false,
   });
   if (!existing) throw new ApiError(404, "Customer not found");
+
+  const updateData = { ...req.body, updatedBy: req.user?._id };
 
   let uploadedDocuments = [];
 
@@ -309,8 +356,6 @@ export const uploadCustomerPdf = asyncHandler(async (req, res) => {
   );
 });
 
-// controllers/customer.controller.js
-
 export const getMyPurchase = asyncHandler(async (req, res) => {
   const userId = req.user._id;
 
@@ -326,33 +371,15 @@ export const getMyPurchase = asyncHandler(async (req, res) => {
   const total = await Customer.countDocuments(filter);
 
   const purchases = await Customer.find(filter)
-    .select(
-      `
-      property
-      floorUnit
-      unit
-      bookingDate
-      registrationStatus
-      constructionStage
-      expectedDeliveryDate
-      totalAmount
-      advanceReceived
-      paymentStatus
-      `,
+    .populate(
+      "property",
+      "projectName location thumbnailUrl constructionStatus",
     )
-    .populate({
-      path: "property",
-      select:
-        "projectName location propertyType thumbnailUrl constructionStatus",
-    })
-    .populate({
-      path: "floorUnit",
-      select: "floorNumber",
-    })
-    .populate({
-      path: "unit",
-      select: "plotNo",
-    })
+    .populate("floorUnit", "floorNumber")
+    .populate("unit", "plotNo")
+    .populate("openPlot", "_id projectName openPlotNo")
+    .populate("innerPlot", "_id plotNumber")
+    .populate("openLand", "_id projectName surveyNumber")
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(limit)

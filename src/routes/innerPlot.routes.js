@@ -16,6 +16,7 @@ import {
   generateBulkInnerPlots,
   bulkCsvInnerPlots,
 } from "../controller/innerPlotBulk.controller.js";
+import { authenticate } from "../middlewares/authMiddleware.js";
 
 const router = Router();
 
@@ -26,12 +27,16 @@ const uploadFields = upload.fields([
 const csvUpload = multer({ storage: multer.memoryStorage() });
 router.post("/saveInnerPlot", uploadFields, createInnerPlot);
 router.get("/by-openplot/:_id", getInnerPlotById);
-router.get("/getAllInnerPlot/:openPlotId", getAllInnerPlot);
+router.get("/getAllInnerPlot/:openPlotId",authenticate, getAllInnerPlot);
 router.put("/updateInnerPlot/:_id", uploadFields, updateInnerPlot);
 router.delete("/deleteInnerPlot/:_id", deleteInnerPlot);
 router.post("/generate-bulk", generateBulkInnerPlots);
 router.post("/csv-upload", csvUpload.single("file"), bulkCsvInnerPlots);
 
-router.get("/getInnerPlotDropdown/:openPlotId", getInnerPlotDropdown);
+router.get(
+  "/getInnerPlotDropdown/:openPlotId",
+  authenticate,
+  getInnerPlotDropdown,
+);
 
 export default router;
