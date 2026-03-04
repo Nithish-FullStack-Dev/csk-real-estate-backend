@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { Schema } from "mongoose";
 
 const InnerPlotSchema = new mongoose.Schema(
   {
@@ -12,6 +12,8 @@ const InnerPlotSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+
+    customerId: { type: Schema.Types.ObjectId, ref: "Customer" },
 
     area: {
       type: Number,
