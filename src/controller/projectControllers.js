@@ -6,7 +6,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import ContractorModel from "../modals/contractor.model.js";
-
+import { createNotification } from "../utils/notificationHelper.js";
 export const getUserProjects = async (req, res) => {
   try {
     const { _id, role } = req.user;
@@ -273,8 +273,8 @@ export const updateProject = asyncHandler(async (req, res) => {
             updatedProject.name || updatedProject._id
           } has been marked as Completed.`,
           triggeredBy: req.user._id,
-        })
-      )
+        }),
+      ),
     );
   }
 
