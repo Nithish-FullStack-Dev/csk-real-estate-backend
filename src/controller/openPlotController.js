@@ -1,13 +1,10 @@
 // src/controller/openPlotController.js
 
 import mongoose from "mongoose";
-import { uploadPdfToCloudinary } from "../config/cloudinary.js";
 import OpenPlot from "../modals/openPlot.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import { getFilePath } from "../utils/getFilePath.js";
-import { uploadFile } from "../utils/uploadFile.js";
 
 /* ========================================================= */
 /* CREATE OPEN PLOT */
@@ -42,34 +39,45 @@ export const createOpenPlot = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Required fields are missing");
   }
 
-  const existingPlot = await OpenPlot.findOne({ openPlotNo, isDeleted: false });
+  if (!req.user?._id) {
+    throw new ApiError(401, "Unauthorized");
+  }
+
+  const existingPlot = await OpenPlot.findOne({
+    openPlotNo,
+    isDeleted: false,
+  });
+
   if (existingPlot) {
     throw new ApiError(409, "Open Plot already exists");
   }
 
-  const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
-  const brochureLocalPath = getFilePath(req.files, "brochureUrl");
+  /* ---------- FILE CHECK ---------- */
 
-  if (!thumbnailLocalPath)
+  if (!req.files?.thumbnailUrl?.[0]) {
     throw new ApiError(400, "Thumbnail image is required");
-
-  if (!brochureLocalPath) throw new ApiError(400, "Brochure PDF is required");
-
-  const thumbnailUrl = await uploadFile(
-    thumbnailLocalPath,
-    "OpenPlot/Thumbnail",
-  );
-
-  const brochureUrl = await uploadPdfToCloudinary(brochureLocalPath);
-
-  if (!thumbnailUrl || !brochureUrl) {
-    throw new ApiError(500, "File upload failed");
   }
 
+  if (!req.files?.brochureUrl?.[0]) {
+    throw new ApiError(400, "Brochure PDF is required");
+  }
+
+  /* ---------- BUILD URLS ---------- */
+
+  const thumbnailUrl = `${req.protocol}://${req.get(
+    "host",
+  )}/uploads/images/${req.files.thumbnailUrl[0].filename}`;
+
+  const brochureUrl = `${req.protocol}://${req.get(
+    "host",
+  )}/uploads/pdfs/${req.files.brochureUrl[0].filename}`;
+
   let imageUrls = [];
+
   if (req.files?.images && Array.isArray(req.files.images)) {
-    imageUrls = await Promise.all(
-      req.files.images.map((file) => uploadFile(file.path, "OpenPlot/Gallery")),
+    imageUrls = req.files.images.map(
+      (file) =>
+        `${req.protocol}://${req.get("host")}/uploads/images/${file.filename}`,
     );
   }
 
@@ -117,8 +125,8 @@ export const updateOpenPlot = asyncHandler(async (req, res) => {
   let brochureUrl = existingPlot.brochureUrl;
   let images = existingPlot.images || [];
 
-  const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
-  const brochureLocalPath = getFilePath(req.files, "brochureUrl");
+  // const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
+  // const brochureLocalPath = getFilePath(req.files, "brochureUrl");
 
   /* -------- remove brochure from UI -------- */
   if (
@@ -128,21 +136,18 @@ export const updateOpenPlot = asyncHandler(async (req, res) => {
     brochureUrl = "";
   }
 
-  /* -------- replace brochure -------- */
-  if (brochureLocalPath) {
-    const uploadedBrochure = await uploadPdfToCloudinary(brochureLocalPath);
-    if (!uploadedBrochure) throw new ApiError(500, "Brochure upload failed");
-    brochureUrl = uploadedBrochure;
+  /* -------- replace thumbnail -------- */
+  if (req.files?.thumbnailUrl?.[0]) {
+    thumbnailUrl = `${req.protocol}://${req.get(
+      "host",
+    )}/uploads/images/${req.files.thumbnailUrl[0].filename}`;
   }
 
-  /* -------- replace thumbnail -------- */
-  if (thumbnailLocalPath) {
-    const uploadedThumbnail = await uploadFile(
-      thumbnailLocalPath,
-      "OpenPlot/Thumbnail",
-    );
-    if (!uploadedThumbnail) throw new ApiError(500, "Thumbnail upload failed");
-    thumbnailUrl = uploadedThumbnail;
+  /* -------- replace brochure -------- */
+  if (req.files?.brochureUrl?.[0]) {
+    brochureUrl = `${req.protocol}://${req.get(
+      "host",
+    )}/uploads/pdfs/${req.files.brochureUrl[0].filename}`;
   }
 
   /* -------- append gallery images -------- */
@@ -157,8 +162,9 @@ export const updateOpenPlot = asyncHandler(async (req, res) => {
 
   /* -------- ADD NEW IMAGES -------- */
   if (req.files?.images && Array.isArray(req.files.images)) {
-    const newImages = await Promise.all(
-      req.files.images.map((file) => uploadFile(file.path, "OpenPlot/Gallery")),
+    const newImages = req.files.images.map(
+      (file) =>
+        `${req.protocol}://${req.get("host")}/uploads/images/${file.filename}`,
     );
 
     images = [...images, ...newImages];

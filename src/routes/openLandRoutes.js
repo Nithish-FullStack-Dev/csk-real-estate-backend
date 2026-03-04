@@ -26,12 +26,13 @@ router.post(
     { name: "images", maxCount: 10 },
     { name: "brochureUrl", maxCount: 1 },
   ]),
+  authenticate,
   createOpenLand,
 );
 
-router.get("/getAllOpenLand", getAllOpenLand);
-router.get("/getOpenLandById/:id", getOpenLandById);
-router.delete("/deleteOpenLand/:id", deleteOpenLandById);
+router.get("/getAllOpenLand", authenticate, getAllOpenLand);
+router.get("/getOpenLandById/:id", authenticate, getOpenLandById);
+router.delete("/deleteOpenLand/:id", authenticate, deleteOpenLandById);
 
 // 🔥 UPDATE OPEN LAND (FILES SUPPORT)
 router.put(
@@ -41,21 +42,24 @@ router.put(
     { name: "images", maxCount: 10 },
     { name: "brochureUrl", maxCount: 1 },
   ]),
+  authenticate,
   updateOpenLand,
 );
 
-router.post("/:id/addInterestedCustomer", addInterestedCustomer);
+router.post("/:id/addInterestedCustomer", authenticate, addInterestedCustomer);
 
 router.put(
   "/:id/updateInterestedCustomer/:interestId",
+  authenticate,
   updateInterestedCustomer,
 );
 
 router.delete(
   "/:id/removeInterestedCustomer/:interestId",
+  authenticate,
   removeInterestedCustomer,
 );
 
-router.post("/:id/markAsSold", markAsSold);
+router.post("/:id/markAsSold", authenticate, markAsSold);
 
 export default router;
