@@ -5,7 +5,7 @@ import QualityIssue from "../modals/qualityIssue.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
-import ContractorModel from "../modals/contractor.model.js";
+import Customer from "../modals/customerSchema.js";
 
 export const getUserProjects = async (req, res) => {
   try {
@@ -16,13 +16,33 @@ export const getUserProjects = async (req, res) => {
     }
 
     let query = {};
+
+    // SITE INCHARGE
     if (role === "site_incharge") {
       query.siteIncharge = _id;
-    } else if (role === "contractor") {
+    }
+
+    // CONTRACTOR
+    else if (role === "contractor") {
       query.contractors = _id;
-    } else if (
-      ["accountant", "owner", "admin", "customer_purchased"].includes(role)
-    ) {
+    }
+
+    // CUSTOMER → only their purchased unit projects
+    else if (role === "customer_purchased") {
+      const purchasedUnits = await Customer.find({
+        customerId: _id,
+        purchaseType: "BUILDING",
+      }).select("unit");
+
+      const unitIds = purchasedUnits
+        .map((c) => c.unit?.toString())
+        .filter(Boolean);
+
+      query.unit = { $in: unitIds };
+    }
+
+    // ADMIN / OWNER / ACCOUNTANT
+    else if (["accountant", "owner", "admin"].includes(role)) {
       query = {};
     } else {
       return res.status(400).json({ error: "Unsupported role." });
@@ -273,8 +293,8 @@ export const updateProject = asyncHandler(async (req, res) => {
             updatedProject.name || updatedProject._id
           } has been marked as Completed.`,
           triggeredBy: req.user._id,
-        })
-      )
+        }),
+      ),
     );
   }
 

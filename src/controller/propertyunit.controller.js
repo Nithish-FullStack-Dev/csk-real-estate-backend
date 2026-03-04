@@ -109,20 +109,36 @@ export const getUnitsByFloorIdAndBuildingId = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Building ID or Floor ID missing");
   }
 
-  const units = await PropertyUnitModel.find({
+  const role = req.user?.role;
+  const userId = req.user?._id;
+
+  let query = {
     buildingId: new mongoose.Types.ObjectId(buildingId),
     floorId: new mongoose.Types.ObjectId(floorId),
-  })
+  };
+
+  // Restrict for customer
+  if (role === "customer_purchased") {
+    const purchases = await Customer.find({
+      customerId: userId,
+      property: buildingId,
+      floorUnit: floorId,
+      isDeleted: false,
+    }).select("unit");
+
+    const unitIds = [...new Set(purchases.map((p) => p.unit.toString()))];
+
+    query._id = { $in: unitIds };
+  }
+
+  const units = await PropertyUnitModel.find(query)
     .populate("buildingId", "projectName location propertyType")
     .populate("floorId", "floorNumber unitType totalSubUnits")
     .exec();
 
-  // if (!units || units.length === 0) {
-  //   throw new ApiError(404, "No units found for the given floor and building");
-  // }
   const message = units.length
     ? "Units retrieved successfully"
-    : "No Units added yet";
+    : "No Units available";
 
   res.status(200).json(new ApiResponse(200, units, message));
 });
