@@ -1,31 +1,20 @@
+// src/middlewares/multer.js
 import multer from "multer";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 
-// recreate __dirname (ESM safe)
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Base uploads folder
-const baseUploadDir = path.join(__dirname, "..", "uploads");
-
-// Ensure base folder exists
-if (!fs.existsSync(baseUploadDir)) {
-  fs.mkdirSync(baseUploadDir, { recursive: true });
-}
+// Root uploads folder (outside src)
+const rootUploadPath = path.join(process.cwd(), "uploads");
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    let folder = "others";
+    let folder = "images";
 
-    if (file.mimetype.startsWith("image/")) {
-      folder = "images";
-    } else if (file.mimetype === "application/pdf") {
+    if (file.mimetype === "application/pdf") {
       folder = "pdfs";
     }
 
-    const finalPath = path.join(baseUploadDir, folder);
+    const finalPath = path.join(rootUploadPath, folder);
 
     if (!fs.existsSync(finalPath)) {
       fs.mkdirSync(finalPath, { recursive: true });
@@ -37,15 +26,13 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
 
-    const ext = path.extname(file.originalname);
-
-    cb(null, uniqueSuffix + ext);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
   },
 });
 
 export const upload = multer({
   storage,
   limits: {
-    fileSize: 20 * 1024 * 1024, 
+    fileSize: 100 * 1024 * 1024, // 100MB
   },
 });

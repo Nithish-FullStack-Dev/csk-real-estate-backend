@@ -1,9 +1,9 @@
-import { uploadPdfToCloudinary } from "../config/cloudinary.js";
+// import { uploadPdfToCloudinary } from "../config/cloudinary.js";
 import Building from "../modals/building.model.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import { uploadFile } from "../utils/uploadFile.js";
+// import { uploadFile } from "../utils/uploadFile.js";
 import Customer from "../modals/customerSchema.js";
 
 export const createBuilding = asyncHandler(async (req, res) => {
@@ -33,20 +33,21 @@ export const createBuilding = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Required fields are missing");
   }
 
-  const thumbnailLocalPath = req.files?.thumbnailUrl?.[0]?.path;
-
   const brochureLocalPath = req.files?.brochureUrl?.[0]?.path;
+  const thumbnailFile = req.files?.thumbnailUrl?.[0];
 
-  if (!thumbnailLocalPath)
-    throw new ApiError(400, "Thumbnail file is required");
+  const thumbnailUrl = thumbnailFile
+    ? `${req.protocol}://${req.get("host")}/uploads/images/${thumbnailFile.filename}`
+    : "";
   if (!brochureLocalPath) throw new ApiError(400, "Brochure file is required");
 
-  const thumbnailUrl = await uploadFile(thumbnailLocalPath, "Thumbnail");
+  // const thumbnailUrl = await uploadFile(thumbnailLocalPath, "Thumbnail");
 
-  const brochureUrl = await uploadPdfToCloudinary(
-    brochureLocalPath,
-    req.files?.brochureUrl?.[0]?.originalname,
-  );
+  const brochureFile = req.files?.brochureUrl?.[0];
+
+  const brochureUrl = brochureFile
+    ? `${req.protocol}://${req.get("host")}/uploads/pdfs/${brochureFile.filename}`
+    : "";
 
   // const brochureUrl = await uploadPdfToCloudinary(brochureLocalPath);
   // if (!thumbnailUrl) {
@@ -57,12 +58,12 @@ export const createBuilding = asyncHandler(async (req, res) => {
   }
 
   let imageUrls = [];
+
   if (req.files?.images && Array.isArray(req.files.images)) {
-    const imageUploadPromises = req.files.images.map(async (file) => {
-      const uploadedUrl = await uploadFile(file.path, "Gallery");
-      return uploadedUrl;
-    });
-    imageUrls = await Promise.all(imageUploadPromises);
+    imageUrls = req.files.images.map(
+      (file) =>
+        `${req.protocol}://${req.get("host")}/uploads/images/${file.filename}`,
+    );
   }
 
   const building = await Building.create({
@@ -187,11 +188,8 @@ export const updateBuilding = asyncHandler(async (req, res) => {
   const brochureLocalPath = req.files?.brochureUrl?.[0]?.path;
 
   /* ---------------- THUMBNAIL UPDATE ---------------- */
-  if (thumbnailLocalPath) {
-    const uploadedThumbnail = await uploadFile(thumbnailLocalPath, "Thumbnail");
-    if (!uploadedThumbnail)
-      throw new ApiError(500, "Failed to upload new thumbnail");
-    thumbnailUrl = uploadedThumbnail;
+  if (req.files?.thumbnailUrl?.[0]) {
+    thumbnailUrl = `${req.protocol}://${req.get("host")}/uploads/images/${req.files.thumbnailUrl[0].filename}`;
   }
 
   /* ---------------- BROCHURE REMOVE ---------------- */
@@ -200,16 +198,8 @@ export const updateBuilding = asyncHandler(async (req, res) => {
   }
 
   /* ---------------- BROCHURE UPDATE ---------------- */
-  if (brochureLocalPath) {
-    const uploadedBrochure = await uploadPdfToCloudinary(
-      brochureLocalPath,
-      req.files?.brochureUrl?.[0]?.originalname,
-    );
-
-    if (!uploadedBrochure)
-      throw new ApiError(500, "Failed to upload new brochure");
-
-    brochureUrl = uploadedBrochure;
+  if (req.files?.brochureUrl?.[0]) {
+    brochureUrl = `${req.protocol}://${req.get("host")}/uploads/pdfs/${req.files.brochureUrl[0].filename}`;
   }
 
   /* ---------------- REMOVE SELECTED IMAGES ---------------- */
@@ -228,8 +218,9 @@ export const updateBuilding = asyncHandler(async (req, res) => {
 
   /* ---------------- UPLOAD NEW IMAGES ---------------- */
   if (req.files?.images && Array.isArray(req.files.images)) {
-    const newImages = await Promise.all(
-      req.files.images.map((file) => uploadFile(file.path, "Gallery")),
+    const newImages = req.files.images.map(
+      (file) =>
+        `${req.protocol}://${req.get("host")}/uploads/images/${file.filename}`,
     );
 
     images = [...images, ...newImages];

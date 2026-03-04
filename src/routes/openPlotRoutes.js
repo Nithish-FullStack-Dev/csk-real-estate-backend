@@ -21,11 +21,11 @@ const uploadFields = upload.fields([
 ]);
 
 /* ---------------- OPEN PLOT ROUTES ---------------- */
-router.post("/saveOpenplot", uploadFields, createOpenPlot);
-router.put("/updateOpenplot/:_id", uploadFields, updateOpenPlot);
-router.get("/getAllOpenPlot", authenticate, getAllOpenPlots);
+router.post("/saveOpenplot", authenticate, createOpenPlot);
+router.put("/updateOpenplot/:_id", authenticate, updateOpenPlot);
+router.get("/getAllOpenPlot", getAllOpenPlots);
 router.get("/getOpenplot/:_id", getOpenPlotById);
-router.delete("/deleteOpenplot/:_id", deleteOpenPlot);
+router.delete("/deleteOpenplot/:_id", authenticate, deleteOpenPlot);
 
 router.get("/getOpenPlotDropdown", authenticate, getOpenPlotDropdown);
 

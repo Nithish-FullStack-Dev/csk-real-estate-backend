@@ -1,12 +1,27 @@
 import express from "express";
 import multer from "multer";
 import { ObjectId } from "mongodb";
-import cloudinary from "../lib/cloudinary.js";
 import clientPromise from "../lib/mongodb.js";
 import { auth } from "../middlewares/auth.js";
 import jwt from "jsonwebtoken";
 const router = express.Router();
-const upload = multer();
+import path from "path";
+import fs from "fs";
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = "uploads/tasks";
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueName =
+      Date.now() + "-" + file.originalname.replace(/\s+/g, "_");
+    cb(null, uniqueName);
+  },
+});
+
+const upload = multer({ storage });
 
 /* ======================================
    CREATE TASK
@@ -47,14 +62,10 @@ router.post("/create", upload.array("attachment"), async (req, res) => {
       if (file.size > 10 * 1024 * 1024)
         return res.status(400).json({ error: "File too large" });
 
-      const uploaded = await cloudinary.uploader.upload_stream({
-        resource_type: "auto",
-        folder: "kanban_attachments",
-      });
+      const fileUrl = file.path.replace(/\\/g, "/");
 
       attachments.push({
-        url: uploaded.secure_url,
-        public_id: uploaded.public_id,
+        url: `/${fileUrl}`,
         size: file.size,
         contentType: file.mimetype,
         originalName: file.originalname,
@@ -80,7 +91,7 @@ router.post("/create", upload.array("attachment"), async (req, res) => {
 
     const result = await db.collection("tasks").insertOne(task);
 
-     // 🔔 Notify assigned user (ADDED)
+    // 🔔 Notify assigned user (ADDED)
     await createNotification({
       userId: new ObjectId(userId),
       title: "New Task Assigned",
@@ -125,10 +136,7 @@ router.get("/", async (req, res) => {
     // 🔑 FETCH ROLE FROM DB (CRITICAL)
     const currentUser = await db
       .collection("users")
-      .findOne(
-        { _id: currentUserId },
-        { projection: { role: 1 } }
-      );
+      .findOne({ _id: currentUserId }, { projection: { role: 1 } });
 
     if (!currentUser) {
       return res.status(401).json({ error: "User not found" });
@@ -140,22 +148,21 @@ router.get("/", async (req, res) => {
 
     if (userId === currentUserId) {
       where.userId = currentUserId;
-      
-    }else{
+    } else {
       where.userId = new ObjectId(userId);
     }
 
     // ADMIN can view selected user's tasks
     // if (role === "ADMIN") {
     //   if (userId) {
-        
+
     //     where.userId = new ObjectId(userId);
     //   }
     //   // else: admin sees all tasks
     // }
     // // NON-ADMIN: only own tasks
     // else {
-      
+
     //   where.userId = currentUserId;
     // }
 
@@ -174,15 +181,14 @@ router.get("/", async (req, res) => {
         },
       ])
       .toArray();
-      console.log("taskkss", tasks);
-      
+    console.log("taskkss", tasks);
+
     res.json({ success: true, tasks });
   } catch (err) {
     console.error("FETCH TASK ERROR", err);
     res.status(500).json({ error: "Fetch failed" });
   }
 });
-
 
 /* ======================================
    UPDATE TASK
@@ -221,21 +227,17 @@ router.put("/", upload.array("attachment"), async (req, res) => {
     if (req.body.priority) update.priority = req.body.priority;
     if (req.body.status) update.status = req.body.status;
     if (req.body.tags)
-      update.tags = req.body.tags.split(",").map(t => t.trim());
-    if (req.body.dueDate)
-      update.dueDate = new Date(req.body.dueDate);
+      update.tags = req.body.tags.split(",").map((t) => t.trim());
+    if (req.body.dueDate) update.dueDate = new Date(req.body.dueDate);
 
     if (req.files?.length) {
       const attachments = [];
 
       for (const file of req.files) {
-        const uploaded = await cloudinary.uploader.upload(file.buffer, {
-          folder: "kanban_attachments",
-        });
+        const fileUrl = file.path.replace(/\\/g, "/");
 
         attachments.push({
-          url: uploaded.secure_url,
-          public_id: uploaded.public_id,
+          url: `/${fileUrl}`,
           size: file.size,
           contentType: file.mimetype,
           originalName: file.originalname,
@@ -255,9 +257,7 @@ router.put("/", upload.array("attachment"), async (req, res) => {
     }
 
     // ✅ fetch updated task (THIS WAS MISSING / WRONG)
-    const updatedTask = await db
-      .collection("tasks")
-      .findOne({ _id: taskId });
+    const updatedTask = await db.collection("tasks").findOne({ _id: taskId });
 
     // ✅ return what frontend expects
     res.json({
@@ -269,7 +269,6 @@ router.put("/", upload.array("attachment"), async (req, res) => {
     res.status(500).json({ error: "Update failed" });
   }
 });
-
 
 /* ======================================
     DELETE TASK

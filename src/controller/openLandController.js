@@ -5,9 +5,6 @@ import OpenLand from "../modals/openLand.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import { getFilePath } from "../utils/getFilePath.js";
-import { uploadFile } from "../utils/uploadFile.js";
-import { uploadPdfToCloudinary } from "../config/cloudinary.js";
 
 /* ------------------------------------------------------- */
 /* POPULATE HELPER */
@@ -27,6 +24,7 @@ const populateOpenLand = (query) =>
 /* ------------------------------------------------------- */
 /* CREATE */
 /* ------------------------------------------------------- */
+
 export const createOpenLand = asyncHandler(async (req, res) => {
   const data = { ...req.body };
 
@@ -51,31 +49,25 @@ export const createOpenLand = asyncHandler(async (req, res) => {
     );
   }
 
-  /* ❌ REMOVE frontend cloudinary objects */
-  delete data.images;
-  delete data.thumbnailUrl;
-  delete data.brochureUrl;
-
-  /* FILE PATHS */
-  const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
-  const brochureLocalPath = getFilePath(req.files, "brochureUrl");
+  /* -------- FILE HANDLING -------- */
 
   let thumbnailUrl = null;
   let brochureUrl = null;
 
-  if (thumbnailLocalPath) {
-    thumbnailUrl = await uploadFile(thumbnailLocalPath, "OpenLand/Thumbnail");
+  if (req.files?.thumbnailUrl?.[0]) {
+    thumbnailUrl = `${req.protocol}://${req.get("host")}/uploads/images/${req.files.thumbnailUrl[0].filename}`;
   }
 
-  if (brochureLocalPath) {
-    brochureUrl = await uploadPdfToCloudinary(brochureLocalPath);
+  if (req.files?.brochureUrl?.[0]) {
+    brochureUrl = `${req.protocol}://${req.get("host")}/uploads/pdfs/${req.files.brochureUrl[0].filename}`;
   }
 
-  /* GALLERY IMAGES */
   let imageUrls = [];
-  if (req.files?.images) {
-    imageUrls = await Promise.all(
-      req.files.images.map((file) => uploadFile(file.path, "OpenLand/Gallery")),
+
+  if (req.files?.images && Array.isArray(req.files.images)) {
+    imageUrls = req.files.images.map(
+      (file) =>
+        `${req.protocol}://${req.get("host")}/uploads/images/${file.filename}`,
     );
   }
 
@@ -168,74 +160,37 @@ export const updateOpenLand = asyncHandler(async (req, res) => {
 
   const data = { ...req.body };
 
-  /* ❌ remove frontend cloudinary objects */
-  delete data.images;
-  delete data.thumbnailUrl;
-  delete data.brochureUrl;
-
-  /* ---------------- FILE PATHS ---------------- */
-
-  const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
-  const brochureLocalPath = getFilePath(req.files, "brochureUrl");
-
   let thumbnailUrl = existingLand.thumbnailUrl;
   let brochureUrl = existingLand.brochureUrl;
   let images = existingLand.images || [];
 
-  /* ---------------- THUMBNAIL REPLACE ---------------- */
-
-  if (thumbnailLocalPath) {
-    const uploadedThumb = await uploadFile(
-      thumbnailLocalPath,
-      "OpenLand/Thumbnail",
-    );
-    if (!uploadedThumb) throw new ApiError(500, "Thumbnail upload failed");
-
-    thumbnailUrl = uploadedThumb;
+  if (req.files?.thumbnailUrl?.[0]) {
+    thumbnailUrl = `${req.protocol}://${req.get("host")}/uploads/images/${req.files.thumbnailUrl[0].filename}`;
   }
-
-  /* ---------------- BROCHURE REMOVE ---------------- */
-
   if (data.brochureRemoved === "true" || data.brochureRemoved === true) {
     brochureUrl = "";
   }
+  if (req.files?.brochureUrl?.[0]) {
+    brochureUrl = `${req.protocol}://${req.get("host")}/uploads/pdfs/${req.files.brochureUrl[0].filename}`;
+  }
+  if (data.removedImages) {
+    const removed = Array.isArray(data.removedImages)
+      ? data.removedImages
+      : [data.removedImages];
 
-  /* ---------------- BROCHURE REPLACE ---------------- */
-
-  if (brochureLocalPath) {
-    const uploadedPdf = await uploadPdfToCloudinary(brochureLocalPath);
-    if (!uploadedPdf) throw new ApiError(500, "Brochure upload failed");
-
-    brochureUrl = uploadedPdf;
+    images = images.filter((img) => !removed.includes(img));
   }
 
-  /* ===================================================== */
-  /* 🔥 PRODUCTION IMAGE REPLACEMENT LOGIC STARTS HERE 🔥 */
-  /* ===================================================== */
+  /* -------- ADD NEW IMAGES -------- */
 
-  // frontend sends remaining old images
-  let existingImages = [];
-
-  if (data.existingImages) {
-    try {
-      existingImages = JSON.parse(data.existingImages);
-    } catch {
-      existingImages = [];
-    }
-  }
-
-  // upload newly added images
-  let newImages = [];
-  if (req.files?.images) {
-    newImages = await Promise.all(
-      req.files.images.map((file) => uploadFile(file.path, "OpenLand/Gallery")),
+  if (req.files?.images && Array.isArray(req.files.images)) {
+    const newImages = req.files.images.map(
+      (file) =>
+        `${req.protocol}://${req.get("host")}/uploads/images/${file.filename}`,
     );
+
+    images = [...images, ...newImages];
   }
-
-  // FINAL overwrite
-  images = [...existingImages, ...newImages];
-
-  /* ===================================================== */
 
   const updatedLand = await OpenLand.findOneAndUpdate(
     { _id: id, isDeleted: false },

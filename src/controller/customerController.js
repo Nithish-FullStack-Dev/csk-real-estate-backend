@@ -3,7 +3,7 @@ import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import { uploadFile } from "../utils/uploadFile.js";
-import { uploadPdfToCloudinary } from "../config/cloudinary.js";
+// import { uploadPdfToCloudinary } from "../config/cloudinary.js";
 import InnerPlot from "../modals/InnerPlot.js";
 import PropertyUnitModel from "../modals/propertyUnit.model.js";
 import OpenLand from "../modals/openLand.js";
@@ -330,19 +330,17 @@ export const uploadCustomerPdf = asyncHandler(async (req, res) => {
     _id: id,
     isDeleted: false,
   });
+
   if (!customer) throw new ApiError(404, "Customer not found");
 
-  // Multer validation
   if (!req.file?.path) throw new ApiError(400, "PDF file is required");
 
-  if (req.file.mimetype !== "application/pdf")
+  if (req.file.mimetype !== "application/pdf") {
     throw new ApiError(400, "Only PDF files are allowed");
+  }
 
-  // Upload to Cloudinary
-  const pdfUrl = await uploadPdfToCloudinary(req.file.path);
-  if (!pdfUrl) throw new ApiError(500, "Failed to upload PDF");
+  const pdfUrl = req.file.path.replace(process.cwd(), "").replace(/\\/g, "/");
 
-  // Save PDF URL
   customer.pdfDocument = pdfUrl;
   await customer.save();
 

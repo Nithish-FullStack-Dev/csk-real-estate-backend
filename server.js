@@ -160,7 +160,7 @@ app.use("/api/cms", cmsRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/project", projectRoutes);
-app.use("/api/site-inspection", siteInspectionRoutes);
+app.use("/api/site-inspection", siteInspectionRoutes); //
 app.use("/api/uploads", fileUploadRoutes);
 app.use("/api/user-schedule", userScheduleRoutes);
 app.use("/api/quality-issue", qualityIssueRoutes);

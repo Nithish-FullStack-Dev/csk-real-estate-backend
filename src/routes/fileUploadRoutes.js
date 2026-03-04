@@ -1,25 +1,22 @@
 import express from "express";
-import { upload } from "../middlewares/multer.js"; // your multer middleware
-import { uploadOnCloudniary } from "../config/cloudinary.js"; // your utility
+import { upload } from "../middlewares/multer.js";
 
 const router = express.Router();
 
-// Single file upload API
 router.post("/upload", upload.single("file"), async (req, res) => {
   try {
-    const localFilePath = req.file?.path;
-
-    if (!localFilePath) {
+    if (!req.file) {
       return res.status(400).json({ error: "No file uploaded." });
     }
 
-    const cloudinaryUrl = await uploadOnCloudniary(localFilePath);
+    const fileUrl = req.file.path
+      .replace(process.cwd(), "")
+      .replace(/\\/g, "/");
 
-    if (!cloudinaryUrl) {
-      return res.status(500).json({ error: "Cloudinary upload failed." });
-    }
-
-    return res.status(200).json({ url: cloudinaryUrl });
+    return res.status(200).json({
+      success: true,
+      url: fileUrl,
+    });
   } catch (error) {
     console.error("Upload error:", error);
     return res.status(500).json({ error: "Something went wrong." });

@@ -2,8 +2,6 @@
 import PropertyUnitModel from "../modals/propertyUnit.model.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
-import { getFilePath } from "../utils/getFilePath.js";
-import { uploadFile } from "../utils/uploadFile.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import mongoose from "mongoose";
 import Customer from "../modals/customerSchema.js";
@@ -54,43 +52,29 @@ export const createUnit = asyncHandler(async (req, res) => {
 
   let thumbnailUrl = null;
 
-  if (!isBulk) {
-    const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
-
-    if (!thumbnailLocalPath) {
-      throw new ApiError(400, "Thumbnail file is required");
-    }
-
-    thumbnailUrl = await uploadFile(thumbnailLocalPath, "ThumbnailUrl");
-  }
-
-  if (isBulk) {
-    const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
-    if (thumbnailLocalPath) {
-      thumbnailUrl = await uploadFile(thumbnailLocalPath, "ThumbnailUrl");
-    }
+  if (req.files?.thumbnailUrl?.[0]) {
+    thumbnailUrl = `${req.protocol}://${req.get("host")}/uploads/images/${req.files.thumbnailUrl[0].filename}`;
   }
 
   let imageUrls = [];
+
   if (req.files?.images && Array.isArray(req.files.images)) {
-    imageUrls = await Promise.all(
-      req.files.images.map((file) => uploadFile(file.path, "Gallery")),
+    imageUrls = req.files.images.map(
+      (file) =>
+        `${req.protocol}://${req.get("host")}/uploads/images/${file.filename}`,
     );
   }
 
-  const documents = [];
-  const documentFiles = req.files?.documents || [];
+  let documents = [];
 
-  for (const file of documentFiles) {
-    const fileUrl = await uploadFile(file.path, "Document");
-
-    documents.push({
+  if (req.files?.documents && Array.isArray(req.files.documents)) {
+    documents = req.files.documents.map((file) => ({
       title: file.originalname,
-      fileUrl,
+      fileUrl: `${req.protocol}://${req.get("host")}/uploads/pdfs/${file.filename}`,
       mimeType: file.mimetype,
       visibility: req.body.visibility || "PURCHASER_ONLY",
       createdAt: new Date(),
-    });
+    }));
   }
 
   /* ---------- CREATE ---------- */
@@ -191,12 +175,8 @@ export const updateUnit = asyncHandler(async (req, res) => {
   let thumbnailUrl = unit.thumbnailUrl;
   let images = unit.images || [];
 
-  const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
-  if (thumbnailLocalPath) {
-    const uploadedThumbnail = await uploadFile(thumbnailLocalPath, "Thumbnail");
-    if (!uploadedThumbnail)
-      throw new ApiError(500, "Failed to upload new thumbnail");
-    thumbnailUrl = uploadedThumbnail;
+  if (req.files?.thumbnailUrl?.[0]) {
+    thumbnailUrl = `${req.protocol}://${req.get("host")}/uploads/images/${req.files.thumbnailUrl[0].filename}`;
   }
 
   let documents = [...(unit.documents || [])];
@@ -205,7 +185,7 @@ export const updateUnit = asyncHandler(async (req, res) => {
   if (documentFiles.length > 0) {
     const newDocs = [];
     for (const file of documentFiles) {
-      const fileUrl = await uploadFile(file.path, "Document");
+      const fileUrl = `${req.protocol}://${req.get("host")}/uploads/pdfs/${file.filename}`;
       newDocs.push({
         title: file.originalname,
         fileUrl,
@@ -224,8 +204,9 @@ export const updateUnit = asyncHandler(async (req, res) => {
     images = images.filter((img) => !removed.includes(img));
   }
   if (req.files?.images && Array.isArray(req.files.images)) {
-    const newImages = await Promise.all(
-      req.files.images.map((file) => uploadFile(file.path, "Gallery")),
+    const newImages = req.files.images.map(
+      (file) =>
+        `${req.protocol}://${req.get("host")}/uploads/images/${file.filename}`,
     );
 
     images = [...images, ...newImages];

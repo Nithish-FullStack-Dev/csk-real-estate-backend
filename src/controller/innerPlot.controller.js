@@ -1,6 +1,6 @@
-// src\controller\innerPlot.controller.js
+// src/controller/innerPlot.controller.js
+
 import { getFilePath } from "../utils/getFilePath.js";
-import { uploadFile } from "../utils/uploadFile.js";
 import InnerPlot from "../modals/InnerPlot.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
@@ -38,16 +38,19 @@ export const createInnerPlot = asyncHandler(async (req, res) => {
   let thumbnailUrl = "";
   let images = [];
 
+  /* ---------- FILE HANDLING ---------- */
+
   const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
+
   if (thumbnailLocalPath) {
-    thumbnailUrl = await uploadFile(thumbnailLocalPath, "InnerPlot/Thumbnail");
+    thumbnailUrl = thumbnailLocalPath
+      .replace(process.cwd(), "")
+      .replace(/\\/g, "/");
   }
 
   if (req.files?.images) {
-    images = await Promise.all(
-      req.files.images.map((file) =>
-        uploadFile(file.path, "InnerPlot/Gallery"),
-      ),
+    images = req.files.images.map((file) =>
+      file.path.replace(process.cwd(), "").replace(/\\/g, "/"),
     );
   }
 
@@ -85,6 +88,7 @@ export const getInnerPlotById = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, plot, "Inner plot fetched"));
 });
 
+/* ================= GET ALL ================= */
 export const getAllInnerPlot = asyncHandler(async (req, res) => {
   const { openPlotId } = req.params;
 
@@ -131,26 +135,33 @@ export const updateInnerPlot = asyncHandler(async (req, res) => {
   /* ---------- FILE HANDLING ---------- */
 
   const thumbnailLocalPath = getFilePath(req.files, "thumbnailUrl");
-  if (thumbnailLocalPath) {
-    thumbnailUrl = await uploadFile(thumbnailLocalPath, "InnerPlot/Thumbnail");
-  }
 
+  if (thumbnailLocalPath) {
+    thumbnailUrl = thumbnailLocalPath
+      .replace(process.cwd(), "")
+      .replace(/\\/g, "/");
+  }
   if (req.files?.images) {
-    const newImages = await Promise.all(
-      req.files.images.map((file) =>
-        uploadFile(file.path, "InnerPlot/Gallery"),
-      ),
+    const newImages = req.files.images.map((file) =>
+      file.path.replace(process.cwd(), "").replace(/\\/g, "/"),
+    );
+    images = [...images, ...newImages];
+  }
+  if (req.files?.images) {
+    const newImages = req.files.images.map((file) =>
+      file.path.replace(process.cwd(), "").replace(/\\/g, "/"),
     );
     images = [...images, ...newImages];
   }
 
-  /* ---------- BODY FIX (TYPE CONVERSION) ---------- */
+  /* ---------- BODY FIX ---------- */
 
   const body = { ...req.body };
 
   if (body.area) body.area = Number(body.area);
   if (body.wastageArea) body.wastageArea = Number(body.wastageArea);
   if (body.roadWidthFt) body.roadWidthFt = Number(body.roadWidthFt);
+
   if (req.body.plotNo) {
     const duplicate = await InnerPlot.findOne({
       openPlotId: existing.openPlotId,
@@ -162,7 +173,6 @@ export const updateInnerPlot = asyncHandler(async (req, res) => {
       throw new ApiError(409, `Plot No ${req.body.plotNo} already exists`);
     }
   }
-  /* ---------- UPDATE ---------- */
 
   const updated = await InnerPlot.findByIdAndUpdate(
     _id,
@@ -185,10 +195,13 @@ export const updateInnerPlot = asyncHandler(async (req, res) => {
 /* ================= DELETE ================= */
 export const deleteInnerPlot = asyncHandler(async (req, res) => {
   const { _id } = req.params;
+
   await InnerPlot.findByIdAndDelete(_id);
+
   return res.status(200).json(new ApiResponse(200, null, "Inner plot deleted"));
 });
 
+/* ================= DROPDOWN ================= */
 export const getInnerPlotDropdown = asyncHandler(async (req, res) => {
   const { openPlotId } = req.params;
 
