@@ -31,6 +31,7 @@ router.post(
 );
 
 router.get("/getAllOpenLand", authenticate, getAllOpenLand);
+router.get("/public/getOpenLandById/:id", getOpenLandById);
 router.get("/getOpenLandById/:id", authenticate, getOpenLandById);
 router.delete("/deleteOpenLand/:id", authenticate, deleteOpenLandById);
 
