@@ -115,12 +115,20 @@ export const loginUser = async (req, res) => {
     user.lastLogin = Date.now();
     await user.save();
 
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
-      path: "/",
-    });
+   // res.cookie("token", token, {
+    //  httpOnly: true,
+    //  secure: process.env.NODE_ENV === "production",
+   //   sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+   //   path: "/",
+  //  });
+
+res.cookie("token", token, {
+  httpOnly: true,
+  secure: true,      // because you use HTTPS
+  sameSite: "lax",   // correct for same-origin apps
+  path: "/",
+});
+
 
     const { password: _, currentToken: __, ...userData } = user.toObject();
 
