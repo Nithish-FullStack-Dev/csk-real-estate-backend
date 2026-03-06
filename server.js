@@ -71,6 +71,7 @@ dotenv.config();
 
 // Create Express app and HTTP server
 const app = express();
+app.set("trust proxy", 1);
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -110,6 +111,14 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 const allowedOrigins = [
+  "http://localhost:8010",
+  "http://localhost:8011",
+  "http://69.62.80.127:8010",
+  "http://69.62.80.127:8011",
+  "http://csk-realtors.bestofall.in/:8010",
+  "http://csk-realtors.bestofall.in",
+  "http://csk-realtors.bestofall.in/:8011",
+  "https://csk-realtors.bestofall.in",
   "http://localhost:8080",
   "http://localhost:8081",
   "https://csk-frontend-chi.vercel.app",
