@@ -2,6 +2,7 @@ import Invoice from "../modals/invoice.js";
 import Project from "../modals/projects.js";
 import mongoose from "mongoose";
 import Payment from "../modals/payment.js";
+import { createNotification } from "../utils/notificationHelper.js";
 
 export const createInvoice = async (req, res) => {
   try {
@@ -359,7 +360,6 @@ export const updateInvoice = async (req, res) => {
 //   }
 // };
 
-
 export const markInvoiceAsPaid = async (req, res) => {
   const { id } = req.params;
   const { paymentMethod, reconciliationAmount, isPaid, reconciledItemId } =
@@ -381,8 +381,8 @@ export const markInvoiceAsPaid = async (req, res) => {
             invoice.invoiceNumber || invoice._id
           } has been paid.`,
           triggeredBy: req.user._id,
-        })
-      )
+        }),
+      ),
     );
   };
 

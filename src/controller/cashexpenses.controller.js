@@ -4,6 +4,7 @@ import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import { uploadFile } from "../utils/uploadFile.js";
+import { createNotification } from "../utils/notificationHelper.js";
 
 export const createTransaction = asyncHandler(async (req, res) => {
   const {
@@ -64,8 +65,8 @@ export const createTransaction = asyncHandler(async (req, res) => {
         title: "New Expense Request",
         message: `A new expense request of ₹${amount} has been submitted and needs approval.`,
         triggeredBy: req.user._id,
-      })
-    )
+      }),
+    ),
   );
 
   return res

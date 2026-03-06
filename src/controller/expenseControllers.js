@@ -1,4 +1,5 @@
 import Expense from "../modals/expense.js"; // Adjust path if needed
+import { createNotification } from "../utils/notificationHelper.js";
 
 // GET /api/expenses
 export const getAllExpenses = async (req, res) => {
@@ -27,7 +28,7 @@ export const updateExpenseStatusByOwner = async (req, res) => {
         isApprovedByOwner: status === "Approved",
         description: notes || "",
       },
-      { new: true }
+      { new: true },
     );
 
     if (!updatedExpense) {
@@ -50,4 +51,3 @@ export const updateExpenseStatusByOwner = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
