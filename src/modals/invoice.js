@@ -1,3 +1,4 @@
+// src\modals\invoice.js
 import mongoose from "mongoose";
 
 const { Schema, model, Types } = mongoose;
@@ -79,7 +80,14 @@ const InvoiceSchema = new Schema(
     },
     status: {
       type: String,
-      enum: ["draft", "pending", "approved", "rejected", "paid"],
+      enum: [
+        "draft",
+        "pending",
+        "approved",
+        "rejected",
+        "partially_paid",
+        "paid",
+      ],
       default: "pending",
     },
     approvedByAccountant: {
@@ -99,6 +107,14 @@ const InvoiceSchema = new Schema(
       type: String,
       enum: ["contractor", "accountant"],
       required: true,
+    },
+    paidAmount: {
+      type: Number,
+      default: 0,
+    },
+    remainingAmount: {
+      type: Number,
+      default: 0,
     },
     reconciliationHistory: [
       {

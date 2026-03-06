@@ -1,3 +1,4 @@
+// src\modals\projects.js
 import mongoose from "mongoose";
 
 const { Schema, model, Types } = mongoose;
