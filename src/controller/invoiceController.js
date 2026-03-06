@@ -66,6 +66,7 @@ export const createInvoice = async (req, res) => {
       unit,
       floorUnit,
       createdBy: role,
+      remainingAmount: total,
     });
 
     await invoice.save();
