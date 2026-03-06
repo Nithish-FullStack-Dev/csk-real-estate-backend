@@ -19,18 +19,68 @@ export const addDocument = async (req, res) => {
     // Add to appropriate array
     switch (type) {
       case "gstr1":
-      case "gstr3b":
+      case "gstr3b": {
+        const exists = taxDoc.gstDocuments.some(
+          (doc) => doc.type === data.type && doc.period === data.period,
+        );
+
+        if (exists) {
+          return res
+            .status(400)
+            .json({ message: "GST return already exists for this period." });
+        }
+
         taxDoc.gstDocuments.push(data);
         break;
-      case "tds":
+      }
+
+      case "tds": {
+        const exists = taxDoc.tdsDocuments.some(
+          (doc) => doc.quarter === data.quarter && doc.section === data.section,
+        );
+
+        if (exists) {
+          return res
+            .status(400)
+            .json({ message: "TDS record already exists for this quarter." });
+        }
+
         taxDoc.tdsDocuments.push(data);
         break;
-      case "itr":
+      }
+
+      case "itr": {
+        const exists = taxDoc.itrDocuments.some(
+          (doc) => doc.financialYear === data.financialYear,
+        );
+
+        if (exists) {
+          return res
+            .status(400)
+            .json({ message: "ITR already exists for this financial year." });
+        }
+
         taxDoc.itrDocuments.push(data);
         break;
-      case "form16":
+      }
+
+      case "form16": {
+        const exists = taxDoc.form16Documents.some(
+          (doc) => doc.financialYear === data.financialYear,
+        );
+
+        if (exists) {
+          return res
+            .status(400)
+            .json({
+              message: "Form16 already exists for this financial year.",
+            });
+        }
+
         taxDoc.form16Documents.push(data);
         break;
+      }
+
       default:
         return res.status(400).json({ message: "Invalid document type" });
     }
@@ -47,20 +97,27 @@ export const getDocuments = async (req, res) => {
   try {
     const accountantId = req.user._id;
 
-    const taxDocs = await TaxDocument.findOne({ accountantId });
+    const taxDocs = await TaxDocument.findOne({ accountantId }).lean();
 
-    if (!taxDocs) {
-      return res
-        .status(200)
-        .json({ message: "No tax documents found for this accountant." });
-    }
-
-    return res.status(200).json({ success: true, taxDocuments: taxDocs });
+    return res.status(200).json({
+      success: true,
+      taxDocuments: taxDocs || {
+        gstDocuments: [],
+        tdsDocuments: [],
+        itrDocuments: [],
+        form16Documents: [],
+      },
+    });
   } catch (error) {
     console.error("Error fetching tax documents:", error);
     return res.status(500).json({
       success: false,
-      message: "Server error while fetching documents.",
+      taxDocuments: {
+        gstDocuments: [],
+        tdsDocuments: [],
+        itrDocuments: [],
+        form16Documents: [],
+      },
     });
   }
 };
@@ -68,6 +125,15 @@ export const getDocuments = async (req, res) => {
 export const updateTaxDocStatus = async (req, res) => {
   const { docId } = req.params;
   const { status, auditorName } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(docId)) {
+    return res.status(400).json({ message: "Invalid document ID" });
+  }
+
+  if (!["filed", "pending", "paid", "unpaid"].includes(status?.toLowerCase())) {
+    return res.status(400).json({ message: "Invalid status value" });
+  }
+
   try {
     let updated = false;
 
@@ -139,6 +205,10 @@ export const updateTaxDocStatus = async (req, res) => {
 export const updateAuditStatus = async (req, res) => {
   const { docId } = req.params;
   const { auditStatus, type } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(docId)) {
+    return res.status(400).json({ message: "Invalid document ID" });
+  }
 
   if (!["gstr1", "gstr3b", "itr"].includes(type)) {
     return res.status(400).json({ message: "Invalid audit type." });

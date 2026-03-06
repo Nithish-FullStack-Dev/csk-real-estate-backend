@@ -9,14 +9,29 @@ import { authenticate, authorizeRoles } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/", authenticate, authorizeRoles("accountant"), addDocument);
-router.get("/", authenticate, authorizeRoles("accountant"), getDocuments);
+router.post(
+  "/",
+  authenticate,
+  authorizeRoles("accountant", "owner", "admin"),
+  addDocument,
+);
+router.get(
+  "/",
+  authenticate,
+  authorizeRoles("accountant", "owner", "admin"),
+  getDocuments,
+);
 router.put(
   "/updateStatus/:docId",
   authenticate,
-  authorizeRoles("accountant"),
-  updateTaxDocStatus
+  authorizeRoles("accountant", "owner", "admin"),
+  updateTaxDocStatus,
 );
-router.put("/updateAuditStatus/:docId", updateAuditStatus);
+router.put(
+  "/updateAuditStatus/:docId",
+  authenticate,
+  authorizeRoles("accountant", "owner", "admin"),
+  updateAuditStatus,
+);
 
 export default router;

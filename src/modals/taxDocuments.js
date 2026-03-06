@@ -5,7 +5,7 @@ const { Schema, model, Types } = mongoose;
 const GstDocumentSchema = new Schema(
   {
     type: { type: String, enum: ["gstr1", "gstr3b"], required: true },
-    period: { type: String, required: true }, // e.g., "May 2024"
+    period: { type: String, required: true, trim: true }, // e.g., "May 2024"
     amount: { type: Number, required: true },
     dueDate: { type: Date },
     status: { type: String, enum: ["pending", "filed"], default: "pending" },
@@ -13,15 +13,16 @@ const GstDocumentSchema = new Schema(
     auditorName: { type: String },
     isApprovedByAuditor: { type: Boolean, default: false },
     auditStatus: { type: String },
+    auditType: { type: String },
   },
-  { _id: true }
+  { _id: true },
 );
 
 // ========== Sub-schema for TDS ==========
 const TdsDocumentSchema = new Schema(
   {
     quarter: { type: String, enum: ["Q1", "Q2", "Q3", "Q4"], required: true },
-    section: { type: String }, // e.g., "194C"
+    section: { type: String, trim: true }, // e.g., "194C"
     amountDeducted: { type: Number },
     challanNumber: { type: String },
     paymentDate: { type: Date },
@@ -30,21 +31,23 @@ const TdsDocumentSchema = new Schema(
     auditorName: { type: String },
     isApprovedByAuditor: { type: Boolean, default: false },
     auditStatus: { type: String },
+    auditType: { type: String },
   },
-  { _id: true }
+  { _id: true },
 );
 
 // ========== Sub-schema for ITR ==========
 const ItrDocumentSchema = new Schema(
   {
-    financialYear: { type: String, required: true }, // e.g., "2023-24"
+    financialYear: { type: String, required: true, trim: true }, // e.g., "2023-24"
     type: { type: String },
     filingDate: { type: Date },
     amount: { type: Number },
     status: { type: String, enum: ["filed", "pending"], default: "pending" },
     documentUrl: { type: String },
+    auditType: { type: String },
   },
-  { _id: true }
+  { _id: true },
 );
 
 // ========== Sub-schema for Form 16 ==========
@@ -55,7 +58,7 @@ const Form16DocumentSchema = new Schema(
     amount: { type: Number },
     documentUrl: { type: String },
   },
-  { _id: true }
+  { _id: true },
 );
 
 // ========== Parent Tax Document Schema ==========
@@ -73,7 +76,9 @@ const TaxDocumentSchema = new Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
+
+TaxDocumentSchema.index({ accountantId: 1 });
 
 export default model("TaxDocument", TaxDocumentSchema);
