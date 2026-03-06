@@ -1,5 +1,6 @@
 import Property from "../modals/propertyModel.js";
 import Project from "../modals/projects.js";
+import { createNotification } from "../utils/notificationHelper.js";
 
 export const createProperty = async (req, res) => {
   try {
@@ -56,8 +57,8 @@ export const updateProperty = async (req, res) => {
             title: "Property Sold",
             message: `Property ${property.propertyName || property._id} has been marked as Sold.`,
             triggeredBy: req.user._id,
-          })
-        )
+          }),
+        ),
       );
     };
 
@@ -71,8 +72,7 @@ export const updateProperty = async (req, res) => {
     }
 
     // 🔔 Notify on Sold status (ADDED)
-    const propertyStatus =
-      updatedData?.customerInfo?.propertyStatus || "";
+    const propertyStatus = updatedData?.customerInfo?.propertyStatus || "";
 
     if (propertyStatus === "Sold") {
       await notifyPropertySold(existingProperty);
@@ -120,7 +120,7 @@ export const updateProperty = async (req, res) => {
       await Project.findOneAndUpdate(
         { projectId: propertyId },
         projectPayload,
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, new: true, setDefaultsOnInsert: true },
       );
     }
 

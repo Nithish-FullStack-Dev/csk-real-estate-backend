@@ -5,7 +5,7 @@ import clientPromise from "../lib/mongodb.js";
 import { auth } from "../middlewares/auth.js";
 import jwt from "jsonwebtoken";
 const router = express.Router();
-import path from "path";
+import { createNotification } from "../utils/notificationHelper.js";
 import fs from "fs";
 
 const storage = multer.diskStorage({

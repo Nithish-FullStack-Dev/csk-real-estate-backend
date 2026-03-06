@@ -1,6 +1,8 @@
 import QualityIssue from "../modals/qualityIssue.js";
 import Project from "../modals/projects.js";
 import mongoose from "mongoose";
+import User from "../modals/user.js";
+import { createNotification } from "../utils/notificationHelper.js";
 
 export const createQualityIssue = async (req, res) => {
   try {
@@ -66,8 +68,8 @@ export const createQualityIssue = async (req, res) => {
           title: "Quality Issue Reported",
           message: `A new quality issue has been reported: ${title}.`,
           triggeredBy: req.user._id,
-        })
-      )
+        }),
+      ),
     );
 
     res.status(201).json({
