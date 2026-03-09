@@ -3,7 +3,6 @@ import { upload } from "../middlewares/multer.js";
 import {
   createOpenPlot,
   updateOpenPlot,
-  // getAllOpenPlots,
   getOpenPlotById,
   deleteOpenPlot,
   getAllOpenPlots,
@@ -13,16 +12,14 @@ import { authenticate } from "../middlewares/authMiddleware.js";
 
 const router = Router();
 
-/* ---------------- MULTER CONFIG ---------------- */
 const uploadFields = upload.fields([
   { name: "thumbnailUrl", maxCount: 1 },
   { name: "brochureUrl", maxCount: 1 },
   { name: "images", maxCount: 10 },
 ]);
 
-/* ---------------- OPEN PLOT ROUTES ---------------- */
-router.post("/saveOpenplot", authenticate, createOpenPlot);
-router.put("/updateOpenplot/:_id", authenticate, updateOpenPlot);
+router.post("/saveOpenplot", authenticate, uploadFields, createOpenPlot);
+router.put("/updateOpenplot/:_id", authenticate, uploadFields, updateOpenPlot);
 router.get("/getAllOpenPlot", getAllOpenPlots);
 router.get("/getOpenplot/:_id", getOpenPlotById);
 router.delete("/deleteOpenplot/:_id", authenticate, deleteOpenPlot);
