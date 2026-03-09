@@ -10,6 +10,7 @@ const auditLogSchema = new mongoose.Schema(
     updatedFields: { type: mongoose.Schema.Types.Mixed, default: null },
     previousFields: { type: mongoose.Schema.Types.Mixed, default: null },
     removedFields: { type: [String], default: [] },
+    changeEventId: { type: String, required: true, unique: true },
 
     userId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -20,6 +21,7 @@ const auditLogSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+auditLogSchema.index({ changeEventId: 1 });
 auditLogSchema.index({ collectionName: 1 });
 auditLogSchema.index({ documentId: 1 });
 auditLogSchema.index({ createdAt: -1 });

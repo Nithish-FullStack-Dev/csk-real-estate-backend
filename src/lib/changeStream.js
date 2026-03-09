@@ -69,6 +69,7 @@ const buildAuditDoc = (change) => {
   const userId = extractUserId(change);
 
   const base = {
+    changeEventId: change._id._data,
     database: ns.db,
     collectionName: ns.coll,
     documentId: documentKey._id,
@@ -125,19 +126,12 @@ const buildAuditDoc = (change) => {
 };
 
 export const startStream = async () => {
-  if (global.__AUDIT_STREAM_RUNNING__) {
-    console.log("⚠ Audit stream already running");
-    return;
-  }
-
-  if (mongoose.connection.readyState !== 1) {
-    console.log("Waiting for MongoDB connection...");
-    return;
-  }
+  if (global.__AUDIT_STREAM_RUNNING__) return;
 
   global.__AUDIT_STREAM_RUNNING__ = true;
 
   const db = mongoose.connection;
+  if (db.readyState !== 1) return;
 
   const pipeline = [
     {
@@ -164,6 +158,9 @@ export const startStream = async () => {
 
       await AuditLog.create(auditDoc);
     } catch (err) {
+      if (err.code === 11000) {
+        return;
+      }
       console.error("Audit write error:", err);
     }
   });
