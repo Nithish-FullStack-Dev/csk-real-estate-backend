@@ -88,6 +88,10 @@ export const getAllTransactions = asyncHandler(async (req, res) => {
 
   const filter = { isDeleted: false };
 
+  if (req.user.role === "accountant") {
+    filter.createdBy = req.user._id;
+  }
+
   if (project) filter.project = project;
   if (company) filter.company = company;
   if (transactionType) filter.transactionType = transactionType;
