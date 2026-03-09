@@ -20,6 +20,7 @@ const collectionsToWatch = [
   "openplots",
   "openlands",
   "innerplots",
+  "taxdocuments",
 ];
 
 const INTERNAL_AUDIT_COLLECTION = "auditlogs";
