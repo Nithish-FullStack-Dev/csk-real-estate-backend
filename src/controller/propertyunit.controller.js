@@ -53,7 +53,7 @@ export const createUnit = asyncHandler(async (req, res) => {
   let thumbnailUrl = null;
 
   if (req.files?.thumbnailUrl?.[0]) {
-    thumbnailUrl = `${req.protocol}://${req.get("host")}/uploads/images/${req.files.thumbnailUrl[0].filename}`;
+    thumbnailUrl = `${req.protocol}://${req.get("host")}/api/uploads/images/${req.files.thumbnailUrl[0].filename}`;
   }
 
   let imageUrls = [];
@@ -61,7 +61,7 @@ export const createUnit = asyncHandler(async (req, res) => {
   if (req.files?.images && Array.isArray(req.files.images)) {
     imageUrls = req.files.images.map(
       (file) =>
-        `${req.protocol}://${req.get("host")}/uploads/images/${file.filename}`,
+        `${req.protocol}://${req.get("host")}/api/uploads/images/${file.filename}`,
     );
   }
 
@@ -70,7 +70,7 @@ export const createUnit = asyncHandler(async (req, res) => {
   if (req.files?.documents && Array.isArray(req.files.documents)) {
     documents = req.files.documents.map((file) => ({
       title: file.originalname,
-      fileUrl: `${req.protocol}://${req.get("host")}/uploads/pdfs/${file.filename}`,
+      fileUrl: `${req.protocol}://${req.get("host")}/api/uploads/pdfs/${file.filename}`,
       mimeType: file.mimetype,
       visibility: req.body.visibility || "PURCHASER_ONLY",
       createdAt: new Date(),
@@ -176,7 +176,7 @@ export const updateUnit = asyncHandler(async (req, res) => {
   let images = unit.images || [];
 
   if (req.files?.thumbnailUrl?.[0]) {
-    thumbnailUrl = `${req.protocol}://${req.get("host")}/uploads/images/${req.files.thumbnailUrl[0].filename}`;
+    thumbnailUrl = `${req.protocol}://${req.get("host")}/api/uploads/images/${req.files.thumbnailUrl[0].filename}`;
   }
 
   let documents = [...(unit.documents || [])];
@@ -185,7 +185,7 @@ export const updateUnit = asyncHandler(async (req, res) => {
   if (documentFiles.length > 0) {
     const newDocs = [];
     for (const file of documentFiles) {
-      const fileUrl = `${req.protocol}://${req.get("host")}/uploads/pdfs/${file.filename}`;
+      const fileUrl = `${req.protocol}://${req.get("host")}/api/uploads/pdfs/${file.filename}`;
       newDocs.push({
         title: file.originalname,
         fileUrl,
@@ -206,7 +206,7 @@ export const updateUnit = asyncHandler(async (req, res) => {
   if (req.files?.images && Array.isArray(req.files.images)) {
     const newImages = req.files.images.map(
       (file) =>
-        `${req.protocol}://${req.get("host")}/uploads/images/${file.filename}`,
+        `${req.protocol}://${req.get("host")}/api/uploads/images/${file.filename}`,
     );
 
     images = [...images, ...newImages];

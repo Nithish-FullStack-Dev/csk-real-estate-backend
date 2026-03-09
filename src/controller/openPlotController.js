@@ -70,18 +70,18 @@ export const createOpenPlot = asyncHandler(async (req, res) => {
 
   const thumbnailUrl = `${req.protocol}://${req.get(
     "host",
-  )}/uploads/images/${req.files.thumbnailUrl[0].filename}`;
+  )}/api/uploads/images/${req.files.thumbnailUrl[0].filename}`;
 
   const brochureUrl = `${req.protocol}://${req.get(
     "host",
-  )}/uploads/pdfs/${req.files.brochureUrl[0].filename}`;
+  )}/api/uploads/pdfs/${req.files.brochureUrl[0].filename}`;
 
   let imageUrls = [];
 
   if (req.files?.images && Array.isArray(req.files.images)) {
     imageUrls = req.files.images.map(
       (file) =>
-        `${req.protocol}://${req.get("host")}/uploads/images/${file.filename}`,
+        `${req.protocol}://${req.get("host")}/api/uploads/images/${file.filename}`,
     );
   }
 
@@ -133,10 +133,10 @@ export const updateOpenPlot = asyncHandler(async (req, res) => {
   // const brochureLocalPath = getFilePath(req.files, "brochureUrl");
 
   /* -------- remove brochure from UI -------- */
-  if (
-    req.body.brochureRemoved === "true" ||
-    req.body.brochureRemoved === true
-  ) {
+  const brochureRemoved =
+    req.body?.brochureRemoved === "true" || req.body?.brochureRemoved === true;
+
+  if (brochureRemoved) {
     brochureUrl = "";
   }
 
@@ -144,19 +144,19 @@ export const updateOpenPlot = asyncHandler(async (req, res) => {
   if (req.files?.thumbnailUrl?.[0]) {
     thumbnailUrl = `${req.protocol}://${req.get(
       "host",
-    )}/uploads/images/${req.files.thumbnailUrl[0].filename}`;
+    )}/api/uploads/images/${req.files.thumbnailUrl[0].filename}`;
   }
 
   /* -------- replace brochure -------- */
   if (req.files?.brochureUrl?.[0]) {
     brochureUrl = `${req.protocol}://${req.get(
       "host",
-    )}/uploads/pdfs/${req.files.brochureUrl[0].filename}`;
+    )}/api/uploads/pdfs/${req.files.brochureUrl[0].filename}`;
   }
 
   /* -------- append gallery images -------- */
   /* -------- REMOVE SELECTED IMAGES -------- */
-  if (req.body.removedImages) {
+  if (req.body?.removedImages) {
     const removed = Array.isArray(req.body.removedImages)
       ? req.body.removedImages
       : [req.body.removedImages];
@@ -168,21 +168,26 @@ export const updateOpenPlot = asyncHandler(async (req, res) => {
   if (req.files?.images && Array.isArray(req.files.images)) {
     const newImages = req.files.images.map(
       (file) =>
-        `${req.protocol}://${req.get("host")}/uploads/images/${file.filename}`,
+        `${req.protocol}://${req.get("host")}/api/uploads/images/${file.filename}`,
     );
 
     images = [...images, ...newImages];
   }
 
+  const updateData = {
+    ...req.body,
+    thumbnailUrl,
+    brochureUrl,
+    images,
+    updatedBy: req.user._id,
+  };
+
+  delete updateData.removedImages;
+  delete updateData.brochureRemoved;
+
   const updatedPlot = await OpenPlot.findOneAndUpdate(
     { _id, isDeleted: false },
-    {
-      ...req.body,
-      thumbnailUrl,
-      brochureUrl,
-      images,
-      updatedBy: req.user._id,
-    },
+    updateData,
     { new: true, runValidators: true },
   );
 
