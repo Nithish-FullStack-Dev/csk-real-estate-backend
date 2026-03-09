@@ -42,12 +42,36 @@ const InnerPlotSchema = new mongoose.Schema(
 
     thumbnailUrl: String,
     images: [String],
+
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   { timestamps: true },
 );
 
 /* prevent duplicate numbering in same layout */
-InnerPlotSchema.index({ openPlotId: 1, plotNo: 1 }, { unique: true });
+InnerPlotSchema.index(
+  { openPlotId: 1, plotNo: 1, isDeleted: 1 },
+  { unique: true },
+);
 
 export default mongoose.models.InnerPlot ||
   mongoose.model("InnerPlot", InnerPlotSchema);

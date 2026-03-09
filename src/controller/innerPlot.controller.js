@@ -29,6 +29,7 @@ export const createInnerPlot = asyncHandler(async (req, res) => {
   const alreadyExists = await InnerPlot.findOne({
     openPlotId,
     plotNo,
+    isDeleted: false,
   });
 
   if (alreadyExists) {
@@ -66,6 +67,7 @@ export const createInnerPlot = asyncHandler(async (req, res) => {
     remarks,
     thumbnailUrl,
     images,
+    createdBy: req.user._id,
   });
 
   return res
@@ -77,7 +79,7 @@ export const createInnerPlot = asyncHandler(async (req, res) => {
 export const getInnerPlotById = asyncHandler(async (req, res) => {
   const { _id } = req.params;
 
-  const plot = await InnerPlot.findOne({ _id });
+  const plot = await InnerPlot.findOne({ _id, isDeleted: false });
 
   if (!plot) {
     return res
@@ -96,7 +98,7 @@ export const getAllInnerPlot = asyncHandler(async (req, res) => {
     throw new ApiError(400, "openPlotId is required");
   }
 
-  let query = { openPlotId };
+  let query = { openPlotId, isDeleted: false };
 
   // If logged in user is a customer → filter purchased plots
   if (req.user?.role === "customer_purchased") {
@@ -104,6 +106,7 @@ export const getAllInnerPlot = asyncHandler(async (req, res) => {
       customerId: req.user._id,
       purchaseType: "PLOT",
       openPlot: openPlotId,
+      isDeleted: false,
     }).select("innerPlot");
 
     const innerPlotIds = [
@@ -126,7 +129,7 @@ export const getAllInnerPlot = asyncHandler(async (req, res) => {
 export const updateInnerPlot = asyncHandler(async (req, res) => {
   const { _id } = req.params;
 
-  const existing = await InnerPlot.findById(_id);
+  const existing = await InnerPlot.findOne({ _id, isDeleted: false });
   if (!existing) throw new ApiError(404, "Inner plot not found");
 
   let thumbnailUrl = existing.thumbnailUrl;
@@ -156,7 +159,10 @@ export const updateInnerPlot = asyncHandler(async (req, res) => {
 
   /* ---------- BODY FIX ---------- */
 
-  const body = { ...req.body };
+  const body = {
+    ...req.body,
+    updatedBy: req.user._id,
+  };
 
   if (body.area) body.area = Number(body.area);
   if (body.wastageArea) body.wastageArea = Number(body.wastageArea);
@@ -166,6 +172,7 @@ export const updateInnerPlot = asyncHandler(async (req, res) => {
     const duplicate = await InnerPlot.findOne({
       openPlotId: existing.openPlotId,
       plotNo: req.body.plotNo,
+      isDeleted: false,
       _id: { $ne: _id },
     });
 
@@ -174,8 +181,8 @@ export const updateInnerPlot = asyncHandler(async (req, res) => {
     }
   }
 
-  const updated = await InnerPlot.findByIdAndUpdate(
-    _id,
+  const updated = await InnerPlot.findOneAndUpdate(
+    { _id, isDeleted: false },
     {
       ...body,
       thumbnailUrl,
@@ -196,7 +203,19 @@ export const updateInnerPlot = asyncHandler(async (req, res) => {
 export const deleteInnerPlot = asyncHandler(async (req, res) => {
   const { _id } = req.params;
 
-  await InnerPlot.findByIdAndDelete(_id);
+  const plot = await InnerPlot.findOne({
+    _id,
+    isDeleted: false,
+  });
+
+  if (!plot) {
+    throw new ApiError(404, "Inner plot not found");
+  }
+
+  plot.isDeleted = true;
+  plot.deletedBy = req.user._id;
+
+  await plot.save();
 
   return res.status(200).json(new ApiResponse(200, null, "Inner plot deleted"));
 });
@@ -205,7 +224,7 @@ export const deleteInnerPlot = asyncHandler(async (req, res) => {
 export const getInnerPlotDropdown = asyncHandler(async (req, res) => {
   const { openPlotId } = req.params;
 
-  const innerPlots = await InnerPlot.find({ openPlotId });
+  const innerPlots = await InnerPlot.find({ openPlotId, isDeleted: false });
 
   return res
     .status(200)
