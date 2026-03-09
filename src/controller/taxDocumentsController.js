@@ -10,10 +10,17 @@ export const addDocument = async (req, res) => {
 
   try {
     // Find or create tax document record for the accountant
-    let taxDoc = await TaxDocument.findOne({ accountantId });
+    let taxDoc = await TaxDocument.findOne({ accountantId, isDeleted: false });
 
     if (!taxDoc) {
-      taxDoc = new TaxDocument({ accountantId });
+      taxDoc = new TaxDocument({
+        accountantId,
+        createdBy: req.user._id,
+        updatedBy: req.user._id,
+        isDeleted: false,
+      });
+    } else {
+      taxDoc.updatedBy = req.user._id;
     }
 
     // Add to appropriate array
@@ -50,6 +57,9 @@ export const addDocument = async (req, res) => {
       }
 
       case "itr": {
+        if (!data.type) {
+          data.type = "ITR";
+        }
         const exists = taxDoc.itrDocuments.some(
           (doc) => doc.financialYear === data.financialYear,
         );
@@ -65,16 +75,17 @@ export const addDocument = async (req, res) => {
       }
 
       case "form16": {
+        if (!data.type) {
+          data.type = "Form16";
+        }
         const exists = taxDoc.form16Documents.some(
           (doc) => doc.financialYear === data.financialYear,
         );
 
         if (exists) {
-          return res
-            .status(400)
-            .json({
-              message: "Form16 already exists for this financial year.",
-            });
+          return res.status(400).json({
+            message: "Form16 already exists for this financial year.",
+          });
         }
 
         taxDoc.form16Documents.push(data);
@@ -84,7 +95,6 @@ export const addDocument = async (req, res) => {
       default:
         return res.status(400).json({ message: "Invalid document type" });
     }
-
     await taxDoc.save();
     return res.status(201).json({ message: "Document added successfully" });
   } catch (error) {
@@ -95,9 +105,21 @@ export const addDocument = async (req, res) => {
 
 export const getDocuments = async (req, res) => {
   try {
-    const accountantId = req.user._id;
+    let query = {};
 
-    const taxDocs = await TaxDocument.findOne({ accountantId }).lean();
+    const user = req.user._id;
+    const role = req.user.role;
+
+    if (role === "accountant") {
+      query.accountantId = user;
+    } else {
+      query.accountantId = null;
+    }
+
+    const taxDocs = await TaxDocument.findOne({
+      ...query,
+      isDeleted: false,
+    }).lean();
 
     return res.status(200).json({
       success: true,
@@ -130,75 +152,76 @@ export const updateTaxDocStatus = async (req, res) => {
     return res.status(400).json({ message: "Invalid document ID" });
   }
 
-  if (!["filed", "pending", "paid", "unpaid"].includes(status?.toLowerCase())) {
-    return res.status(400).json({ message: "Invalid status value" });
-  }
-
   try {
-    let updated = false;
+    const update = {
+      updatedBy: req.user._id,
+    };
 
-    const taxDoc = await TaxDocument.findOne({
-      $or: [
-        { "gstDocuments._id": docId },
-        { "tdsDocuments._id": docId },
-        { "itrDocuments._id": docId },
-      ],
-    });
+    // try GST
+    let result = await TaxDocument.findOneAndUpdate(
+      {
+        isDeleted: false,
+        "gstDocuments._id": docId,
+      },
+      {
+        $set: {
+          "gstDocuments.$.status": status.toLowerCase(),
+          "gstDocuments.$.auditorName": auditorName,
+          "gstDocuments.$.auditType": "GST Audit",
+          "gstDocuments.$.auditStatus": "In Progress",
+          updatedBy: req.user._id,
+        },
+      },
+      { new: true },
+    );
 
-    if (!taxDoc) {
+    // try TDS
+    if (!result) {
+      result = await TaxDocument.findOneAndUpdate(
+        {
+          isDeleted: false,
+          "tdsDocuments._id": docId,
+        },
+        {
+          $set: {
+            "tdsDocuments.$.status": status.toLowerCase(),
+            "tdsDocuments.$.auditorName": auditorName,
+            "tdsDocuments.$.auditType": "TDS Audit",
+            "tdsDocuments.$.auditStatus": "In Progress",
+            updatedBy: req.user._id,
+          },
+        },
+        { new: true },
+      );
+    }
+
+    // try ITR
+    if (!result) {
+      result = await TaxDocument.findOneAndUpdate(
+        {
+          isDeleted: false,
+          "itrDocuments._id": docId,
+        },
+        {
+          $set: {
+            "itrDocuments.$.status": status.toLowerCase(),
+            "itrDocuments.$.auditorName": auditorName,
+            "itrDocuments.$.auditType": "Tax Audit",
+            updatedBy: req.user._id,
+          },
+        },
+        { new: true },
+      );
+    }
+
+    if (!result) {
       return res.status(404).json({ message: "Document not found" });
     }
 
-    // Check GST documents
-    for (let gst of taxDoc.gstDocuments) {
-      if (gst._id.toString() === docId) {
-        gst.status = status.toLowerCase();
-        if (status.toLowerCase() === "filed") {
-          gst.auditorName = auditorName;
-          gst.auditType = "GST Audit";
-          gst.auditStatus = "In Progress";
-        }
-        updated = true;
-        break;
-      }
-    }
-
-    // Check TDS documents
-    for (let tds of taxDoc.tdsDocuments) {
-      if (tds._id.toString() === docId) {
-        tds.status = status.toLowerCase();
-        if (status.toLowerCase() === "paid") {
-          tds.auditorName = auditorName;
-          tds.auditType = "TDS Audit";
-          tds.auditStatus = "In Progress";
-        }
-        updated = true;
-        break;
-      }
-    }
-
-    // Check ITR documents
-    for (let itr of taxDoc.itrDocuments) {
-      if (itr._id.toString() === docId) {
-        itr.status = status.toLowerCase();
-        if (status.toLowerCase() === "filed") {
-          itr.auditorName = auditorName;
-          itr.auditType = "Tax Audit";
-        }
-        updated = true;
-        break;
-      }
-    }
-
-    if (!updated) {
-      return res.status(400).json({ message: "Unable to update status." });
-    }
-
-    await taxDoc.save();
-    res.status(200).json({ message: "Status updated successfully." });
+    res.json({ message: "Status updated successfully" });
   } catch (error) {
-    console.error("Error updating status:", error);
-    res.status(500).json({ message: "Server error while updating status." });
+    console.error(error);
+    res.status(500).json({ message: "Error updating status" });
   }
 };
 
@@ -206,55 +229,49 @@ export const updateAuditStatus = async (req, res) => {
   const { docId } = req.params;
   const { auditStatus, type } = req.body;
 
-  if (!mongoose.Types.ObjectId.isValid(docId)) {
-    return res.status(400).json({ message: "Invalid document ID" });
-  }
-
-  if (!["gstr1", "gstr3b", "itr"].includes(type)) {
-    return res.status(400).json({ message: "Invalid audit type." });
-  }
-
   try {
-    const objectId = new mongoose.Types.ObjectId(docId);
-
-    const taxDoc = await TaxDocument.findOne({
-      $or: [{ "gstDocuments._id": objectId }, { "itrDocuments._id": objectId }],
-    });
-
-    if (!taxDoc) {
-      return res.status(404).json({ message: "Document not found." });
-    }
-
-    let updated = false;
+    let result = null;
 
     if (type === "gstr1" || type === "gstr3b") {
-      for (let gst of taxDoc.gstDocuments) {
-        if (gst._id.toString() === docId) {
-          gst.auditStatus = auditStatus;
-          updated = true;
-          break;
-        }
-      }
-    } else if (type === "itr") {
-      for (let itr of taxDoc.itrDocuments) {
-        if (itr._id.toString() === docId) {
-          itr.auditStatus = auditStatus;
-          updated = true;
-          break;
-        }
-      }
-    }
-    if (!updated) {
-      return res
-        .status(400)
-        .json({ message: "Could not update audit status." });
+      result = await TaxDocument.findOneAndUpdate(
+        {
+          isDeleted: false,
+          accountantId: req.user._id,
+          "gstDocuments._id": docId,
+        },
+        {
+          $set: {
+            "gstDocuments.$.auditStatus": auditStatus,
+            updatedBy: req.user._id,
+          },
+        },
+        { new: true },
+      );
     }
 
-    await taxDoc.save();
+    if (type === "itr") {
+      result = await TaxDocument.findOneAndUpdate(
+        {
+          isDeleted: false,
+          accountantId: req.user._id,
+          "itrDocuments._id": docId,
+        },
+        {
+          $set: {
+            "itrDocuments.$.auditStatus": auditStatus,
+            updatedBy: req.user._id,
+          },
+        },
+        { new: true },
+      );
+    }
 
-    res.status(200).json({ message: "Audit status updated successfully." });
-  } catch (error) {
-    console.error("Audit update error:", error);
-    res.status(500).json({ message: "Internal server error." });
+    if (!result) {
+      return res.status(404).json({ message: "Document not found" });
+    }
+
+    res.json({ message: "Audit status updated" });
+  } catch (err) {
+    res.status(500).json({ message: "Error" });
   }
 };

@@ -21,6 +21,11 @@ const floorUnitSchema = new Schema(
     availableSubUnits: { type: Number, default: 0, min: 0 },
     priceRange: priceRangeSchema,
 
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
     deletedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
