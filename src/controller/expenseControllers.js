@@ -4,7 +4,13 @@ import { createNotification } from "../utils/notificationHelper.js";
 // GET /api/expenses
 export const getAllExpenses = async (req, res) => {
   try {
-    const expenses = await Expense.find()
+    let query = {};
+
+    if (req.user.role === "accountant") {
+      query.accountant = req.user._id;
+    }
+
+    const expenses = await Expense.find(query)
       .populate("accountant", "name email") // Optional: populate accountant details
       .sort({ date: -1 });
 

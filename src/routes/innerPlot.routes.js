@@ -25,13 +25,24 @@ const uploadFields = upload.fields([
   { name: "images", maxCount: 10 },
 ]);
 const csvUpload = multer({ storage: multer.memoryStorage() });
-router.post("/saveInnerPlot", uploadFields, createInnerPlot);
-router.get("/by-openplot/:_id", getInnerPlotById);
-router.get("/getAllInnerPlot/:openPlotId", getAllInnerPlot);
-router.put("/updateInnerPlot/:_id", uploadFields, updateInnerPlot);
-router.delete("/deleteInnerPlot/:_id", deleteInnerPlot);
-router.post("/generate-bulk", generateBulkInnerPlots);
-router.post("/csv-upload", csvUpload.single("file"), bulkCsvInnerPlots);
+
+router.post("/saveInnerPlot", authenticate, uploadFields, createInnerPlot);
+router.get("/by-openplot/:_id", authenticate, getInnerPlotById);
+router.get("/getAllInnerPlot/:openPlotId", authenticate, getAllInnerPlot);
+router.put(
+  "/updateInnerPlot/:_id",
+  authenticate,
+  uploadFields,
+  updateInnerPlot,
+);
+router.delete("/deleteInnerPlot/:_id", authenticate, deleteInnerPlot);
+router.post("/generate-bulk", authenticate, generateBulkInnerPlots);
+router.post(
+  "/csv-upload",
+  authenticate,
+  csvUpload.single("file"),
+  bulkCsvInnerPlots,
+);
 
 router.get(
   "/getInnerPlotDropdown/:openPlotId",
