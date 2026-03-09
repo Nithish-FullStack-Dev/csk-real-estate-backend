@@ -37,7 +37,7 @@ export const createBuilding = asyncHandler(async (req, res) => {
   const thumbnailFile = req.files?.thumbnailUrl?.[0];
 
   const thumbnailUrl = thumbnailFile
-    ? `${req.protocol}://${req.get("host")}/uploads/images/${thumbnailFile.filename}`
+    ? `${req.protocol}://${req.get("host")}/api/uploads/images/${thumbnailFile.filename}`
     : "";
   if (!brochureLocalPath) throw new ApiError(400, "Brochure file is required");
 
@@ -46,7 +46,7 @@ export const createBuilding = asyncHandler(async (req, res) => {
   const brochureFile = req.files?.brochureUrl?.[0];
 
   const brochureUrl = brochureFile
-    ? `${req.protocol}://${req.get("host")}/uploads/pdfs/${brochureFile.filename}`
+    ? `${req.protocol}://${req.get("host")}/api/uploads/pdfs/${brochureFile.filename}`
     : "";
 
   // const brochureUrl = await uploadPdfToCloudinary(brochureLocalPath);
@@ -62,7 +62,7 @@ export const createBuilding = asyncHandler(async (req, res) => {
   if (req.files?.images && Array.isArray(req.files.images)) {
     imageUrls = req.files.images.map(
       (file) =>
-        `${req.protocol}://${req.get("host")}/uploads/images/${file.filename}`,
+        `${req.protocol}://${req.get("host")}/api/uploads/images/${file.filename}`,
     );
   }
 
@@ -189,7 +189,7 @@ export const updateBuilding = asyncHandler(async (req, res) => {
 
   /* ---------------- THUMBNAIL UPDATE ---------------- */
   if (req.files?.thumbnailUrl?.[0]) {
-    thumbnailUrl = `${req.protocol}://${req.get("host")}/uploads/images/${req.files.thumbnailUrl[0].filename}`;
+    thumbnailUrl = `${req.protocol}://${req.get("host")}/api/uploads/images/${req.files.thumbnailUrl[0].filename}`;
   }
 
   /* ---------------- BROCHURE REMOVE ---------------- */
@@ -199,7 +199,7 @@ export const updateBuilding = asyncHandler(async (req, res) => {
 
   /* ---------------- BROCHURE UPDATE ---------------- */
   if (req.files?.brochureUrl?.[0]) {
-    brochureUrl = `${req.protocol}://${req.get("host")}/uploads/pdfs/${req.files.brochureUrl[0].filename}`;
+    brochureUrl = `${req.protocol}://${req.get("host")}/api/uploads/pdfs/${req.files.brochureUrl[0].filename}`;
   }
 
   /* ---------------- REMOVE SELECTED IMAGES ---------------- */
@@ -220,7 +220,7 @@ export const updateBuilding = asyncHandler(async (req, res) => {
   if (req.files?.images && Array.isArray(req.files.images)) {
     const newImages = req.files.images.map(
       (file) =>
-        `${req.protocol}://${req.get("host")}/uploads/images/${file.filename}`,
+        `${req.protocol}://${req.get("host")}/api/uploads/images/${file.filename}`,
     );
 
     images = [...images, ...newImages];

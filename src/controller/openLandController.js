@@ -55,11 +55,11 @@ export const createOpenLand = asyncHandler(async (req, res) => {
   let brochureUrl = null;
 
   if (req.files?.thumbnailUrl?.[0]) {
-    thumbnailUrl = `${req.protocol}://${req.get("host")}/uploads/images/${req.files.thumbnailUrl[0].filename}`;
+    thumbnailUrl = `${req.protocol}://${req.get("host")}/api/uploads/images/${req.files.thumbnailUrl[0].filename}`;
   }
 
   if (req.files?.brochureUrl?.[0]) {
-    brochureUrl = `${req.protocol}://${req.get("host")}/uploads/pdfs/${req.files.brochureUrl[0].filename}`;
+    brochureUrl = `${req.protocol}://${req.get("host")}/api/uploads/pdfs/${req.files.brochureUrl[0].filename}`;
   }
 
   let imageUrls = [];
@@ -67,7 +67,7 @@ export const createOpenLand = asyncHandler(async (req, res) => {
   if (req.files?.images && Array.isArray(req.files.images)) {
     imageUrls = req.files.images.map(
       (file) =>
-        `${req.protocol}://${req.get("host")}/uploads/images/${file.filename}`,
+        `${req.protocol}://${req.get("host")}/api/uploads/images/${file.filename}`,
     );
   }
 
@@ -165,13 +165,13 @@ export const updateOpenLand = asyncHandler(async (req, res) => {
   let images = existingLand.images || [];
 
   if (req.files?.thumbnailUrl?.[0]) {
-    thumbnailUrl = `${req.protocol}://${req.get("host")}/uploads/images/${req.files.thumbnailUrl[0].filename}`;
+    thumbnailUrl = `${req.protocol}://${req.get("host")}/api/uploads/images/${req.files.thumbnailUrl[0].filename}`;
   }
   if (data.brochureRemoved === "true" || data.brochureRemoved === true) {
     brochureUrl = "";
   }
   if (req.files?.brochureUrl?.[0]) {
-    brochureUrl = `${req.protocol}://${req.get("host")}/uploads/pdfs/${req.files.brochureUrl[0].filename}`;
+    brochureUrl = `${req.protocol}://${req.get("host")}/api/uploads/pdfs/${req.files.brochureUrl[0].filename}`;
   }
   if (data.removedImages) {
     const removed = Array.isArray(data.removedImages)
@@ -186,7 +186,7 @@ export const updateOpenLand = asyncHandler(async (req, res) => {
   if (req.files?.images && Array.isArray(req.files.images)) {
     const newImages = req.files.images.map(
       (file) =>
-        `${req.protocol}://${req.get("host")}/uploads/images/${file.filename}`,
+        `${req.protocol}://${req.get("host")}/api/uploads/images/${file.filename}`,
     );
 
     images = [...images, ...newImages];
