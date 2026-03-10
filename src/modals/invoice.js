@@ -103,7 +103,7 @@ const InvoiceSchema = new Schema(
     paymentDate: {
       type: Date,
     },
-    createdBy: {
+    createdRole: {
       type: String,
       enum: ["contractor", "accountant"],
       required: true,
@@ -125,6 +125,27 @@ const InvoiceSchema = new Schema(
         note: { type: String },
       },
     ],
+
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   {
     timestamps: true,

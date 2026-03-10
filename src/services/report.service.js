@@ -593,7 +593,8 @@ export const accountingReport = async ({ dateFrom, dateTo, groupBy }) => {
     {
       $match: {
         issueDate: { $gte: new Date(dateFrom), $lte: new Date(dateTo) },
-        createdBy: "contractor",
+        createdRole: "contractor",
+        isDeleted: false,
       },
     },
 
@@ -762,7 +763,8 @@ export const contractorReport = async ({ dateFrom, dateTo, groupBy }) => {
     {
       $match: {
         createdAt: { $gte: new Date(dateFrom), $lte: new Date(dateTo) },
-        createdBy: "contractor",
+        createdRole: "contractor",
+        isDeleted: false,
       },
     },
     {

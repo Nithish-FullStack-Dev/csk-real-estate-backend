@@ -5,6 +5,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import { uploadFile } from "../utils/uploadFile.js";
 import { createNotification } from "../utils/notificationHelper.js";
+import User from "../modals/user.js";
 
 export const createTransaction = asyncHandler(async (req, res) => {
   const {

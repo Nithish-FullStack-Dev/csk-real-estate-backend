@@ -65,17 +65,18 @@ export const createInvoice = async (req, res) => {
       total,
       unit,
       floorUnit,
-      createdBy: role,
+      createdRole: role,
+      createdBy: req.user._id,
       remainingAmount: total,
     });
 
-    await invoice.save();
-
+    // ✅ _id already exists
     const shortId = invoice._id.toString().slice(0, 6);
     const year = new Date().getFullYear();
+
     invoice.invoiceNumber = `INV-${year}-${shortId.toUpperCase()}`;
 
-    await invoice.save();
+    await invoice.save(); // ✅ only once
 
     return res.status(201).json(invoice);
   } catch (error) {
@@ -142,27 +143,23 @@ export const getAllInvoices = async (req, res) => {
 
     // Filter invoices based on role
     if (role === "contractor") {
-      invoices = await Invoice.find({ user: userId }).sort({ issueDate: -1 });
+      invoices = await Invoice.find({
+        user: userId,
+        isDeleted: false,
+      }).sort({ issueDate: -1 });
     } else if (role === "accountant") {
       invoices = await Invoice.find({
-        $or: [
-          { createdBy: "contractor" },
-          { user: userId }, // invoices made by this accountant
-        ],
+        isDeleted: false,
+        $or: [{ createdRole: "contractor" }, { user: userId }],
       }).sort({ issueDate: -1 });
     } else if (role === "owner") {
       invoices = await Invoice.find({
-        $or: [
-          { createdBy: "contractor" },
-          { user: userId }, // invoices made by this accountant
-        ],
+        isDeleted: false,
+        $or: [{ createdRole: "contractor" }, { user: userId }],
       }).sort({ issueDate: -1 });
     } else if (role === "admin") {
       invoices = await Invoice.find({
-        $or: [
-          { createdBy: "contractor" },
-          { user: userId }, // invoices made by this accountant
-        ],
+        isDeleted: false,
       }).sort({ issueDate: -1 });
     }
 
@@ -173,7 +170,7 @@ export const getAllInvoices = async (req, res) => {
           {
             path: "project",
             model: "Building",
-            select: "_id projectName propertyType constructionStatus soldUnits",
+            select: "_id projectName propertyType",
           },
           {
             path: "floorUnit",
@@ -184,6 +181,26 @@ export const getAllInvoices = async (req, res) => {
             path: "unit",
             model: "PropertyUnit",
             select: "_id plotNo propertyType",
+          },
+          {
+            path: "user",
+            model: "User",
+            select: "name email role",
+          },
+          {
+            path: "approvedByAccountant",
+            model: "User",
+            select: "name email role",
+          },
+          {
+            path: "createdBy",
+            model: "User",
+            select: "name email role",
+          },
+          {
+            path: "updatedBy",
+            model: "User",
+            select: "name email role",
           },
         ]);
 
@@ -217,7 +234,7 @@ export const updateInvoice = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const invoice = await Invoice.findById(id);
+    const invoice = await Invoice.findOne({ _id: id, isDeleted: false });
 
     if (!invoice) {
       return res.status(404).json({ message: "Invoice not found" });
@@ -225,6 +242,7 @@ export const updateInvoice = async (req, res) => {
 
     // Update fields
     Object.assign(invoice, req.body);
+    invoice.updatedBy = req.user._id;
 
     // ✅ VERY IMPORTANT — store last accountant who edited
     if (req.user.role === "accountant") {
@@ -242,124 +260,6 @@ export const updateInvoice = async (req, res) => {
     });
   }
 };
-// export const markInvoiceAsPaid = async (req, res) => {
-//   const { id } = req.params;
-//   const { paymentMethod } = req.body;
-//   try {
-
-//   } catch (error) {
-//     res.status(500).json({ message: "Server error", error: error.message });
-//   }
-// };
-
-// export const markInvoiceAsPaid = async (req, res) => {
-//   const { id } = req.params;
-//   const { paymentMethod, reconciliationAmount, isPaid, reconciledItemId } =
-//     req.body;
-//   const reconcile = req.query.reconcile === "true";
-
-//   try {
-//     if (!reconcile) {
-//       const invoice = await Invoice.findByIdAndUpdate(
-//         id,
-//         { status: "paid", paymentMethod, paymentDate: Date.now() },
-//         { new: true }
-//       );
-
-//       if (!invoice) {
-//         return res.status(404).json({ message: "Invoice not found" });
-//       }
-
-//       // Step 2: Create new Payment record
-//       const payment = new Payment({
-//         accountant: req.user._id,
-//         invoice: id,
-//         paymentNumber: "", // temp, will be updated after saving
-//       });
-
-//       await payment.save();
-
-//       // Step 3: Generate readable payment number
-//       const shortId = payment._id.toString().slice(0, 6);
-//       const year = new Date().getFullYear();
-//       payment.paymentNumber = `PAY-${year}-${shortId.toUpperCase()}`;
-
-//       await payment.save(); // update with generated payment number
-
-//       res
-//         .status(200)
-//         .json({ message: "Invoice marked as paid", invoice, payment });
-//     }
-
-//     const invoice = await Invoice.findById(id);
-
-//     if (!invoice) {
-//       return res.status(404).json({ message: "Invoice not found" });
-//     }
-
-//     // Step 1: If reconcile is true, update invoice total and add to reconciliation history
-//     if (reconcile && reconciliationAmount != null && reconciledItemId) {
-//       const item = invoice.items.find(
-//         (it) => it._id.toString() === reconciledItemId.toString()
-//       );
-
-//       if (!item) {
-//         return res.status(404).json({ message: "Reconciled item not found" });
-//       }
-
-//       // Update item amount (increase it)
-//       item.amount += reconciliationAmount;
-
-//       // Recalculate subtotal from all items
-//       const newSubtotal = invoice.items.reduce(
-//         (acc, curr) => acc + curr.amount,
-//         0
-//       );
-//       invoice.subtotal = newSubtotal;
-
-//       // Recalculate tax amounts
-//       const sgstAmount = (invoice.sgst / 100) * newSubtotal;
-//       const cgstAmount = (invoice.cgst / 100) * newSubtotal;
-//       invoice.total = newSubtotal + sgstAmount + cgstAmount;
-
-//       // Push to reconciliation history
-//       invoice.reconciliationHistory.push({
-//         item: item.description,
-//         amount: reconciliationAmount,
-//         method: isPaid ? paymentMethod : "N/A",
-//         note: isPaid ? "Reconciled and paid" : "Reconciled without payment",
-//       });
-
-//       // If invoice is being paid
-//       if (isPaid) {
-//         invoice.status = "paid";
-//         invoice.paymentDate = new Date();
-
-//         if (!invoice.paymentMethod.includes(paymentMethod)) {
-//           invoice.paymentMethod.push(paymentMethod);
-//         }
-
-//         await invoice.save();
-
-//         return res.status(200).json({
-//           message: "Invoice reconciled and marked as paid",
-//           invoice,
-//         });
-//       }
-
-//       // If only reconciled
-//       invoice.status = "pending";
-//       await invoice.save();
-
-//       return res.status(200).json({
-//         message: "Invoice reconciled (not paid)",
-//         invoice,
-//       });
-//     }
-//   } catch (error) {
-//     res.status(500).json({ message: "Server error", error: error.message });
-//   }
-// };
 
 export const markInvoiceAsPaid = async (req, res) => {
   const { id } = req.params;
@@ -389,7 +289,7 @@ export const markInvoiceAsPaid = async (req, res) => {
 
   try {
     if (!reconcile) {
-      const invoice = await Invoice.findById(id);
+      const invoice = await Invoice.findOne({ _id: id, isDeleted: false });
 
       if (!invoice) {
         return res.status(404).json({ message: "Invoice not found" });
@@ -401,6 +301,7 @@ export const markInvoiceAsPaid = async (req, res) => {
 
       // ✅ VERY IMPORTANT
       invoice.approvedByAccountant = req.user._id;
+      invoice.updatedBy = req.user._id;
 
       await invoice.save();
 
@@ -408,6 +309,9 @@ export const markInvoiceAsPaid = async (req, res) => {
         accountant: req.user._id,
         invoice: id,
         paymentNumber: "",
+        isDeleted: false,
+        createdBy: req.user._id,
+        updatedBy: req.user._id,
       });
 
       await payment.save();
@@ -427,7 +331,7 @@ export const markInvoiceAsPaid = async (req, res) => {
         .json({ message: "Invoice marked as paid", invoice, payment });
     }
 
-    const invoice = await Invoice.findById(id);
+    const invoice = await Invoice.findOne({ _id: id, isDeleted: false });
 
     if (!invoice) {
       return res.status(404).json({ message: "Invoice not found" });
@@ -474,7 +378,7 @@ export const markInvoiceAsPaid = async (req, res) => {
         if (!invoice.paymentMethod.includes(paymentMethod)) {
           invoice.paymentMethod.push(paymentMethod);
         }
-
+        invoice.updatedBy = req.user._id;
         await invoice.save();
 
         // 🔔 Notify Owner + Accountant (ADDED)
@@ -488,6 +392,8 @@ export const markInvoiceAsPaid = async (req, res) => {
 
       // If only reconciled
       invoice.status = "pending";
+
+      invoice.updatedBy = req.user._id;
       await invoice.save();
 
       return res.status(200).json({
@@ -509,7 +415,7 @@ export const verifyInvoiceByAccountant = async (req, res) => {
       return res.status(400).json({ message: "Invalid status" });
     }
 
-    const invoice = await Invoice.findById(id);
+    const invoice = await Invoice.findOne({ _id: id, isDeleted: false });
 
     if (!invoice) {
       return res.status(404).json({ message: "Invoice not found" });
@@ -523,6 +429,7 @@ export const verifyInvoiceByAccountant = async (req, res) => {
 
     // ✅ save note
     invoice.noteByAccountant = notes || "";
+    invoice.updatedBy = req.user._id;
 
     // ❌ remove old boolean
     invoice.set("isApprovedByAccountant", undefined);
