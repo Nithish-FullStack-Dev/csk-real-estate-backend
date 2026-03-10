@@ -3,6 +3,7 @@ import Project from "../modals/projects.js";
 import mongoose from "mongoose";
 import Payment from "../modals/payment.js";
 import { createNotification } from "../utils/notificationHelper.js";
+import User from "../modals/user.js";
 
 export const createInvoice = async (req, res) => {
   try {
