@@ -37,7 +37,7 @@ router.post(
   createBuilding,
 );
 
-router.get("/getAllBuildings", authenticate, getAllBuildings);
+router.get("/getAllBuildings", getAllBuildings);
 router.get("/getBuildingById/:_id", authenticate, getBuildingById);
 
 router.patch(
