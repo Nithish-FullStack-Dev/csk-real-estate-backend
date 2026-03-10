@@ -9,7 +9,7 @@ import {
   updateInvoice,
 } from "../controller/invoiceController.js";
 import { authenticate, authorizeRoles } from "../middlewares/authMiddleware.js";
-import Invoice from "../modals/invoice.js";
+
 const router = express.Router();
 
 router.post(

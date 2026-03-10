@@ -1,14 +1,19 @@
 import mongoose from "mongoose";
 import Payment from "../modals/payment.js";
 import Invoice from "../modals/invoice.js";
+
 export const getAccountantPayments = async (req, res) => {
   try {
     const accountantId = req.user._id;
 
     // Fetch all payments created by this accountant
-    const payments = await Payment.find({ accountant: accountantId })
+    const payments = await Payment.find({
+      accountant: accountantId,
+      isDeleted: false,
+    })
       .populate({
         path: "invoice",
+        match: { isDeleted: false },
         populate: [
           {
             path: "project", // from Invoice
@@ -41,6 +46,7 @@ export const getAccountantPayments = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
 export const createPayment = async (req, res) => {
   try {
     const accountantId = req.user._id;
@@ -55,7 +61,7 @@ export const createPayment = async (req, res) => {
       note,
     } = req.body;
 
-    const invoice = await Invoice.findById(invoiceId);
+    const invoice = await Invoice.findOne({ _id: invoiceId, isDeleted: false });
 
     if (!invoice) {
       return res.status(404).json({ message: "Invoice not found" });
@@ -90,6 +96,7 @@ export const createPayment = async (req, res) => {
       nextPaymentDate,
       note,
       paymentNumber,
+      createdBy: req.user._id,
     });
 
     await payment.save();
@@ -104,6 +111,8 @@ export const createPayment = async (req, res) => {
     } else {
       invoice.status = "partially_paid";
     }
+
+    invoice.updatedBy = req.user._id;
 
     await invoice.save();
 
