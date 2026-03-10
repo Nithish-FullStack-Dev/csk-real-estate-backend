@@ -1,3 +1,4 @@
+// src\controller\authController.js
 import otpGenerator from "otp-generator";
 import Otp from "../modals/Otp.js";
 import sendEmail from "../utils/emailService.js";
@@ -35,7 +36,8 @@ export const sendOtp = async (req, res) => {
 
     res.status(200).json({ success: true, message: "OTP sent successfully!" });
   } catch (error) {
-    console.error("Error sending OTP:", error);
+    console.error("OTP ERROR:", error);
+
     res.status(500).json({
       success: false,
       message: "Failed to send OTP. Please try again.",
