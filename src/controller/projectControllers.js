@@ -1196,21 +1196,38 @@ export const getCompletedTasksForUnit = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid Project ID");
   }
 
-  const project = await Project.findOne({ _id: projectId })
+  const project = await Project.findOne({
+    projectId: projectId,
+    unit: unit,
+  })
+    .populate("projectId", "_id projectName")
+    .populate("floorUnit", "_id floorNumber unitType")
+    .populate("unit", "_id plotNo propertyType")
     .populate("contractors", "_id name email")
     .populate("siteIncharge", "_id name email")
     .lean();
 
   if (!project) {
-    return res
-      .status(200)
-      .json(new ApiResponse(200, [], "No project found for this projectId"));
+    return res.status(200).json(new ApiResponse(200, [], "No project found"));
   }
 
-  const tasksInUnit =
-    project.units instanceof Map
-      ? project.units.get(unit)
-      : project.units?.[unit] || [];
+  // ✅ SAFE MAP ACCESS
+  let tasksInUnit = [];
+
+  if (project.units instanceof Map) {
+    tasksInUnit = project.units.get(unit) || [];
+  } else if (
+    project.units &&
+    typeof project.units === "object" &&
+    !Array.isArray(project.units)
+  ) {
+    tasksInUnit = project.units[unit] || [];
+  }
+
+  // ✅ safety
+  if (!Array.isArray(tasksInUnit)) {
+    tasksInUnit = [];
+  }
 
   const completedTasks = tasksInUnit
     .filter(
@@ -1225,10 +1242,12 @@ export const getCompletedTasksForUnit = asyncHandler(async (req, res) => {
       progressPercentage: task.progressPercentage,
       submittedOn: task.submittedByContractorOn,
       deadline: task.deadline,
+
       contractor:
         project.contractors?.find(
           (c) => c._id.toString() === task.contractor?.toString(),
         ) || null,
+
       contractorUploadedPhotos: task.contractorUploadedPhotos || [],
       siteInchargeUploadedPhotos: task.siteInchargeUploadedPhotos || [],
     }));
@@ -1249,7 +1268,7 @@ export const getCompletedTasksForUnit = asyncHandler(async (req, res) => {
       },
       completedTasks.length > 0
         ? "Completed tasks fetched successfully"
-        : "No completed tasks found for this unit",
+        : "No completed tasks found",
     ),
   );
 });

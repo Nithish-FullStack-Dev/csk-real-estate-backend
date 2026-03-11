@@ -13,6 +13,6 @@ const router = express.Router();
 router.post("/create-quality-issue", authenticate, createQualityIssue);
 router.get("/issues", authenticate, getQualityIssuesByUserId);
 router.post("/issue", authenticate, updateIssue);
-router.patch("/issues/:id/status", updateStatus);
+router.patch("/issues/:id/status", authenticate, updateStatus);
 
 export default router;
