@@ -3,9 +3,8 @@ import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import { uploadFile } from "../utils/uploadFile.js";
-// import { uploadPdfToCloudinary } from "../config/cloudinary.js";
 import InnerPlot from "../modals/InnerPlot.js";
-import PropertyUnitModel from "../modals/propertyUnit.model.js";
+import PropertyUnit from "../modals/propertyUnit.model.js";
 import OpenLand from "../modals/openLand.js";
 
 export const createCustomer = asyncHandler(async (req, res) => {
@@ -73,7 +72,7 @@ export const createCustomer = asyncHandler(async (req, res) => {
     uploadedDocuments.push(fileUrl);
   }
 
-  const newCustomer = await Customer.create({
+  const newCustomer = new Customer({
     customerId,
     purchasedFrom,
     projectCompany,
@@ -105,6 +104,10 @@ export const createCustomer = asyncHandler(async (req, res) => {
     images: uploadedDocuments,
     createdBy: req.user?._id,
   });
+
+  newCustomer.calculateBalance();
+
+  await newCustomer.save();
 
   if (purchaseType === "BUILDING" && unit) {
     await PropertyUnit.findByIdAndUpdate(unit, {
@@ -210,15 +213,31 @@ export const updateCustomer = asyncHandler(async (req, res) => {
   // Merge existing images with new uploads
   updateData.images = [...existing.images, ...uploadedDocuments];
 
-  if (
-    updateData.totalAmount !== undefined ||
-    updateData.advanceReceived !== undefined
-  ) {
-    const total = updateData.totalAmount ?? existing.totalAmount;
-    const advance = updateData.advanceReceived ?? existing.advanceReceived;
+  const total =
+    updateData.totalAmount !== undefined
+      ? Number(updateData.totalAmount)
+      : Number(existing.totalAmount);
 
-    updateData.balancePayment = total - advance;
+  const advance =
+    updateData.advanceReceived !== undefined
+      ? Number(updateData.advanceReceived)
+      : Number(existing.advanceReceived);
+
+  // paymentDetails may come as string / object / array
+  let paymentsArray;
+
+  if (req.body.paymentDetails) {
+    paymentsArray = Array.isArray(req.body.paymentDetails)
+      ? req.body.paymentDetails
+      : Object.values(req.body.paymentDetails);
+  } else {
+    paymentsArray = existing.paymentDetails;
   }
+
+  const paymentsSum =
+    paymentsArray?.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) || 0;
+
+  updateData.balancePayment = total - advance - paymentsSum;
 
   const updatedCustomer = await Customer.findByIdAndUpdate(id, updateData, {
     new: true,
@@ -401,4 +420,29 @@ export const getMyPurchase = asyncHandler(async (req, res) => {
       },
     }),
   );
+});
+
+export const addCustomerPayment = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { amount, date, paymentMode, referenceNumber, remarks } = req.body;
+
+  const customer = await Customer.findById(id);
+
+  if (!customer) throw new ApiError(404, "Customer not found");
+
+  customer.paymentDetails.push({
+    amount,
+    date,
+    paymentMode,
+    referenceNumber,
+    remarks,
+  });
+
+  customer.calculateBalance();
+
+  await customer.save();
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, customer, "Payment added successfully"));
 });
