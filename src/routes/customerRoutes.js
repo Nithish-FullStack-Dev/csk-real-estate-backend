@@ -9,7 +9,6 @@ import {
   getPurchasedProperties,
   uploadCustomerPdf,
   getMyPurchase,
-  addCustomerPayment,
 } from "../controller/customerController.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { upload } from "../middlewares/multer.js";
@@ -53,7 +52,5 @@ router.put(
 router.delete("/deleteCustomer/:id", authenticate, deleteCustomer);
 
 router.get("/my-purchase", authenticate, getMyPurchase);
-
-router.put("/:id/add-payment", authenticate, addCustomerPayment);
 
 export default router;
