@@ -3,10 +3,10 @@ import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import { uploadFile } from "../utils/uploadFile.js";
-// import { uploadPdfToCloudinary } from "../config/cloudinary.js";
 import InnerPlot from "../modals/InnerPlot.js";
-import PropertyUnitModel from "../modals/propertyUnit.model.js";
+import PropertyUnit from "../modals/propertyUnit.model.js";
 import OpenLand from "../modals/openLand.js";
+import CustomerPayment from "../modals/CustomerPayment.js";
 
 export const createCustomer = asyncHandler(async (req, res) => {
   const {
@@ -28,7 +28,6 @@ export const createCustomer = asyncHandler(async (req, res) => {
     advanceReceived,
     lastPaymentDate,
     paymentPlan,
-    paymentDetails,
     notes,
     contractorId,
     siteInchargeId,
@@ -73,7 +72,7 @@ export const createCustomer = asyncHandler(async (req, res) => {
     uploadedDocuments.push(fileUrl);
   }
 
-  const newCustomer = await Customer.create({
+  const newCustomer = new Customer({
     customerId,
     purchasedFrom,
     projectCompany,
@@ -92,7 +91,6 @@ export const createCustomer = asyncHandler(async (req, res) => {
     advanceReceived,
     lastPaymentDate,
     paymentPlan,
-    paymentDetails,
     notes,
     contractorId,
     siteInchargeId,
@@ -105,6 +103,18 @@ export const createCustomer = asyncHandler(async (req, res) => {
     images: uploadedDocuments,
     createdBy: req.user?._id,
   });
+
+  newCustomer.balancePayment =
+    Number(totalAmount || 0) - Number(advanceReceived || 0);
+
+  newCustomer.paymentStatus =
+    newCustomer.balancePayment <= 0
+      ? "Completed"
+      : newCustomer.advanceReceived > 0
+        ? "In Progress"
+        : "Pending";
+
+  await newCustomer.save();
 
   if (purchaseType === "BUILDING" && unit) {
     await PropertyUnit.findByIdAndUpdate(unit, {
@@ -210,15 +220,36 @@ export const updateCustomer = asyncHandler(async (req, res) => {
   // Merge existing images with new uploads
   updateData.images = [...existing.images, ...uploadedDocuments];
 
-  if (
-    updateData.totalAmount !== undefined ||
-    updateData.advanceReceived !== undefined
-  ) {
-    const total = updateData.totalAmount ?? existing.totalAmount;
-    const advance = updateData.advanceReceived ?? existing.advanceReceived;
+  const total =
+    updateData.totalAmount !== undefined
+      ? Number(updateData.totalAmount)
+      : Number(existing.totalAmount);
 
-    updateData.balancePayment = total - advance;
-  }
+  const advance =
+    updateData.advanceReceived !== undefined
+      ? Number(updateData.advanceReceived)
+      : Number(existing.advanceReceived);
+
+  const payments = await CustomerPayment.aggregate([
+    { $match: { customerId: existing._id } },
+    {
+      $group: {
+        _id: null,
+        total: { $sum: "$amount" },
+      },
+    },
+  ]);
+
+  const paid = payments[0]?.total || 0;
+
+  updateData.balancePayment = total - advance - paid;
+
+  updateData.paymentStatus =
+    updateData.balancePayment <= 0
+      ? "Completed"
+      : updateData.balancePayment < total
+        ? "In Progress"
+        : "Pending";
 
   const updatedCustomer = await Customer.findByIdAndUpdate(id, updateData, {
     new: true,
@@ -385,10 +416,29 @@ export const getMyPurchase = asyncHandler(async (req, res) => {
     .limit(limit)
     .lean();
 
-  const formatted = purchases.map((p) => ({
-    ...p,
-    balance: (p.totalAmount || 0) - (p.advanceReceived || 0),
-  }));
+  const formatted = await Promise.all(
+    purchases.map(async (p) => {
+      const payments = await CustomerPayment.aggregate([
+        { $match: { customerId: p._id } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$amount" },
+          },
+        },
+      ]);
+
+      const paid = payments[0]?.total || 0;
+
+      const balance =
+        Number(p.totalAmount || 0) - Number(p.advanceReceived || 0) - paid;
+
+      return {
+        ...p,
+        balance,
+      };
+    }),
+  );
 
   res.status(200).json(
     new ApiResponse(200, {

@@ -2,6 +2,10 @@
 import otpGenerator from "otp-generator";
 import Otp from "../modals/Otp.js";
 import sendEmail from "../utils/emailService.js";
+import asyncHandler from "../utils/asyncHandler.js";
+import ApiResponse from "../utils/ApiResponse.js";
+import ApiError from "../utils/ApiError.js";
+import jwt from "jsonwebtoken";
 
 // --- Send OTP  ---
 export const sendOtp = async (req, res) => {
@@ -79,3 +83,34 @@ export const verifyOtp = async (req, res) => {
     });
   }
 };
+
+export const secureVerifyOtp = asyncHandler(async (req, res) => {
+  const { email, otp } = req.body;
+
+  const otpRecord = await Otp.findOne({ email, otp });
+
+  if (!otpRecord) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid OTP",
+    });
+  }
+
+  await Otp.deleteMany({ email });
+
+  const token = jwt.sign({ secure: true, email }, process.env.JWT_SECRET_KEY, {
+    expiresIn: "1d",
+  });
+
+  res.cookie("secure_access", token, {
+    httpOnly: false,
+    secure: false,
+    sameSite: "lax",
+    maxAge: 24 * 60 * 60 * 1000,
+  });
+
+  res.json({
+    success: true,
+    message: "Verified",
+  });
+});
