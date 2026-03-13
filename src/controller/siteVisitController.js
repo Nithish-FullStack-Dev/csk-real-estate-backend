@@ -4,6 +4,7 @@ import TeamManagement from "../modals/teamManagementModal.js";
 import Lead from "../modals/leadModal.js";
 import { buildLeadAccessQuery } from "./leadController.js";
 import CarAllocation from "../modals/carAllocation.js";
+import { createNotification } from "../utils/notificationHelper.js";
 
 const buildSiteVisitAccessQuery = async (user) => {
   const { role, _id } = user;
@@ -34,6 +35,56 @@ const buildSiteVisitAccessQuery = async (user) => {
 };
 
 //* CREATE a new site visit
+
+// export const createSiteVisit = async (req, res) => {
+//   try {
+//     const accessQuery = await buildLeadAccessQuery(req.user);
+
+//     const lead = await Lead.findOne({
+//       _id: req.body.clientId,
+//       isDeleted: false,
+//       ...accessQuery,
+//     });
+
+//     if (!lead) {
+//       return res.status(403).json({ error: "Unauthorized lead selection" });
+//     }
+
+//     // VEHICLE VALIDATION
+//     // VEHICLE VALIDATION
+//     if (req.body.vehicleId) {
+//       const vehicle = await CarAllocation.findById(req.body.vehicleId);
+
+//       if (!vehicle) {
+//         return res.status(404).json({ error: "Vehicle not found" });
+//       }
+
+//       if (vehicle.status !== "available" && vehicle.status !== "assigned") {
+//         return res.status(400).json({ error: "Vehicle not available" });
+//       }
+//     }
+
+//     const siteVisit = new SiteVisit({
+//       clientId: req.body.clientId,
+//       priority: req.body.priority,
+//       date: req.body.date,
+//       time: req.body.time,
+//       notes: req.body.notes,
+//       bookedBy: req.user._id,
+//       status: "pending",
+//       createdBy: req.user._id,
+//       ...(req.body.vehicleId && { vehicleId: req.body.vehicleId }),
+//     });
+
+//     await siteVisit.save();
+//     res.status(201).json(siteVisit);
+//   } catch (error) {
+//     res.status(400).json({
+//       error: "Failed to create site visit",
+//       details: error,
+//     });
+//   }
+// };
 
 export const createSiteVisit = async (req, res) => {
   try {
@@ -77,6 +128,46 @@ export const createSiteVisit = async (req, res) => {
     });
 
     await siteVisit.save();
+
+    /* =========================================================
+       🔔 4.1 Vehicle Booking Requested Notification
+       Notify: Team Lead + Admin (Fleet Approver)
+    ========================================================= */
+
+    const team = await TeamManagement.findOne({
+      agentId: req.user._id,
+      isDeleted: false,
+    }).select("teamLeadId");
+
+    let teamLeadId = null;
+
+    if (team) {
+      teamLeadId = team.teamLeadId;
+    }
+
+    const admins = await User.find({
+      role: "admin",
+    }).select("_id");
+
+    const receivers = [
+      teamLeadId,
+      ...admins.map((u) => u._id),
+    ].filter(Boolean);
+
+    if (receivers.length > 0) {
+      await createNotification({
+        userId: receivers,
+        title: "Vehicle Booking Requested",
+        message: `A vehicle booking has been requested for a site visit.`,
+        triggeredBy: req.user._id,
+        category: "vehicle",
+        priority: "P2",
+        deepLink: `/site-visits/${siteVisit._id}`,
+        entityType: "SiteVisit",
+        entityId: siteVisit._id,
+      });
+    }
+
     res.status(201).json(siteVisit);
   } catch (error) {
     res.status(400).json({
