@@ -97,7 +97,7 @@ export const createSiteVisit = async (req, res) => {
     });
 
     if (!lead) {
-      return res.status(403).json({ error: "Unauthorized lead selection" });
+      return res.status(403).json({ message: "Unauthorized lead selection" });
     }
 
     // VEHICLE VALIDATION
@@ -105,11 +105,11 @@ export const createSiteVisit = async (req, res) => {
       const vehicle = await CarAllocation.findById(req.body.vehicleId);
 
       if (!vehicle) {
-        return res.status(404).json({ error: "Vehicle not found" });
+        return res.status(404).json({ message: "Vehicle not found" });
       }
 
       if (vehicle.status !== "available" && vehicle.status !== "assigned") {
-        return res.status(400).json({ error: "Vehicle not available" });
+        return res.status(400).json({ message: "Vehicle not available" });
       }
     }
 
@@ -120,9 +120,11 @@ export const createSiteVisit = async (req, res) => {
       time: req.body.time,
       notes: req.body.notes,
       bookedBy: req.user._id,
-      status: "pending",
       createdBy: req.user._id,
-      ...(req.body.vehicleId && { vehicleId: req.body.vehicleId }),
+      vehicleId: req.body.vehicleId || null,
+
+      approvalStatus: "pending",
+      visitStatus: "scheduled",
     });
 
     await siteVisit.save();
@@ -169,7 +171,7 @@ export const createSiteVisit = async (req, res) => {
     res.status(201).json(siteVisit);
   } catch (error) {
     res.status(400).json({
-      error: "Failed to create site visit",
+      message: "Failed to create site visit",
       details: error,
     });
   }
@@ -234,7 +236,7 @@ export const getAllSiteVisits = async (req, res) => {
     res.status(200).json(siteVisits);
   } catch (error) {
     res.status(500).json({
-      error: "Failed to fetch site visits",
+      message: "Failed to fetch site visits",
       details: error.message,
     });
   }
@@ -260,6 +262,7 @@ export const getMyTeamSiteVisits = async (req, res) => {
     const visits = await SiteVisit.find({
       bookedBy: { $in: agentIds },
       isDeleted: false,
+      approvalStatus: { $in: ["pending", "approved"] },
     })
       .populate("bookedBy", "name email role avatar")
       .populate("vehicleId")
@@ -283,6 +286,21 @@ export const getMyTeamSiteVisits = async (req, res) => {
             path: "unit",
             model: "PropertyUnit",
             select: "_id plotNo propertyType totalAmount",
+          },
+          {
+            path: "openPlot",
+            model: "OpenPlot",
+            select: "_id projectName openPlotNo",
+          },
+          {
+            path: "innerPlot",
+            model: "InnerPlot",
+            select: "_id plotNo",
+          },
+          {
+            path: "openLand",
+            model: "OpenLand",
+            select: "_id projectName location landType",
           },
           {
             path: "addedBy",
@@ -333,6 +351,21 @@ export const getSiteVisitById = async (req, res) => {
             select: "_id plotNo propertyType totalAmount",
           },
           {
+            path: "openPlot",
+            model: "OpenPlot",
+            select: "_id projectName openPlotNo",
+          },
+          {
+            path: "innerPlot",
+            model: "InnerPlot",
+            select: "_id plotNo",
+          },
+          {
+            path: "openLand",
+            model: "OpenLand",
+            select: "_id projectName location landType",
+          },
+          {
             path: "addedBy",
             model: "User",
             select: "name email role avatar",
@@ -347,7 +380,7 @@ export const getSiteVisitById = async (req, res) => {
   } catch (error) {
     res
       .status(500)
-      .json({ error: "Error fetching site visits", details: error.message });
+      .json({ message: "Error fetching site visits", details: error.message });
   }
 };
 
@@ -364,7 +397,9 @@ export const updateSiteVisit = async (req, res) => {
     });
 
     if (!visit) {
-      return res.status(403).json({ error: "Unauthorized or visit not found" });
+      return res
+        .status(403)
+        .json({ message: "Unauthorized or visit not found" });
     }
 
     // allowed fields only
@@ -384,11 +419,11 @@ export const updateSiteVisit = async (req, res) => {
       });
 
       if (!vehicle) {
-        return res.status(404).json({ error: "Vehicle not found" });
+        return res.status(404).json({ message: "Vehicle not found" });
       }
 
       if (vehicle.status !== "available" && vehicle.status !== "assigned") {
-        return res.status(400).json({ error: "Vehicle not available" });
+        return res.status(400).json({ message: "Vehicle not available" });
       }
 
       updatePayload.vehicleId = req.body.vehicleId;
@@ -402,7 +437,7 @@ export const updateSiteVisit = async (req, res) => {
     res.status(200).json(updated);
   } catch (error) {
     res.status(400).json({
-      error: "Failed to update site visit",
+      message: "Failed to update site visit",
       details: error,
     });
   }
@@ -421,7 +456,9 @@ export const deleteSiteVisit = async (req, res) => {
     });
 
     if (!visit) {
-      return res.status(403).json({ error: "Unauthorized or visit not found" });
+      return res
+        .status(403)
+        .json({ message: "Unauthorized or visit not found" });
     }
 
     await SiteVisit.findByIdAndUpdate(id, {
@@ -433,7 +470,7 @@ export const deleteSiteVisit = async (req, res) => {
   } catch (error) {
     res
       .status(500)
-      .json({ error: "Failed to delete site visit", details: error });
+      .json({ message: "Failed to delete site visit", details: error });
   }
 };
 
@@ -483,17 +520,25 @@ export const getSiteVisitOfAgents = async (req, res) => {
 
     res.status(200).json(siteVisits);
   } catch (error) {
-    res.status(500).json({ error: "Server Error" });
+    res.status(500).json({ message: "Server Error" });
   }
 };
 
 export const approvalOrRejectStatus = async (req, res) => {
   try {
-    const { role, _id } = req.user;
-    const { _id: visitId, status, approvalNotes } = req.body;
+    if (req.user.role !== "team_lead" && req.user.role !== "admin") {
+      return res.status(403).json({
+        message: "Not allowed to approve",
+      });
+    }
 
-    if (!["confirmed", "cancelled"].includes(status)) {
-      return res.status(400).json({ error: "Invalid status value" });
+    const { _id } = req.user;
+    const { visitId, approvalStatus, approvalNotes } = req.body;
+
+    if (!["approved", "rejected"].includes(approvalStatus)) {
+      return res.status(400).json({
+        message: "Invalid approval status",
+      });
     }
 
     const accessQuery = await buildSiteVisitAccessQuery(req.user);
@@ -505,17 +550,86 @@ export const approvalOrRejectStatus = async (req, res) => {
     });
 
     if (!visit) {
-      return res.status(404).json({ error: "Visit not found" });
+      return res.status(404).json({
+        message: "Visit not found",
+      });
     }
 
-    const updatedVisit = await SiteVisit.findByIdAndUpdate(
-      visitId,
-      { status, approvalNotes, updatedBy: req.user._id },
-      { new: true },
-    );
+    // only pending can be approved
+    if (visit.approvalStatus !== "pending") {
+      return res.status(400).json({
+        message: "Already processed",
+      });
+    }
 
-    res.status(200).json(updatedVisit);
+    visit.approvalStatus = approvalStatus;
+    visit.approvalNotes = approvalNotes || "";
+    visit.updatedBy = _id;
+
+    await visit.save();
+
+    res.status(200).json(visit);
   } catch (error) {
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+};
+
+export const updateVisitStatus = async (req, res) => {
+  try {
+    const { visitId, visitStatus } = req.body;
+
+    if (!["completed", "cancelled"].includes(visitStatus)) {
+      return res.status(400).json({
+        message: "Invalid visit status",
+      });
+    }
+
+    const accessQuery = await buildSiteVisitAccessQuery(req.user);
+
+    const visit = await SiteVisit.findOne({
+      _id: visitId,
+      isDeleted: false,
+      ...accessQuery,
+    });
+
+    if (!visit) {
+      return res.status(404).json({
+        message: "Visit not found",
+      });
+    }
+
+    if (
+      visit.visitStatus === "completed" ||
+      visit.visitStatus === "cancelled"
+    ) {
+      return res.status(400).json({
+        message: "Visit already finalized",
+      });
+    }
+
+    if (visit.visitStatus !== "scheduled") {
+      return res.status(400).json({
+        message: "Visit already processed",
+      });
+    }
+
+    if (visit.approvalStatus !== "approved") {
+      return res.status(400).json({
+        message: "Visit not approved yet",
+      });
+    }
+
+    visit.visitStatus = visitStatus;
+    visit.updatedBy = req.user._id;
+
+    await visit.save();
+
+    res.status(200).json(visit);
+  } catch (error) {
+    res.status(500).json({
+      message: "Internal server error",
+    });
   }
 };

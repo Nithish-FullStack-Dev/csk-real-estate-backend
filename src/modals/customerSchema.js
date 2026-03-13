@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import CustomerPayment from "./CustomerPayment.js";
 
 const { Schema, model, Types } = mongoose;
 
@@ -106,9 +107,7 @@ const purchaseSchema = new Schema(
 
     balancePayment: {
       type: Number,
-      default: function () {
-        return (this.totalAmount || 0) - (this.advanceReceived || 0);
-      },
+      default: 0,
     },
 
     lastPaymentDate: {
@@ -128,25 +127,6 @@ const purchaseSchema = new Schema(
         "Custom Plan",
       ],
     },
-
-    paymentDetails: [
-      {
-        amount: {
-          type: Number,
-          min: [0, "Payment amount cannot be negative"],
-        },
-        date: {
-          type: Date,
-          validate: {
-            validator: (v) => !v || !isNaN(v),
-            message: "Payment date is invalid",
-          },
-        },
-        paymentMode: { type: String, trim: true },
-        referenceNumber: { type: String, trim: true },
-        remarks: { type: String, trim: true },
-      },
-    ],
 
     notes: {
       type: String,
@@ -267,5 +247,30 @@ purchaseSchema.pre("validate", function (next) {
 
   next();
 });
+
+purchaseSchema.statics.recalculateBalance = async function (customerId) {
+  const Customer = this;
+
+  const customer = await Customer.findById(customerId);
+
+  if (!customer) return;
+
+  const payments = await CustomerPayment.aggregate([
+    { $match: { customerId: customer._id } },
+    {
+      $group: {
+        _id: null,
+        total: { $sum: "$amount" },
+      },
+    },
+  ]);
+
+  const paid = payments[0]?.total || 0;
+
+  customer.balancePayment =
+    (customer.totalAmount || 0) - (customer.advanceReceived || 0) - paid;
+
+  await customer.save();
+};
 
 export default model("Customer", purchaseSchema);

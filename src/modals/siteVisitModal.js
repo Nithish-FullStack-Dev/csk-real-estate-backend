@@ -21,11 +21,19 @@ const SiteVisitSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    status: {
+
+    approvalStatus: {
       type: String,
-      enum: ["confirmed", "pending", "completed", "cancelled"],
+      enum: ["pending", "approved", "rejected"],
       default: "pending",
     },
+
+    visitStatus: {
+      type: String,
+      enum: ["scheduled", "completed", "cancelled"],
+      default: "scheduled",
+    },
+
     notes: {
       type: String,
     },
