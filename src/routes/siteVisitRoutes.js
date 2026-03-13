@@ -8,6 +8,7 @@ import {
   getSiteVisitOfAgents,
   approvalOrRejectStatus,
   getMyTeamSiteVisits,
+  updateVisitStatus,
 } from "../controller/siteVisitController.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
 const router = express.Router();
@@ -20,5 +21,6 @@ router.get("/getSiteVisitOfAgents", authenticate, getSiteVisitOfAgents);
 router.patch("/approvalOrReject", authenticate, approvalOrRejectStatus);
 router.put("/updateSite/:id", authenticate, updateSiteVisit);
 router.delete("/deleteSite/:id", authenticate, deleteSiteVisit);
+router.patch("/updateVisitStatus", authenticate, updateVisitStatus);
 
 export default router;

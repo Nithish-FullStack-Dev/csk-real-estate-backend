@@ -161,7 +161,6 @@ export const getUnassignedAgents = async (req, res) => {
     // Step 2: Find agents (role: 'agent') who are NOT assigned
     const unassignedAgents = await User.find({
       role: "agent",
-      isDeleted: false,
       _id: { $nin: excludeIds },
     }).select("-password"); // Exclude password field for safety
 
