@@ -148,7 +148,6 @@ export const updateProperty = async (req, res) => {
         role: { $in: ["owner", "sales_manager", "agent"] },
       }).select("_id");
 
-<<<<<<< HEAD
       await Promise.all(
         receivers.map((user) =>
           createNotification({
@@ -159,28 +158,6 @@ export const updateProperty = async (req, res) => {
           }),
         ),
       );
-=======
-      const customerId = property?.customerInfo?.customer;
-
-      const receivers = [
-        ...owners.map((u) => u._id),
-        customerId,
-      ].filter(Boolean);
-
-      await createNotification({
-        userId: receivers,
-        title: "Customer Assigned to Property",
-        message: `A customer has been linked to property ${
-          property.propertyName || property._id
-        }.`,
-        triggeredBy: req.user._id,
-        category: "property",
-        priority: "P2",
-        deepLink: `/properties/${property._id}`,
-        entityType: "Property",
-        entityId: property._id,
-      });
->>>>>>> affd563 (feat: Enhance notification system across controllers)
     };
 
     const notifyPropertyStatusChange = async (property, status) => {
@@ -264,14 +241,8 @@ export const updateProperty = async (req, res) => {
       return res.status(404).json({ message: "Property not found" });
     }
 
-<<<<<<< HEAD
     // 🔔 Notify on Sold status (ADDED)
     const propertyStatus = updatedData?.customerInfo?.propertyStatus || "";
-=======
-    /* =========================================================
-       🔔 2.1 Customer Assigned Notification
-    ========================================================= */
->>>>>>> affd563 (feat: Enhance notification system across controllers)
 
     const customerAssigned = updatedData?.customerInfo?.customer;
     if (customerAssigned) {
@@ -282,7 +253,7 @@ export const updateProperty = async (req, res) => {
        🔔 2.2 Property Status Change Notification
     ========================================================= */
 
-    const propertyStatus = updatedData?.customerInfo?.propertyStatus || "";
+    // const propertyStatus = updatedData?.customerInfo?.propertyStatus || "";
     if (propertyStatus) {
       await notifyPropertyStatusChange(existingProperty, propertyStatus);
     }

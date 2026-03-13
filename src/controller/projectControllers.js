@@ -5,11 +5,7 @@ import QualityIssue from "../modals/qualityIssue.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
-<<<<<<< HEAD
 import Customer from "../modals/customerSchema.js";
-=======
-import { createNotification } from "../utils/notificationHelper.js";
->>>>>>> affd563 (feat: Enhance notification system across controllers)
 
 import ContractorModel from "../modals/contractor.model.js";
 import { createNotification } from "../utils/notificationHelper.js";
@@ -438,7 +434,6 @@ export const updateProject = asyncHandler(async (req, res) => {
      Notify: Site Incharge + Contractors (if linked)
   ========================================================= */
 
-<<<<<<< HEAD
     await Promise.all(
       receivers.map((user) =>
         createNotification({
@@ -450,13 +445,6 @@ export const updateProject = asyncHandler(async (req, res) => {
           triggeredBy: req.user._id,
         }),
       ),
-=======
-  if (updateData.siteIncharge) {
-    const contractorIds = updatedProject.contractors || [];
-
-    const receivers = [updateData.siteIncharge, ...contractorIds].filter(
-      Boolean,
->>>>>>> affd563 (feat: Enhance notification system across controllers)
     );
 
     await createNotification({
@@ -470,7 +458,6 @@ export const updateProject = asyncHandler(async (req, res) => {
       entityType: "Project",
       entityId: updatedProject._id,
     });
-  }
 
   return res
     .status(200)

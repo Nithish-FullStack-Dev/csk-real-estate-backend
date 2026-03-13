@@ -5,7 +5,6 @@ import clientPromise from "../lib/mongodb.js";
 import { auth } from "../middlewares/auth.js";
 import jwt from "jsonwebtoken";
 const router = express.Router();
-<<<<<<< HEAD
 import { createNotification } from "../utils/notificationHelper.js";
 import fs from "fs";
 
@@ -23,10 +22,6 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage });
-=======
-const upload = multer();
-import { createNotification } from "../utils/notificationHelper.js";
->>>>>>> affd563 (feat: Enhance notification system across controllers)
 
 /* ======================================
    CREATE TASK
@@ -349,15 +344,8 @@ router.put("/", upload.array("attachment"), async (req, res) => {
       return res.status(404).json({ error: "Task not found" });
     }
 
-<<<<<<< HEAD
     // ✅ fetch updated task (THIS WAS MISSING / WRONG)
     const updatedTask = await db.collection("tasks").findOne({ _id: taskId });
-=======
-    // ✅ fetch updated task
-    const updatedTask = await db
-      .collection("tasks")
-      .findOne({ _id: taskId });
->>>>>>> affd563 (feat: Enhance notification system across controllers)
 
     /* =========================================================
        🔔 3.2 Task Updated Notification

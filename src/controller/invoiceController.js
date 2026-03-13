@@ -1,11 +1,7 @@
 import mongoose from "mongoose";
 import Invoice from "../modals/invoice.js";
 import Project from "../modals/projects.js";
-import mongoose from "mongoose";
 import Payment from "../modals/payment.js";
-<<<<<<< HEAD
-import { createNotification } from "../utils/notificationHelper.js";
-=======
 import User from "../modals/user.js";
 
 import { createNotification } from "../utils/notificationHelper.js";
@@ -90,9 +86,6 @@ import { createNotification } from "../utils/notificationHelper.js";
 //     });
 //   }
 // };
-
-
->>>>>>> affd563 (feat: Enhance notification system across controllers)
 
 export const createInvoice = async (req, res) => {
   try {
@@ -490,9 +483,6 @@ export const getAllInvoices = async (req, res) => {
 //   }
 // };
 
-<<<<<<< HEAD
-=======
-
 export const updateInvoice = async (req, res) => {
   try {
     const { id } = req.params;
@@ -622,145 +612,7 @@ export const updateInvoice = async (req, res) => {
   }
 };
 
-// export const markInvoiceAsPaid = async (req, res) => {
-//   const { id } = req.params;
-//   const { paymentMethod, reconciliationAmount, isPaid, reconciledItemId } =
-//     req.body;
-//   const reconcile = req.query.reconcile === "true";
 
-//   // 🔔 Notification helper (ADDED)
-//   const notifyRevenueReceived = async (invoice) => {
-//     const receivers = await User.find({
-//       role: { $in: ["owner", "accountant"] },
-//     }).select("_id");
-
-//     await createNotification({
-//       userId: receivers.map((u) => u._id),
-//       title: "Payment Received",
-//       message: `Invoice ${invoice.invoiceNumber || invoice._id} has been paid.`,
-//       triggeredBy: req.user._id,
-//       category: "finance",
-//       priority: "P1",
-//       deepLink: `/finance/invoices/${invoice._id}`,
-//       entityType: "Invoice",
-//       entityId: invoice._id,
-//     });
-//   };
-
-//   try {
-//     if (!reconcile) {
-//       const invoice = await Invoice.findById(id);
-
-//       if (!invoice) {
-//         return res.status(404).json({ message: "Invoice not found" });
-//       }
-
-//       invoice.status = "paid";
-//       invoice.paymentMethod = paymentMethod;
-//       invoice.paymentDate = new Date();
-
-//       // ✅ VERY IMPORTANT
-//       invoice.approvedByAccountant = req.user._id;
-
-//       await invoice.save();
-
-//       const payment = new Payment({
-//         accountant: req.user._id,
-//         invoice: id,
-//         paymentNumber: "",
-//       });
-
-//       await payment.save();
-
-//       const shortId = payment._id.toString().slice(0, 6);
-//       const year = new Date().getFullYear();
-//       payment.paymentNumber = `PAY-${year}-${shortId.toUpperCase()}`;
-//       await payment.save();
-
-//       await payment.save(); // update with generated payment number
-
-//       // 🔔 Notify Owner + Accountant (ADDED)
-//       await notifyRevenueReceived(invoice);
-
-//       return res
-//         .status(200)
-//         .json({ message: "Invoice marked as paid", invoice, payment });
-//     }
-
-//     const invoice = await Invoice.findById(id);
-
-//     if (!invoice) {
-//       return res.status(404).json({ message: "Invoice not found" });
-//     }
-
-//     // Step 1: If reconcile is true, update invoice total and add to reconciliation history
-//     if (reconcile && reconciliationAmount != null && reconciledItemId) {
-//       const item = invoice.items.find(
-//         (it) => it._id.toString() === reconciledItemId.toString(),
-//       );
-
-//       if (!item) {
-//         return res.status(404).json({ message: "Reconciled item not found" });
-//       }
-
-//       // Update item amount (increase it)
-//       item.amount += reconciliationAmount;
-
-//       // Recalculate subtotal from all items
-//       const newSubtotal = invoice.items.reduce(
-//         (acc, curr) => acc + curr.amount,
-//         0,
-//       );
-//       invoice.subtotal = newSubtotal;
-
-//       // Recalculate tax amounts
-//       const sgstAmount = (invoice.sgst / 100) * newSubtotal;
-//       const cgstAmount = (invoice.cgst / 100) * newSubtotal;
-//       invoice.total = newSubtotal + sgstAmount + cgstAmount;
-
-//       // Push to reconciliation history
-//       invoice.reconciliationHistory.push({
-//         item: item.description,
-//         amount: reconciliationAmount,
-//         method: isPaid ? paymentMethod : "N/A",
-//         note: isPaid ? "Reconciled and paid" : "Reconciled without payment",
-//       });
-
-//       // If invoice is being paid
-//       if (isPaid) {
-//         invoice.status = "paid";
-//         invoice.paymentDate = new Date();
-
-//         if (!invoice.paymentMethod.includes(paymentMethod)) {
-//           invoice.paymentMethod.push(paymentMethod);
-//         }
-
-//         await invoice.save();
-
-//         // 🔔 Notify Owner + Accountant (ADDED)
-//         await notifyRevenueReceived(invoice);
-
-//         return res.status(200).json({
-//           message: "Invoice reconciled and marked as paid",
-//           invoice,
-//         });
-//       }
-
-//       // If only reconciled
-//       invoice.status = "pending";
-//       await invoice.save();
-
-//       return res.status(200).json({
-//         message: "Invoice reconciled (not paid)",
-//         invoice,
-//       });
-//     }
-//   } catch (error) {
-//     res.status(500).json({ message: "Server error", error: error.message });
-//   }
-// };
-
->>>>>>> affd563 (feat: Enhance notification system across controllers)
 export const markInvoiceAsPaid = async (req, res) => {
   const { id } = req.params;
   const { paymentMethod, reconciliationAmount, isPaid, reconciledItemId } =
@@ -775,7 +627,6 @@ export const markInvoiceAsPaid = async (req, res) => {
       role: { $in: ["owner", "accountant"] },
     }).select("_id");
 
-<<<<<<< HEAD
     await Promise.all(
       receivers.map((user) =>
         createNotification({
@@ -788,31 +639,6 @@ export const markInvoiceAsPaid = async (req, res) => {
         }),
       ),
     );
-=======
-    // Contractor (vendor)
-    const contractor = invoice.user;
-
-    // Customer (if invoice has one)
-    const customer = invoice.customer || null;
-
-    const receivers = [
-      ...financeUsers.map((u) => u._id),
-      contractor,
-      customer,
-    ].filter(Boolean);
-
-    await createNotification({
-      userId: receivers,
-      title: "Payment Recorded",
-      message: `Payment has been recorded for Invoice ${invoice.invoiceNumber || invoice._id}.`,
-      triggeredBy: req.user._id,
-      category: "finance",
-      priority: "P1",
-      deepLink: `/finance/invoices/${invoice._id}`,
-      entityType: "Invoice",
-      entityId: invoice._id,
-    });
->>>>>>> affd563 (feat: Enhance notification system across controllers)
   };
 
   try {
