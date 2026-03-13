@@ -5,6 +5,7 @@ import clientPromise from "../lib/mongodb.js";
 import { auth } from "../middlewares/auth.js";
 import jwt from "jsonwebtoken";
 const router = express.Router();
+<<<<<<< HEAD
 import { createNotification } from "../utils/notificationHelper.js";
 import fs from "fs";
 
@@ -22,6 +23,10 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage });
+=======
+const upload = multer();
+import { createNotification } from "../utils/notificationHelper.js";
+>>>>>>> affd563 (feat: Enhance notification system across controllers)
 
 /* ======================================
    CREATE TASK
@@ -97,6 +102,11 @@ router.post("/create", upload.array("attachment"), async (req, res) => {
       title: "New Task Assigned",
       message: `You have been assigned a new task: ${title}.`,
       triggeredBy: payload._id,
+      category: "task",
+      priority: priority === "high" ? "P1" : "P2",
+      deepLink: `/tasks/${result.insertedId}`,
+      entityType: "Task",
+      entityId: result.insertedId,
     });
 
     res.status(201).json({
@@ -193,6 +203,89 @@ router.get("/", async (req, res) => {
 /* ======================================
    UPDATE TASK
 ====================================== */
+// router.put("/", upload.array("attachment"), async (req, res) => {
+//   try {
+//     const { id } = req.body;
+
+//     const token =
+//       req.cookies?.token || req.headers.authorization?.split(" ")[1];
+
+//     if (!token) {
+//       return res.status(401).json({ error: "Unauthorized" });
+//     }
+
+//     const payload = jwt.verify(token, process.env.JWT_SECRET_KEY);
+//     if (!payload) {
+//       return res.status(401).json({ error: "Invalid token" });
+//     }
+
+//     if (!id || !ObjectId.isValid(id)) {
+//       return res.status(400).json({ error: "Invalid task id" });
+//     }
+
+//     const client = await clientPromise;
+//     const db = client.db();
+
+//     const taskId = new ObjectId(id);
+
+//     // ✅ build update object safely
+//     const update = {};
+
+//     if (req.body.title) update.title = req.body.title;
+//     if (req.body.description) update.description = req.body.description;
+//     if (req.body.assignee) update.assignee = req.body.assignee;
+//     if (req.body.priority) update.priority = req.body.priority;
+//     if (req.body.status) update.status = req.body.status;
+//     if (req.body.tags)
+//       update.tags = req.body.tags.split(",").map(t => t.trim());
+//     if (req.body.dueDate)
+//       update.dueDate = new Date(req.body.dueDate);
+
+//     if (req.files?.length) {
+//       const attachments = [];
+
+//       for (const file of req.files) {
+//         const uploaded = await cloudinary.uploader.upload(file.buffer, {
+//           folder: "kanban_attachments",
+//         });
+
+//         attachments.push({
+//           url: uploaded.secure_url,
+//           public_id: uploaded.public_id,
+//           size: file.size,
+//           contentType: file.mimetype,
+//           originalName: file.originalname,
+//         });
+//       }
+
+//       update.attachments = attachments;
+//     }
+
+//     // ✅ perform update
+//     const result = await db
+//       .collection("tasks")
+//       .updateOne({ _id: taskId }, { $set: update });
+
+//     if (result.matchedCount === 0) {
+//       return res.status(404).json({ error: "Task not found" });
+//     }
+
+//     // ✅ fetch updated task (THIS WAS MISSING / WRONG)
+//     const updatedTask = await db
+//       .collection("tasks")
+//       .findOne({ _id: taskId });
+
+//     // ✅ return what frontend expects
+//     res.json({
+//       success: true,
+//       task: updatedTask,
+//     });
+//   } catch (err) {
+//     console.error("UPDATE ERROR", err);
+//     res.status(500).json({ error: "Update failed" });
+//   }
+// });
+
 router.put("/", upload.array("attachment"), async (req, res) => {
   try {
     const { id } = req.body;
@@ -256,8 +349,43 @@ router.put("/", upload.array("attachment"), async (req, res) => {
       return res.status(404).json({ error: "Task not found" });
     }
 
+<<<<<<< HEAD
     // ✅ fetch updated task (THIS WAS MISSING / WRONG)
     const updatedTask = await db.collection("tasks").findOne({ _id: taskId });
+=======
+    // ✅ fetch updated task
+    const updatedTask = await db
+      .collection("tasks")
+      .findOne({ _id: taskId });
+>>>>>>> affd563 (feat: Enhance notification system across controllers)
+
+    /* =========================================================
+       🔔 3.2 Task Updated Notification
+       Notify: Assignee + Creator + Tagged users
+    ========================================================= */
+
+    const receivers = new Set();
+
+    if (updatedTask.assignee) receivers.add(updatedTask.assignee);
+    if (updatedTask.createdBy) receivers.add(updatedTask.createdBy);
+
+    if (Array.isArray(updatedTask.tags)) {
+      updatedTask.tags.forEach((tagUser) => receivers.add(tagUser));
+    }
+
+    if (receivers.size > 0) {
+      await createNotification({
+        userId: [...receivers],
+        title: "Task Updated",
+        message: `Task "${updatedTask.title}" has been updated. Check latest details.`,
+        triggeredBy: payload._id,
+        category: "task",
+        priority: "P2",
+        deepLink: `/tasks/${updatedTask._id}`,
+        entityType: "Task",
+        entityId: updatedTask._id,
+      });
+    }
 
     // ✅ return what frontend expects
     res.json({

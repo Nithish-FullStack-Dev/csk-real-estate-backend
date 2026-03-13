@@ -39,17 +39,116 @@ export const getPropertyById = async (req, res) => {
   }
 };
 
+// export const updateProperty = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const updatedData = req.body;
+
+//     // 🔔 Notification helper (ADDED)
+//     const notifyPropertySold = async (property) => {
+//       const receivers = await User.find({
+//         role: { $in: ["owner", "admin", "accountant"] },
+//       }).select("_id");
+
+//       await createNotification({
+//         userId: receivers.map((u) => u._id),
+//         title: "Property Sold",
+//         message: `Property ${property.propertyName || property._id} has been marked as Sold.`,
+//         triggeredBy: req.user._id,
+//         category: "property",
+//         priority: "P1",
+//         deepLink: `/properties/${property._id}`,
+//         entityType: "Property",
+//         entityId: property._id,
+//       });
+//     };
+
+//     // 1. Update the Property
+//     const existingProperty = await Property.findByIdAndUpdate(id, updatedData, {
+//       new: true,
+//     });
+
+//     if (!existingProperty) {
+//       return res.status(404).json({ message: "Property not found" });
+//     }
+
+//     // 🔔 Notify on Sold status (ADDED)
+//     const propertyStatus =
+//       updatedData?.customerInfo?.propertyStatus || "";
+
+//     if (propertyStatus === "Sold") {
+//       await notifyPropertySold(existingProperty);
+//     }
+
+//     // 2. Check if siteIncharge exists in request
+//     const siteIncharge = updatedData?.constructionDetails?.siteIncharge;
+
+//     if (siteIncharge) {
+//       const propertyId = existingProperty._id;
+
+//       // Optional fields - extract safely
+//       const priority = updatedData?.constructionDetails?.priority || "";
+//       const startDate = updatedData?.constructionDetails?.startDate || null;
+//       const endDate = updatedData?.constructionDetails?.endDate || null;
+//       const teamSize = updatedData?.constructionDetails?.teamSize || null;
+//       const estimatedBudget = updatedData.financialDetails?.totalAmount || null;
+//       const status = updatedData.customerInfo?.propertyStatus || "";
+
+//       // Parse units (optional: fallback to empty array)
+//       const unitsRaw = updatedData?.constructionDetails?.units || ""; // optional field
+//       const parsedUnits = unitsRaw
+//         .split(",")
+//         .map((u) => u.trim())
+//         .filter(Boolean);
+//       console.log("Parsed Units:", parsedUnits);
+//       const unitMap = {};
+//       parsedUnits.forEach((unit) => {
+//         unitMap[unit] = []; // Initialize empty task list
+//       });
+
+//       const projectPayload = {
+//         projectId: propertyId,
+//         siteIncharge,
+//         units: unitMap,
+//         priority,
+//         startDate,
+//         endDate,
+//         teamSize,
+//         estimatedBudget,
+//         status,
+//       };
+
+//       // 3. Upsert the Project
+//       await Project.findOneAndUpdate(
+//         { projectId: propertyId },
+//         projectPayload,
+//         { upsert: true, new: true, setDefaultsOnInsert: true }
+//       );
+//     }
+
+//     // 4. Return updated property
+//     res.status(200).json(existingProperty);
+//   } catch (error) {
+//     console.error("Error updating property:", error);
+//     res.status(500).json({ message: "Failed to update property", error });
+//   }
+// };
+
 export const updateProperty = async (req, res) => {
   try {
     const { id } = req.params;
     const updatedData = req.body;
 
-    // 🔔 Notification helper (ADDED)
-    const notifyPropertySold = async (property) => {
-      const receivers = await User.find({
-        role: { $in: ["owner", "admin", "accountant"] },
+    /* =========================================================
+       🔔 Notification Helpers
+    ========================================================= */
+
+    const notifyCustomerAssigned = async (property) => {
+      const owners = await User.find({
+        role: { $in: ["owner", "sales_manager", "agent"] },
       }).select("_id");
 
+<<<<<<< HEAD
       await Promise.all(
         receivers.map((user) =>
           createNotification({
@@ -60,9 +159,103 @@ export const updateProperty = async (req, res) => {
           }),
         ),
       );
+=======
+      const customerId = property?.customerInfo?.customer;
+
+      const receivers = [
+        ...owners.map((u) => u._id),
+        customerId,
+      ].filter(Boolean);
+
+      await createNotification({
+        userId: receivers,
+        title: "Customer Assigned to Property",
+        message: `A customer has been linked to property ${
+          property.propertyName || property._id
+        }.`,
+        triggeredBy: req.user._id,
+        category: "property",
+        priority: "P2",
+        deepLink: `/properties/${property._id}`,
+        entityType: "Property",
+        entityId: property._id,
+      });
+>>>>>>> affd563 (feat: Enhance notification system across controllers)
     };
 
-    // 1. Update the Property
+    const notifyPropertyStatusChange = async (property, status) => {
+      const receivers = await User.find({
+        role: { $in: ["owner", "sales_manager", "agent"] },
+      }).select("_id");
+
+      const users = receivers.map((u) => u._id);
+
+      await createNotification({
+        userId: users,
+        title: "Property Status Updated",
+        message: `Property ${
+          property.propertyName || property._id
+        } status changed to ${status}.`,
+        triggeredBy: req.user._id,
+        category: "property",
+        priority: "P2",
+        deepLink: `/properties/${property._id}`,
+        entityType: "Property",
+        entityId: property._id,
+      });
+
+      if (status === "Purchased") {
+        const customerId = property?.customerInfo?.customer;
+
+        if (customerId) {
+          await createNotification({
+            userId: customerId,
+            title: "Property Purchased",
+            message: `Congratulations! Property ${
+              property.propertyName || property._id
+            } is now marked as Purchased.`,
+            triggeredBy: req.user._id,
+            category: "property",
+            priority: "P1",
+            deepLink: `/properties/${property._id}`,
+            entityType: "Property",
+            entityId: property._id,
+          });
+        }
+      }
+    };
+
+    const notifyDocumentsUploaded = async (property) => {
+      const owners = await User.find({
+        role: { $in: ["owner", "agent"] },
+      }).select("_id");
+
+      const customerId = property?.customerInfo?.customer;
+
+      const receivers = [
+        ...owners.map((u) => u._id),
+        customerId,
+      ].filter(Boolean);
+
+      await createNotification({
+        userId: receivers,
+        title: "New Property Documents Uploaded",
+        message: `New documents were uploaded for property ${
+          property.propertyName || property._id
+        }.`,
+        triggeredBy: req.user._id,
+        category: "property",
+        priority: "P3",
+        deepLink: `/properties/${property._id}`,
+        entityType: "Property",
+        entityId: property._id,
+      });
+    };
+
+    /* =========================================================
+       1️⃣ Update Property
+    ========================================================= */
+
     const existingProperty = await Property.findByIdAndUpdate(id, updatedData, {
       new: true,
     });
@@ -71,37 +264,70 @@ export const updateProperty = async (req, res) => {
       return res.status(404).json({ message: "Property not found" });
     }
 
+<<<<<<< HEAD
     // 🔔 Notify on Sold status (ADDED)
     const propertyStatus = updatedData?.customerInfo?.propertyStatus || "";
+=======
+    /* =========================================================
+       🔔 2.1 Customer Assigned Notification
+    ========================================================= */
+>>>>>>> affd563 (feat: Enhance notification system across controllers)
 
-    if (propertyStatus === "Sold") {
-      await notifyPropertySold(existingProperty);
+    const customerAssigned = updatedData?.customerInfo?.customer;
+    if (customerAssigned) {
+      await notifyCustomerAssigned(existingProperty);
     }
 
-    // 2. Check if siteIncharge exists in request
+    /* =========================================================
+       🔔 2.2 Property Status Change Notification
+    ========================================================= */
+
+    const propertyStatus = updatedData?.customerInfo?.propertyStatus || "";
+    if (propertyStatus) {
+      await notifyPropertyStatusChange(existingProperty, propertyStatus);
+    }
+
+    /* =========================================================
+       🔔 2.3 Documents Uploaded Notification
+    ========================================================= */
+
+    const docsUploaded =
+      updatedData?.documents ||
+      updatedData?.customerInfo?.documents ||
+      updatedData?.constructionDetails?.documents;
+
+    if (docsUploaded) {
+      await notifyDocumentsUploaded(existingProperty);
+    }
+
+    /* =========================================================
+       2️⃣ Check if siteIncharge exists in request
+    ========================================================= */
+
     const siteIncharge = updatedData?.constructionDetails?.siteIncharge;
 
     if (siteIncharge) {
       const propertyId = existingProperty._id;
 
-      // Optional fields - extract safely
       const priority = updatedData?.constructionDetails?.priority || "";
       const startDate = updatedData?.constructionDetails?.startDate || null;
       const endDate = updatedData?.constructionDetails?.endDate || null;
       const teamSize = updatedData?.constructionDetails?.teamSize || null;
-      const estimatedBudget = updatedData.financialDetails?.totalAmount || null;
+      const estimatedBudget =
+        updatedData.financialDetails?.totalAmount || null;
       const status = updatedData.customerInfo?.propertyStatus || "";
 
-      // Parse units (optional: fallback to empty array)
-      const unitsRaw = updatedData?.constructionDetails?.units || ""; // optional field
+      const unitsRaw = updatedData?.constructionDetails?.units || "";
       const parsedUnits = unitsRaw
         .split(",")
         .map((u) => u.trim())
         .filter(Boolean);
+
       console.log("Parsed Units:", parsedUnits);
+
       const unitMap = {};
       parsedUnits.forEach((unit) => {
-        unitMap[unit] = []; // Initialize empty task list
+        unitMap[unit] = [];
       });
 
       const projectPayload = {
@@ -116,7 +342,6 @@ export const updateProperty = async (req, res) => {
         status,
       };
 
-      // 3. Upsert the Project
       await Project.findOneAndUpdate(
         { projectId: propertyId },
         projectPayload,
@@ -124,7 +349,10 @@ export const updateProperty = async (req, res) => {
       );
     }
 
-    // 4. Return updated property
+    /* =========================================================
+       4️⃣ Return Response
+    ========================================================= */
+
     res.status(200).json(existingProperty);
   } catch (error) {
     console.error("Error updating property:", error);

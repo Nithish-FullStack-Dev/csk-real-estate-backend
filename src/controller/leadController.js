@@ -9,6 +9,34 @@ import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import { createNotification } from "../utils/notificationHelper.js";
 
+// export const saveLead = asyncHandler(async (req, res) => {
+//   const leadData = req.body;
+//   leadData.addedBy = req.user._id;
+//   leadData.createdBy = req.user._id;
+//   leadData.isPropertyLead = true;
+
+//   const newLead = new Lead(leadData);
+//   const savedLead = await newLead.save();
+
+//   // 🔔 Notify Sales Managers about new lead
+//   const managers = await User.find({ role: "sales_manager" });
+//   await createNotification({
+//     userId: managers.map((m) => m._id),
+//     title: "New Lead Added",
+//     message: `A new lead for ${savedLead.name} has been added by ${req.user.name}.`,
+//     triggeredBy: req.user._id,
+//     category: "lead",
+//     priority: "P2",
+//     deepLink: `/leads/${savedLead._id}`,
+//     entityType: "Lead",
+//     entityId: savedLead._id,
+//   });
+
+//   res
+//     .status(201)
+//     .json(new ApiResponse(201, savedLead, "Lead saved successfully"));
+// });
+
 export const saveLead = asyncHandler(async (req, res) => {
   const leadData = req.body;
   leadData.addedBy = req.user._id;
@@ -18,21 +46,75 @@ export const saveLead = asyncHandler(async (req, res) => {
   const newLead = new Lead(leadData);
   const savedLead = await newLead.save();
 
-  // 🔔 Notify Sales Managers about new lead
-  const managers = await User.find({ role: "sales_manager" });
-  for (const manager of managers) {
-    await createNotification({
-      userId: manager._id,
-      title: "New Lead Added",
-      message: `A new lead for ${savedLead.name} has been added by ${req.user.name}.`,
-      triggeredBy: req.user._id,
-    });
-  }
+  // =========================================================
+  // 🔔 1.1 New Lead Created Notification
+  // Notify: Sales Manager + Admin (optional)
+  // =========================================================
+
+  const salesManagers = await User.find({ role: "sales_manager" }).select("_id");
+  const admins = await User.find({ role: "admin" }).select("_id");
+
+  const receivers = [
+    ...salesManagers.map((u) => u._id),
+    ...admins.map((u) => u._id), // optional admin notification
+  ];
+
+  await createNotification({
+    userId: receivers,
+    title: "New Lead Created",
+    message: `A new lead (${savedLead.name}) has been added and needs assignment.`,
+    triggeredBy: req.user._id,
+    category: "lead",
+    priority: "P2",
+    deepLink: `/leads/${savedLead._id}`,
+    entityType: "Lead",
+    entityId: savedLead._id,
+  });
 
   res
     .status(201)
     .json(new ApiResponse(201, savedLead, "Lead saved successfully"));
 });
+
+// export const createOpenPlotLead = asyncHandler(async (req, res) => {
+//   const { openPlot, name, email, phone, source, notes, innerPlot } = req.body;
+
+//   if (!openPlot || !innerPlot) {
+//     return res
+//       .status(400)
+//       .json(new ApiResponse(400, null, "Open plot is required"));
+//   }
+
+//   const lead = await Lead.create({
+//     name,
+//     email,
+//     phone,
+//     source,
+//     notes,
+
+//     // plot relation
+//     openPlot,
+//     innerPlot,
+
+//     // reset others
+//     property: null,
+//     floorUnit: null,
+//     unit: null,
+//     openLand: null,
+
+//     // flags
+//     isPlotLead: true,
+//     isLandLead: false,
+//     isPropertyLead: false,
+
+//     addedBy: req.user._id,
+//     createdBy: req.user._id,
+//   });
+
+//   res
+//     .status(201)
+//     .json(new ApiResponse(201, lead, "Open plot lead created successfully"));
+// });
 
 export const createOpenPlotLead = asyncHandler(async (req, res) => {
   const { openPlot, name, email, phone, source, notes, innerPlot } = req.body;
@@ -69,10 +151,75 @@ export const createOpenPlotLead = asyncHandler(async (req, res) => {
     createdBy: req.user._id,
   });
 
+  // =========================================================
+  // 🔔 1.1 New Lead Created (Open Plot Lead)
+  // Notify: Sales Manager + Admin
+  // =========================================================
+
+  const salesManagers = await User.find({ role: "sales_manager" }).select("_id");
+  const admins = await User.find({ role: "admin" }).select("_id");
+
+  const receivers = [
+    ...salesManagers.map((u) => u._id),
+    ...admins.map((u) => u._id),
+  ];
+
+  await createNotification({
+    userId: receivers,
+    title: "New Lead Created",
+    message: `A new open plot lead (${lead.name}) has been added and needs assignment.`,
+    triggeredBy: req.user._id,
+    category: "lead",
+    priority: "P2",
+    deepLink: `/leads/${lead._id}`,
+    entityType: "Lead",
+    entityId: lead._id,
+  });
+
   res
     .status(201)
     .json(new ApiResponse(201, lead, "Open plot lead created successfully"));
 });
+
+// export const createOpenLandLead = asyncHandler(async (req, res) => {
+//   const { openLand, name, email, phone, source, notes } = req.body;
+
+//   if (!openLand) {
+//     return res
+//       .status(400)
+//       .json(new ApiResponse(400, null, "Open land is required"));
+//   }
+
+//   const lead = await Lead.create({
+//     name,
+//     email,
+//     phone,
+//     source,
+//     notes,
+
+//     // land relation
+//     openLand,
+
+//     // reset others
+//     property: null,
+//     floorUnit: null,
+//     unit: null,
+//     openPlot: null,
+//     innerPlot: null,
+
+//     // flags
+//     isLandLead: true,
+//     isPlotLead: false,
+//     isPropertyLead: false,
+
+//     addedBy: req.user._id,
+//     createdBy: req.user._id,
+//   });
+
+//   res
+//     .status(201)
+//     .json(new ApiResponse(201, lead, "Open land lead created successfully"));
+// });
 
 export const createOpenLandLead = asyncHandler(async (req, res) => {
   const { openLand, name, email, phone, source, notes } = req.body;
@@ -107,6 +254,31 @@ export const createOpenLandLead = asyncHandler(async (req, res) => {
 
     addedBy: req.user._id,
     createdBy: req.user._id,
+  });
+
+  // =========================================================
+  // 🔔 1.1 New Lead Created (Open Land Lead)
+  // Notify: Sales Manager + Admin (optional)
+  // =========================================================
+
+  const salesManagers = await User.find({ role: "sales_manager" }).select("_id");
+  const admins = await User.find({ role: "admin" }).select("_id");
+
+  const receivers = [
+    ...salesManagers.map((u) => u._id),
+    ...admins.map((u) => u._id),
+  ];
+
+  await createNotification({
+    userId: receivers,
+    title: "New Lead Created",
+    message: `A new open land lead (${lead.name}) has been added and needs assignment.`,
+    triggeredBy: req.user._id,
+    category: "lead",
+    priority: "P2",
+    deepLink: `/leads/${lead._id}`,
+    entityType: "Lead",
+    entityId: lead._id,
   });
 
   res
@@ -243,6 +415,127 @@ export const getLeadsByUserId = async (req, res) => {
   }
 };
 
+// export const updateLeadById = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const { role, _id } = req.user;
+
+//     const lead = await Lead.findOne({ _id: id, isDeleted: false });
+//     if (!lead) {
+//       return res.status(404).json({ message: "Lead not found" });
+//     }
+
+//     // RBAC
+//     if (
+//       role !== "admin" &&
+//       role !== "sales_manager" &&
+//       lead.addedBy.toString() !== _id.toString()
+//     ) {
+//       return res.status(403).json({ message: "Unauthorized" });
+//     }
+
+//     const {
+//       name,
+//       email,
+//       phone,
+//       source,
+//       status,
+//       propertyStatus,
+//       notes,
+//       property,
+//       floorUnit,
+//       unit,
+//       openPlot,
+//       innerPlot,
+//       openLand,
+//     } = req.body;
+
+//     const update = {
+//       name,
+//       email,
+//       phone,
+//       source,
+//       status,
+//       propertyStatus,
+//       notes,
+//       lastContact: new Date(),
+//       updatedBy: req.user._id,
+//     };
+
+//     /* ---------------- Lead-type enforcement ---------------- */
+
+//     // PROPERTY LEAD
+//     if (lead.isPropertyLead) {
+//       update.property = property;
+//       update.floorUnit = floorUnit;
+//       update.unit = unit;
+
+//       update.openPlot = null;
+//       update.innerPlot = null;
+//       update.openLand = null;
+//     }
+
+//     // PLOT LEAD
+//     if (lead.isPlotLead) {
+//       update.openPlot = openPlot;
+//       update.innerPlot = innerPlot;
+
+//       update.property = null;
+//       update.floorUnit = null;
+//       update.unit = null;
+//       update.openLand = null;
+//     }
+
+//     // LAND LEAD
+//     if (lead.isLandLead) {
+//       update.openLand = openLand;
+
+//       update.property = null;
+//       update.floorUnit = null;
+//       update.unit = null;
+//       update.openPlot = null;
+//       update.innerPlot = null;
+//     }
+
+//     const oldPropertyStatus = lead.propertyStatus;
+
+//     const updatedLead = await Lead.findOneAndUpdate(
+//       { _id: id, isDeleted: false },
+//       update,
+//       {
+//         new: true,
+//         runValidators: true,
+//       },
+//     );
+
+//     // 🔔 Notify lead owner if status changed
+//     if (status && status !== lead.status) {
+//       await createNotification({
+//         userId: updatedLead.addedBy,
+//         title: "Lead Status Updated",
+//         message: `Lead ${updatedLead.name} status changed from ${lead.status} to ${status}.`,
+//         triggeredBy: req.user._id,
+//         category: "lead",
+//         priority: "P2",
+//         deepLink: `/leads/${updatedLead._id}`,
+//         entityType: "Lead",
+//         entityId: updatedLead._id,
+//       });
+//     }
+
+//     res.status(200).json({
+//       message: "Lead updated successfully",
+//       updatedLead,
+//     });
+//   } catch (error) {
+//     console.error("Update Lead Error:", error);
+//     res.status(500).json({
+//       message: "Server error",
+//       error: error.message,
+//     });
+//   }
+// };
+
 export const updateLeadById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -336,13 +629,50 @@ export const updateLeadById = async (req, res) => {
       },
     );
 
-    // 🔔 Notify lead owner if status changed
+    /* =========================================================
+       🔔 1.3 Lead Status Changed Notification
+       Notify: Agent + Team Lead + Sales Manager
+    ========================================================= */
+
     if (status && status !== lead.status) {
+      // Agent (lead owner)
+      const agentId = updatedLead.addedBy;
+
+      // Find team lead of this agent
+      const team = await TeamManagement.findOne({
+        agentId: agentId,
+        isDeleted: false,
+      }).select("teamLeadId");
+
+      let teamLeadId = null;
+      let salesManagerId = null;
+
+      if (team) {
+        teamLeadId = team.teamLeadId;
+
+        // Find sales manager of that team lead
+        const teamLead = await TeamLeads.findOne({
+          teamLeadId: teamLeadId,
+          isDeleted: false,
+        }).select("salesId");
+
+        if (teamLead) {
+          salesManagerId = teamLead.salesId;
+        }
+      }
+
+      const receivers = [agentId, teamLeadId, salesManagerId].filter(Boolean);
+
       await createNotification({
-        userId: updatedLead.addedBy,
+        userId: receivers,
         title: "Lead Status Updated",
         message: `Lead ${updatedLead.name} status changed from ${lead.status} to ${status}.`,
         triggeredBy: req.user._id,
+        category: "lead",
+        priority: "P2",
+        deepLink: `/leads/${updatedLead._id}`,
+        entityType: "Lead",
+        entityId: updatedLead._id,
       });
     }
 

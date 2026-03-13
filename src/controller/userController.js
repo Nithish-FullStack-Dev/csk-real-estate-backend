@@ -4,6 +4,7 @@ import bcrypt from "bcrypt";
 import Customer from "../modals/customerSchema.js";
 import jwt from "jsonwebtoken";
 import { tokenBlacklist } from "../utils/tokenBlacklist.js";
+import { createNotification } from "../utils/notificationHelper.js";
 
 export const createUser = async (req, res) => {
   try {
@@ -40,6 +41,21 @@ export const createUser = async (req, res) => {
     });
 
     await newUser.save();
+
+    // 🔔 Notify Admin + Owner about new user creation
+    const admins = await User.find({ role: { $in: ["admin", "owner"] } }).select("_id");
+    await createNotification({
+      userId: admins.map((u) => u._id),
+      title: "New User Created",
+      message: `A new user ${name} (${roleName}) has been created.`,
+      triggeredBy: req.user?._id || newUser._id,
+      category: "system",
+      priority: "P2",
+      deepLink: `/admin/users/${newUser._id}`,
+      entityType: "User",
+      entityId: newUser._id,
+    });
+
     res.status(201).json({ message: "User created", user: newUser });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
@@ -204,6 +220,18 @@ export const deleteUser = async (req, res) => {
     if (!deletedUser) {
       return res.status(404).json({ message: "User not found." });
     }
+
+    // 🔔 Notify Admin + Owner about user deletion
+    const admins = await User.find({ role: { $in: ["admin", "owner"] } }).select("_id");
+    await createNotification({
+      userId: admins.map((u) => u._id),
+      title: "User Deleted",
+      message: `User ${deletedUser.name} has been deleted from the system.`,
+      triggeredBy: req.user?._id,
+      category: "system",
+      priority: "P1",
+      deepLink: "/admin/users",
+    });
 
     res.status(200).json({
       message: "User deleted successfully.",
