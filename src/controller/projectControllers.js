@@ -67,6 +67,61 @@ export const getUserProjects = async (req, res) => {
   }
 };
 
+// export const createProject = async (req, res) => {
+//   try {
+//     const {
+//       projectId,
+//       clientName,
+//       floorUnit,
+//       unit,
+//       startDate,
+//       endDate,
+//       estimatedBudget,
+//       description,
+//       teamSize,
+//       siteIncharge,
+//       status,
+//     } = req.body;
+
+//     const existingProject = await Project.findOne({
+//       projectId,
+//       floorUnit,
+//       unit,
+//     });
+
+//     if (existingProject) {
+//       return res.status(400).json({
+//         message: "Project already exists for this Building + Floor + Unit",
+//       });
+//     }
+
+//     const newProject = new Project({
+//       projectId,
+//       clientName, // 🔥 explicitly saved
+//       floorUnit,
+//       unit,
+//       startDate,
+//       endDate,
+//       estimatedBudget,
+//       description,
+//       teamSize,
+//       siteIncharge,
+//       status,
+//       createdBy: req.user._id,
+//     });
+
+//     await newProject.save();
+
+//     res.status(201).json({
+//       message: "Project created successfully",
+//       project: newProject,
+//     });
+//   } catch (error) {
+//     console.error("Error creating project:", error);
+//     res.status(500).json({ error: "Failed to create project" });
+//   }
+// };
+
 export const createProject = async (req, res) => {
   try {
     const {
@@ -97,7 +152,7 @@ export const createProject = async (req, res) => {
 
     const newProject = new Project({
       projectId,
-      clientName, // 🔥 explicitly saved
+      clientName,
       floorUnit,
       unit,
       startDate,
@@ -111,6 +166,54 @@ export const createProject = async (req, res) => {
     });
 
     await newProject.save();
+
+    /* =========================================================
+       🔔 5.1 New Project Created
+       Notify: Owner + Admin + Sales Manager
+    ========================================================= */
+
+    const owners = await User.find({ role: "owner" }).select("_id");
+    const admins = await User.find({ role: "admin" }).select("_id");
+    const salesManagers = await User.find({ role: "sales_manager" }).select(
+      "_id",
+    );
+
+    const receivers = [
+      ...owners.map((u) => u._id),
+      ...admins.map((u) => u._id),
+      ...salesManagers.map((u) => u._id),
+    ];
+
+    await createNotification({
+      userId: receivers,
+      title: "New Project Created",
+      message: `A new project has been created and requires setup.`,
+      triggeredBy: req.user._id,
+      category: "project",
+      priority: "P2",
+      deepLink: `/projects/${newProject._id}`,
+      entityType: "Project",
+      entityId: newProject._id,
+    });
+
+    /* =========================================================
+       🔔 5.3 Site Incharge Assigned
+       Notify: Site Incharge
+    ========================================================= */
+
+    if (siteIncharge) {
+      await createNotification({
+        userId: siteIncharge,
+        title: "Project Assigned",
+        message: `You have been assigned as Site Incharge for a new project.`,
+        triggeredBy: req.user._id,
+        category: "project",
+        priority: "P1",
+        deepLink: `/projects/${newProject._id}`,
+        entityType: "Project",
+        entityId: newProject._id,
+      });
+    }
 
     res.status(201).json({
       message: "Project created successfully",
@@ -259,6 +362,52 @@ export const getUserTasks = async (req, res) => {
   }
 };
 
+// export const updateProject = asyncHandler(async (req, res) => {
+//   const { projectId } = req.params;
+//   const updateData = { ...req.body, updatedBy: req.user._id };
+
+//   if (!projectId) {
+//     throw new ApiError(400, "Project ID is required");
+//   }
+
+//   if (!updateData || Object.keys(updateData).length === 0) {
+//     throw new ApiError(400, "No update data provided");
+//   }
+
+//   const updatedProject = await Project.findByIdAndUpdate(
+//     projectId,
+//     { $set: updateData },
+//     { new: true, runValidators: true },
+//   );
+
+//   if (!updatedProject) {
+//     throw new ApiError(404, "Project not found");
+//   }
+
+//   // 🔔 Notify Owner + Admin when project is completed (ADDED)
+//   if (updateData.status === "Completed") {
+//     const receivers = await User.find({
+//       role: { $in: ["owner", "admin"] },
+//     }).select("_id");
+
+//     await createNotification({
+//       userId: receivers.map((u) => u._id),
+//       title: "Project Completed",
+//       message: `Project ${updatedProject.name || updatedProject._id} has been marked as Completed.`,
+//       triggeredBy: req.user._id,
+//       category: "project",
+//       priority: "P1",
+//       deepLink: `/projects/${updatedProject._id}`,
+//       entityType: "Project",
+//       entityId: updatedProject._id,
+//     });
+//   }
+
+//   return res
+//     .status(200)
+//     .json(new ApiResponse(200, updatedProject, "Project updated successfully"));
+// });
+
 export const updateProject = asyncHandler(async (req, res) => {
   const { projectId } = req.params;
   const updateData = { ...req.body, updatedBy: req.user._id };
@@ -281,11 +430,10 @@ export const updateProject = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Project not found");
   }
 
-  // 🔔 Notify Owner + Admin when project is completed (ADDED)
-  if (updateData.status === "Completed") {
-    const receivers = await User.find({
-      role: { $in: ["owner", "admin"] },
-    }).select("_id");
+  /* =========================================================
+     🔔 5.3 Site Incharge Assigned to Project
+     Notify: Site Incharge + Contractors (if linked)
+  ========================================================= */
 
     await Promise.all(
       receivers.map((user) =>
@@ -299,12 +447,44 @@ export const updateProject = asyncHandler(async (req, res) => {
         }),
       ),
     );
-  }
+
+    await createNotification({
+      userId: receivers,
+      title: "Site Incharge Assigned",
+      message: `You have been assigned to manage a project.`,
+      triggeredBy: req.user._id,
+      category: "project",
+      priority: "P1",
+      deepLink: `/projects/${updatedProject._id}`,
+      entityType: "Project",
+      entityId: updatedProject._id,
+    });
 
   return res
     .status(200)
     .json(new ApiResponse(200, updatedProject, "Project updated successfully"));
 });
+
+// export const deleteProject = asyncHandler(async (req, res) => {
+//   const { projectId } = req.params;
+
+//   if (!mongoose.Types.ObjectId.isValid(projectId)) {
+//     throw new ApiError(400, "Invalid Project ID");
+//   }
+
+//   const project = await Project.findById(projectId);
+
+//   if (!project) {
+//     throw new ApiError(404, "Project not found");
+//   }
+
+//   project.deletedBy = req.user._id;
+//   await project.deleteOne();
+
+//   return res
+//     .status(200)
+//     .json(new ApiResponse(200, null, "Project deleted successfully"));
+// });
 
 export const deleteProject = asyncHandler(async (req, res) => {
   const { projectId } = req.params;
@@ -321,6 +501,31 @@ export const deleteProject = asyncHandler(async (req, res) => {
 
   project.deletedBy = req.user._id;
   await project.deleteOne();
+
+  /* =========================================================
+     🔔 9.2 Major Deletions
+     Notify: Admin + Owner
+  ========================================================= */
+
+  const adminsOwners = await User.find({
+    role: { $in: ["admin", "owner"] },
+  }).select("_id");
+
+  const receivers = adminsOwners.map((u) => u._id);
+
+  if (receivers.length > 0) {
+    await createNotification({
+      userId: receivers,
+      title: "Project Deleted",
+      message: `A project has been deleted from the system.`,
+      triggeredBy: req.user._id,
+      category: "system",
+      priority: "P1",
+      deepLink: `/projects`,
+      entityType: "Project",
+      entityId: projectId,
+    });
+  }
 
   return res
     .status(200)
@@ -612,6 +817,105 @@ export const getContractorTasksUnderSiteIncharge = async (req, res) => {
   }
 };
 
+// export const updateTaskByIdForContractor = async (req, res) => {
+//   try {
+//     const { taskId, projectId } = req.params;
+//     const newTask = req.body;
+//     const { shouldSubmit } = req.body;
+//     const { role } = req.user;
+
+//     if (
+//       !mongoose.Types.ObjectId.isValid(taskId) ||
+//       !mongoose.Types.ObjectId.isValid(projectId)
+//     ) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Invalid ID format" });
+//     }
+
+//     const project = await Project.findById(projectId);
+
+//     if (!project) {
+//       return res
+//         .status(404)
+//         .json({ success: false, message: "Project not found" });
+//     }
+
+//     let taskFound = false;
+
+//     for (const [unitName, taskArray] of project.units.entries()) {
+//       const task = taskArray.find((t) => t._id.toString() === taskId);
+
+//       if (task) {
+//         // 🔥 1️⃣ REMOVE PHOTOS
+//         if (
+//           Array.isArray(newTask.removePhotos) &&
+//           newTask.removePhotos.length > 0
+//         ) {
+//           task.contractorUploadedPhotos = task.contractorUploadedPhotos.filter(
+//             (photo) => !newTask.removePhotos.includes(photo),
+//           );
+//         }
+
+//         // 🔥 2️⃣ ADD NEW PHOTOS (THIS WAS MISSING)
+//         if (Array.isArray(newTask.photos) && newTask.photos.length > 0) {
+//           task.contractorUploadedPhotos.push(...newTask.photos);
+//         }
+
+//         // 🔥 3️⃣ Update other fields
+//         if (newTask.evidenceTitleByContractor)
+//           task.evidenceTitleByContractor = newTask.evidenceTitleByContractor;
+
+//         if (newTask.status) {
+//           if (role === "site_incharge")
+//             task.statusForSiteIncharge = newTask.status;
+//           else if (role === "contractor")
+//             task.statusForContractor = newTask.status;
+//         }
+
+//         if (typeof newTask.progressPercentage === "number")
+//           task.progressPercentage = newTask.progressPercentage;
+
+//         if (newTask.constructionPhase)
+//           task.constructionPhase = newTask.constructionPhase;
+
+//         if (shouldSubmit) {
+//           task.submittedByContractorOn = new Date();
+//           task.isApprovedByContractor = true;
+//         }
+
+//         taskFound = true;
+//         break;
+//       }
+//     }
+
+//     if (!taskFound) {
+//       return res
+//         .status(404)
+//         .json({ success: false, message: "Task not found in any unit" });
+//     }
+
+//     project.markModified("units");
+//     project.updatedBy = req.user._id;
+//     await project.save();
+
+//     // 🔔 Notify Site Incharge when contractor submits task (ADDED)
+//     if (shouldSubmit && project.siteIncharge) {
+//       await createNotification({
+//         userId: project.siteIncharge,
+//         title: "Task Submitted",
+//         message: `A contractor has submitted progress for a construction task.`,
+//         triggeredBy: req.user._id,
+//       });
+//     }
+
+//     return res.status(200).json({ success: true });
+//   } catch (error) {
+//     console.error("Error updating task:", error);
+//     return res.status(500).json({ success: false, message: "Server error" });
+//   }
+// };
+
 export const updateTaskByIdForContractor = async (req, res) => {
   try {
     const { taskId, projectId } = req.params;
@@ -637,11 +941,14 @@ export const updateTaskByIdForContractor = async (req, res) => {
     }
 
     let taskFound = false;
+    let contractorId = null;
 
     for (const [unitName, taskArray] of project.units.entries()) {
       const task = taskArray.find((t) => t._id.toString() === taskId);
 
       if (task) {
+        contractorId = task.contractor;
+
         // 🔥 1️⃣ REMOVE PHOTOS
         if (
           Array.isArray(newTask.removePhotos) &&
@@ -652,7 +959,7 @@ export const updateTaskByIdForContractor = async (req, res) => {
           );
         }
 
-        // 🔥 2️⃣ ADD NEW PHOTOS (THIS WAS MISSING)
+        // 🔥 2️⃣ ADD NEW PHOTOS
         if (Array.isArray(newTask.photos) && newTask.photos.length > 0) {
           task.contractorUploadedPhotos.push(...newTask.photos);
         }
@@ -694,14 +1001,65 @@ export const updateTaskByIdForContractor = async (req, res) => {
     project.updatedBy = req.user._id;
     await project.save();
 
-    // 🔔 Notify Site Incharge when contractor submits task (ADDED)
-    if (shouldSubmit && project.siteIncharge) {
+    /* =========================================================
+       🔔 5.4 Proof of Work / Progress Uploaded
+       Notify: Site Incharge + Contractor + Owner/Admin (optional)
+       (UNCHANGED)
+    ========================================================= */
+
+    if (shouldSubmit) {
+      const ownersAdmins = await User.find({
+        role: { $in: ["owner", "admin"] },
+      }).select("_id");
+
+      const receivers = [
+        project.siteIncharge,
+        contractorId,
+        ...ownersAdmins.map((u) => u._id),
+      ].filter(Boolean);
+
       await createNotification({
-        userId: project.siteIncharge,
-        title: "Task Submitted",
-        message: `A contractor has submitted progress for a construction task.`,
+        userId: receivers,
+        title: "Work Progress Submitted",
+        message: `New work evidence has been uploaded for a construction task and requires review.`,
         triggeredBy: req.user._id,
+        category: "project",
+        priority: "P2",
+        deepLink: `/projects/${project._id}`,
+        entityType: "Project",
+        entityId: project._id,
       });
+
+      /* =========================================================
+         🔔 7.3 Customer Progress Update
+         Notify: Purchased Customer + Owner
+      ========================================================= */
+
+      const property = await Property.findById(project.projectId)
+        .select("customerInfo.customerId");
+
+      const customerId = property?.customerInfo?.customerId;
+
+      const owners = await User.find({ role: "owner" }).select("_id");
+
+      const customerReceivers = [
+        customerId,
+        ...owners.map((u) => u._id),
+      ].filter(Boolean);
+
+      if (customerReceivers.length > 0) {
+        await createNotification({
+          userId: customerReceivers,
+          title: "Construction Progress Update",
+          message: `New construction progress has been uploaded for your property.`,
+          triggeredBy: req.user._id,
+          category: "project",
+          priority: "P2",
+          deepLink: `/projects/${project._id}`,
+          entityType: "Project",
+          entityId: project._id,
+        });
+      }
     }
 
     return res.status(200).json({ success: true });
@@ -768,6 +1126,78 @@ export const miniUpdateTaskByIdForContractor = async (req, res) => {
   }
 };
 
+// export const updateTaskByIdForSiteIncharge = async (req, res) => {
+//   try {
+//     const { projectId, taskId } = req.params;
+//     const {
+//       noteBySiteIncharge,
+//       qualityAssessment,
+//       verificationDecision,
+//       siteInchargeUploadedPhotos,
+//     } = req.body;
+//     if (
+//       !mongoose.Types.ObjectId.isValid(projectId) ||
+//       !mongoose.Types.ObjectId.isValid(taskId)
+//     ) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Invalid project or task ID" });
+//     }
+
+//     const project = await Project.findById(projectId);
+//     if (!project) {
+//       return res
+//         .status(404)
+//         .json({ success: false, message: "Project not found" });
+//     }
+
+//     let taskUpdated = false;
+
+//     for (const [unitName, taskArray] of project.units.entries()) {
+//       const task = taskArray.find((t) => t._id.toString() === taskId);
+//       if (task) {
+//         // Append site incharge photos
+//         if (Array.isArray(siteInchargeUploadedPhotos)) {
+//           task.siteInchargeUploadedPhotos.push(...siteInchargeUploadedPhotos);
+//         }
+
+//         if (noteBySiteIncharge) task.noteBySiteIncharge = noteBySiteIncharge;
+//         if (qualityAssessment) task.qualityAssessment = qualityAssessment;
+//         if (verificationDecision) {
+//           task.verificationDecision = verificationDecision;
+//           task.statusForSiteIncharge = verificationDecision;
+//         }
+
+//         // If verification status is approved
+//         if (verificationDecision?.toLowerCase() === "approved") {
+//           task.isApprovedBySiteManager = true;
+//         }
+
+//         task.submittedBySiteInchargeOn = new Date();
+
+//         taskUpdated = true;
+//         break;
+//       }
+//     }
+
+//     if (!taskUpdated) {
+//       return res
+//         .status(404)
+//         .json({ success: false, message: "Task not found in any unit" });
+//     }
+//     project.markModified("units");
+//     project.updatedBy = req.user._id;
+//     await project.save();
+//     return res.status(200).json({
+//       success: true,
+//       message: "Task updated successfully by Site Incharge",
+//     });
+//   } catch (err) {
+//     console.error("Error updating task by site incharge:", err);
+//     return res.status(500).json({ success: false, message: "Server error" });
+//   }
+// };
+
 export const updateTaskByIdForSiteIncharge = async (req, res) => {
   try {
     const { projectId, taskId } = req.params;
@@ -777,6 +1207,7 @@ export const updateTaskByIdForSiteIncharge = async (req, res) => {
       verificationDecision,
       siteInchargeUploadedPhotos,
     } = req.body;
+
     if (
       !mongoose.Types.ObjectId.isValid(projectId) ||
       !mongoose.Types.ObjectId.isValid(taskId)
@@ -794,10 +1225,13 @@ export const updateTaskByIdForSiteIncharge = async (req, res) => {
     }
 
     let taskUpdated = false;
+    let contractorId = null;
 
     for (const [unitName, taskArray] of project.units.entries()) {
       const task = taskArray.find((t) => t._id.toString() === taskId);
       if (task) {
+        contractorId = task.contractor;
+
         // Append site incharge photos
         if (Array.isArray(siteInchargeUploadedPhotos)) {
           task.siteInchargeUploadedPhotos.push(...siteInchargeUploadedPhotos);
@@ -805,6 +1239,7 @@ export const updateTaskByIdForSiteIncharge = async (req, res) => {
 
         if (noteBySiteIncharge) task.noteBySiteIncharge = noteBySiteIncharge;
         if (qualityAssessment) task.qualityAssessment = qualityAssessment;
+
         if (verificationDecision) {
           task.verificationDecision = verificationDecision;
           task.statusForSiteIncharge = verificationDecision;
@@ -827,9 +1262,32 @@ export const updateTaskByIdForSiteIncharge = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Task not found in any unit" });
     }
+
     project.markModified("units");
     project.updatedBy = req.user._id;
     await project.save();
+
+    /* =========================================================
+       🔔 5.5 QA Review / Rework Notification
+       Notify: Contractor + Site Incharge
+    ========================================================= */
+
+    if (verificationDecision) {
+      const receivers = [contractorId, project.siteIncharge].filter(Boolean);
+
+      await createNotification({
+        userId: receivers,
+        title: "Task QA Review Update",
+        message: `A construction task has been ${verificationDecision}. Please review the latest QA update.`,
+        triggeredBy: req.user._id,
+        category: "project",
+        priority: "P2",
+        deepLink: `/projects/${project._id}`,
+        entityType: "Project",
+        entityId: project._id,
+      });
+    }
+
     return res.status(200).json({
       success: true,
       message: "Task updated successfully by Site Incharge",
@@ -839,6 +1297,66 @@ export const updateTaskByIdForSiteIncharge = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+// export const addContractorForSiteIncharge = async (req, res) => {
+//   try {
+//     const { contractor, project, taskTitle, deadline, priority } = req.body;
+
+//     if (!contractor || !project || !taskTitle || !deadline) {
+//       return res.status(400).json({
+//         message: "Missing required fields",
+//       });
+//     }
+
+//     const projectDoc = await Project.findById(project)
+//       .populate("floorUnit", "_id floorNumber unitType")
+//       .populate("unit", "_id unitName");
+
+//     if (!projectDoc) {
+//       return res.status(404).json({
+//         message: "Project not found",
+//       });
+//     }
+
+//     const unitId = projectDoc.unit._id.toString();
+
+//     // Add contractor if not already
+//     if (!projectDoc.contractors.some((id) => id.toString() === contractor)) {
+//       projectDoc.contractors.push(contractor);
+//     }
+
+//     const newTask = {
+//       contractor,
+//       title: taskTitle,
+//       statusForContractor: "in_progress",
+//       statusForSiteIncharge: "pending verification",
+//       deadline: new Date(deadline),
+//       progressPercentage: 0,
+//       priority: priority || "medium",
+//     };
+
+//     if (!projectDoc.units.has(unitId)) {
+//       projectDoc.units.set(unitId, []);
+//     }
+
+//     projectDoc.units.get(unitId).push(newTask);
+
+//     projectDoc.markModified("units");
+//     projectDoc.updatedBy = req.user._id;
+//     await projectDoc.save();
+
+//     return res.status(201).json({
+//       message: "Contractor assigned successfully",
+//       task: newTask,
+//     });
+//   } catch (err) {
+//     console.error("Assign contractor error:", err);
+//     return res.status(500).json({
+//       message: "Server Error",
+//       error: err.message,
+//     });
+//   }
+// };
 
 export const addContractorForSiteIncharge = async (req, res) => {
   try {
@@ -887,6 +1405,33 @@ export const addContractorForSiteIncharge = async (req, res) => {
     projectDoc.updatedBy = req.user._id;
     await projectDoc.save();
 
+    /* =========================================================
+       🔔 5.2 Contractor Assigned to Project
+       Notify: Contractor + Site Incharge + Owner/Admin (optional)
+    ========================================================= */
+
+    const ownersAdmins = await User.find({
+      role: { $in: ["owner", "admin"] },
+    }).select("_id");
+
+    const receivers = [
+      contractor,
+      projectDoc.siteIncharge,
+      ...ownersAdmins.map((u) => u._id),
+    ].filter(Boolean);
+
+    await createNotification({
+      userId: receivers,
+      title: "Contractor Assigned to Project",
+      message: `A contractor has been assigned a new construction task.`,
+      triggeredBy: req.user._id,
+      category: "project",
+      priority: "P2",
+      deepLink: `/projects/${projectDoc._id}`,
+      entityType: "Project",
+      entityId: projectDoc._id,
+    });
+
     return res.status(201).json({
       message: "Contractor assigned successfully",
       task: newTask,
@@ -899,6 +1444,129 @@ export const addContractorForSiteIncharge = async (req, res) => {
     });
   }
 };
+
+// export const assignTaskToContractor = async (req, res) => {
+//   try {
+//     const {
+//       title,
+//       contractorId,
+//       projectId,
+//       priority,
+//       deadline,
+//       phase,
+//       qualityIssueId,
+//       description,
+//     } = req.body;
+
+//     // 1️⃣ Validate required fields
+//     if (
+//       !title ||
+//       !contractorId ||
+//       !projectId ||
+//       !deadline ||
+//       !phase ||
+//       !qualityIssueId
+//     ) {
+//       return res.status(400).json({ message: "Missing required fields" });
+//     }
+
+//     // 2️⃣ Validate ObjectIds
+//     if (
+//       !mongoose.Types.ObjectId.isValid(contractorId) ||
+//       !mongoose.Types.ObjectId.isValid(projectId) ||
+//       !mongoose.Types.ObjectId.isValid(qualityIssueId)
+//     ) {
+//       return res.status(400).json({ message: "Invalid ID format" });
+//     }
+
+//     // 3️⃣ Validate contractor
+//     const contractor = await User.findById(contractorId);
+//     if (!contractor) {
+//       return res.status(404).json({ message: "Contractor not found" });
+//     }
+
+//     // 4️⃣ Validate project
+//     const project = await Project.findById(projectId);
+//     if (!project) {
+//       return res.status(404).json({ message: "Project not found" });
+//     }
+
+//     // 5️⃣ Ensure project has unit
+//     const unitKey = project.unit?.toString();
+//     if (!unitKey) {
+//       return res.status(400).json({ message: "Project unit not found" });
+//     }
+
+//     // 6️⃣ Ensure contractors array exists
+//     if (!Array.isArray(project.contractors)) {
+//       project.contractors = [];
+//     }
+
+//     // Safe ObjectId comparison
+//     const contractorExists = project.contractors.some(
+//       (id) => id.toString() === contractor._id.toString(),
+//     );
+
+//     if (!contractorExists) {
+//       project.contractors.push(contractor._id);
+//     }
+
+//     // 7️⃣ Ensure units map exists
+//     if (!project.units) {
+//       project.units = new Map();
+//     }
+
+//     if (!project.units.has(unitKey)) {
+//       project.units.set(unitKey, []);
+//     }
+
+//     const tasks = project.units.get(unitKey) || [];
+
+//     // 8️⃣ Create new task
+//     const newTask = {
+//       contractor: contractor._id,
+//       title,
+//       priority: priority || "medium",
+//       deadline: new Date(deadline),
+//       constructionPhase: phase,
+//       description: description || "",
+//       statusForContractor: "in_progress",
+//       statusForSiteIncharge: "pending verification",
+//       progressPercentage: 0,
+//     };
+
+//     tasks.push(newTask);
+//     project.units.set(unitKey, tasks);
+//     project.markModified("units");
+//     project.updatedBy = req.user._id;
+//     await project.save();
+
+//     // 9️⃣ Update Quality Issue safely
+//     const issue = await QualityIssue.findById(qualityIssueId);
+//     if (!issue) {
+//       return res.status(404).json({ message: "Quality issue not found" });
+//     }
+
+//     issue.contractor = contractor._id;
+//     issue.updatedBy = req.user._id;
+//     await issue.save();
+
+//     // 🔔 Notify Contractor (ADDED)
+//     await createNotification({
+//       userId: contractor._id,
+//       title: "New Construction Task Assigned",
+//       message: `You have been assigned a new task: ${title}.`,
+//       triggeredBy: req.user._id,
+//     });
+
+//     return res.status(200).json({
+//       message: "Task assigned successfully",
+//     });
+//   } catch (error) {
+//     console.error("Assignment error:", error);
+//     return res.status(500).json({ message: "Internal server error" });
+//   }
+// };
 
 export const assignTaskToContractor = async (req, res) => {
   try {
@@ -957,7 +1625,6 @@ export const assignTaskToContractor = async (req, res) => {
       project.contractors = [];
     }
 
-    // Safe ObjectId comparison
     const contractorExists = project.contractors.some(
       (id) => id.toString() === contractor._id.toString(),
     );
@@ -1006,12 +1673,31 @@ export const assignTaskToContractor = async (req, res) => {
     issue.updatedBy = req.user._id;
     await issue.save();
 
-    // 🔔 Notify Contractor (ADDED)
+    /* =========================================================
+       🔔 5.2 Contractor Assigned to Project
+       Notify: Contractor + Site Incharge + Owner/Admin (optional)
+    ========================================================= */
+
+    const ownersAdmins = await User.find({
+      role: { $in: ["owner", "admin"] },
+    }).select("_id");
+
+    const receivers = [
+      contractor._id,
+      project.siteIncharge,
+      ...ownersAdmins.map((u) => u._id),
+    ].filter(Boolean);
+
     await createNotification({
-      userId: contractor._id,
+      userId: receivers,
       title: "New Construction Task Assigned",
-      message: `You have been assigned a new task: ${title}.`,
+      message: `A contractor has been assigned a new construction task: ${title}.`,
       triggeredBy: req.user._id,
+      category: "project",
+      priority: "P2",
+      deepLink: `/projects/${project._id}`,
+      entityType: "Project",
+      entityId: project._id,
     });
 
     return res.status(200).json({
@@ -1082,6 +1768,57 @@ export const createTaskForProjectUnit = async (req, res) => {
   }
 };
 
+// export const assignContractorToUnit = async (req, res) => {
+//   try {
+//     const { projectId, unit, contractorId } = req.body;
+
+//     if (!projectId || !unit || !contractorId) {
+//       return res.status(400).json({ message: "Missing required fields" });
+//     }
+
+//     // Validate ObjectId
+//     if (
+//       !mongoose.Types.ObjectId.isValid(projectId) ||
+//       !mongoose.Types.ObjectId.isValid(contractorId)
+//     ) {
+//       return res
+//         .status(400)
+//         .json({ message: "Invalid projectId or contractorId" });
+//     }
+
+//     const project = await Project.findById(projectId);
+
+//     if (!project) {
+//       return res.status(404).json({ message: "Project not found" });
+//     }
+
+//     // 1. Add to contractors array if not already present
+//     if (!project.contractors.some((id) => id.toString() === contractorId)) {
+//       project.contractors.push(contractorId);
+//     }
+//     if (!project.assignedContractors) {
+//       project.assignedContractors = new Map();
+//     }
+//     // 2. Add contractor to assignedContractors map for the unit
+//     const currentAssigned = project.assignedContractors.get(unit) || [];
+
+//     if (!currentAssigned.includes(contractorId)) {
+//       currentAssigned.push(contractorId);
+//       project.assignedContractors.set(unit, currentAssigned);
+//     }
+
+//     project.updatedBy = req.user._id;
+//     await project.save();
+
+//     res
+//       .status(200)
+//       .json({ message: "Contractor assigned successfully", project });
+//   } catch (error) {
+//     console.error("Error assigning contractor:", error);
+//     res.status(500).json({ message: "Internal server error" });
+//   }
+// };
+
 export const assignContractorToUnit = async (req, res) => {
   try {
     const { projectId, unit, contractorId } = req.body;
@@ -1110,9 +1847,11 @@ export const assignContractorToUnit = async (req, res) => {
     if (!project.contractors.some((id) => id.toString() === contractorId)) {
       project.contractors.push(contractorId);
     }
+
     if (!project.assignedContractors) {
       project.assignedContractors = new Map();
     }
+
     // 2. Add contractor to assignedContractors map for the unit
     const currentAssigned = project.assignedContractors.get(unit) || [];
 
@@ -1123,6 +1862,33 @@ export const assignContractorToUnit = async (req, res) => {
 
     project.updatedBy = req.user._id;
     await project.save();
+
+    /* =========================================================
+       🔔 5.2 Contractor Assigned to Project Notification
+       Notify: Contractor + Site Incharge + Owner/Admin
+    ========================================================= */
+
+    const ownerAdmins = await User.find({
+      role: { $in: ["owner", "admin"] },
+    }).select("_id");
+
+    const receivers = [
+      contractorId,
+      project.siteIncharge,
+      ...ownerAdmins.map((u) => u._id),
+    ].filter(Boolean);
+
+    await createNotification({
+      userId: receivers,
+      title: "Contractor Assigned",
+      message: `You have been assigned to work on a project unit.`,
+      triggeredBy: req.user._id,
+      category: "project",
+      priority: "P2",
+      deepLink: `/projects/${project._id}`,
+      entityType: "Project",
+      entityId: project._id,
+    });
 
     res
       .status(200)

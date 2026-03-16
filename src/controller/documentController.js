@@ -1,7 +1,6 @@
 import Document from "../modals/Document.js";
 import fs from "fs";
 import path from "path";
-
 export const uploadDocument = async (req, res) => {
   try {
     const file = req.file;
