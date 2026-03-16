@@ -5,7 +5,7 @@ import Payment from "../modals/payment.js";
 import User from "../modals/user.js";
 
 import { createNotification } from "../utils/notificationHelper.js";
-import User from "../modals/user.js";
+// import User from "../modals/user.js";
 
 // export const createInvoice = async (req, res) => {
 //   try {
@@ -357,7 +357,7 @@ export const getAllInvoices = async (req, res) => {
 //     const { id } = req.params;
 
 //     const invoice = await Invoice.findById(id);
-   // const invoice = await Invoice.findOne({ _id: id, isDeleted: false });
+// const invoice = await Invoice.findOne({ _id: id, isDeleted: false });
 
 //     if (!invoice) {
 //       return res.status(404).json({ message: "Invoice not found" });
@@ -365,9 +365,9 @@ export const getAllInvoices = async (req, res) => {
 
 //     // Update fields
 //     Object.assign(invoice, req.body);
-    // Update fields
-   // Object.assign(invoice, req.body);
-    //invoice.updatedBy = req.user._id;
+// Update fields
+// Object.assign(invoice, req.body);
+//invoice.updatedBy = req.user._id;
 
 //     // ✅ VERY IMPORTANT — store last accountant who edited
 //     if (req.user.role === "accountant") {
@@ -572,7 +572,9 @@ export const updateInvoice = async (req, res) => {
       const contractor = await User.findById(invoice.user).select("_id");
       const accountants = await User.find({ role: "accountant" }).select("_id");
       const owners = await User.find({ role: "owner" }).select("_id");
-      const siteIncharges = await User.find({ role: "site_incharge" }).select("_id");
+      const siteIncharges = await User.find({ role: "site_incharge" }).select(
+        "_id",
+      );
 
       const receivers = [
         contractor?._id,
@@ -601,7 +603,9 @@ export const updateInvoice = async (req, res) => {
     if (req.user.role === "owner" && req.body.status === "approved") {
       const contractor = await User.findById(invoice.user).select("_id");
       const accountants = await User.find({ role: "accountant" }).select("_id");
-      const siteIncharges = await User.find({ role: "site_incharge" }).select("_id");
+      const siteIncharges = await User.find({ role: "site_incharge" }).select(
+        "_id",
+      );
 
       const receivers = [
         contractor?._id,
@@ -623,7 +627,6 @@ export const updateInvoice = async (req, res) => {
     }
 
     return res.status(200).json(invoice);
-
   } catch (error) {
     console.error("Update invoice error:", error);
 
@@ -634,7 +637,6 @@ export const updateInvoice = async (req, res) => {
   }
 };
 
-
 export const markInvoiceAsPaid = async (req, res) => {
   const { id } = req.params;
   const { paymentMethod, reconciliationAmount, isPaid, reconciledItemId } =
@@ -643,7 +645,6 @@ export const markInvoiceAsPaid = async (req, res) => {
 
   // 🔔 Notification helper (UPDATED ONLY FOR SPEC 6.5)
   const notifyRevenueReceived = async (invoice) => {
-
     // Owner + Accountant
     const financeUsers = await User.find({
       role: { $in: ["owner", "accountant"] },
@@ -814,7 +815,6 @@ export const markInvoiceAsPaid = async (req, res) => {
 //   }
 // };
 
-
 export const verifyInvoiceByAccountant = async (req, res) => {
   const { id } = req.params;
   const { status, notes } = req.body;
@@ -852,7 +852,9 @@ export const verifyInvoiceByAccountant = async (req, res) => {
 
     const accountants = await User.find({ role: "accountant" }).select("_id");
     const owners = await User.find({ role: "owner" }).select("_id");
-    const siteIncharges = await User.find({ role: "site_incharge" }).select("_id");
+    const siteIncharges = await User.find({ role: "site_incharge" }).select(
+      "_id",
+    );
 
     const contractorId = invoice.user;
 
