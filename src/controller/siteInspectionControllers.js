@@ -70,7 +70,7 @@ export const getInspectionsByIncharge = async (req, res) => {
     const inspections = await SiteInspection.find({ site_incharge: id })
       .populate("project", "projectName")
       .populate("floorUnit", "floorNumber")
-      .populate("unit", "propertyType")
+      .populate("unit", "projectName plotNo")
       .sort({ date: -1 });
 
     res.status(200).json({ inspections });

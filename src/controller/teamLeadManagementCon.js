@@ -137,7 +137,6 @@ export const getUnassignedTeamLead = async (req, res) => {
     // Step 2: Find agents (role: 'agent') who are NOT assigned
     const unassignedteamLead = await User.find({
       role: "team_lead",
-      isDeleted: false,
       _id: { $nin: assignedteamLeadIds },
     }).select("-password");
 
