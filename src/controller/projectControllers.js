@@ -9,6 +9,7 @@ import Customer from "../modals/customerSchema.js";
 
 import ContractorModel from "../modals/contractor.model.js";
 import { createNotification } from "../utils/notificationHelper.js";
+import Contractor from "../modals/contractor.model.js";
 export const getUserProjects = async (req, res) => {
   try {
     const { _id, role } = req.user;
@@ -1943,8 +1944,15 @@ export const projectDropDownDataForSiteIncharge = asyncHandler(
 );
 
 export const getAllContractors = asyncHandler(async (req, res) => {
+  const existingContractors = await Contractor.find({
+    isDeleted: false,
+  }).select("userId");
+
+  const existingContractorsId = existingContractors.map((c) => c.userId);
+
   const contractors = await User.find({
     role: "contractor",
+    _id: { $nin: existingContractorsId },
   }).select("_id name");
 
   const message =
