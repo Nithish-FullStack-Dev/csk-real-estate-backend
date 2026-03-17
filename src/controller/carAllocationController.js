@@ -238,6 +238,8 @@ export const updateCarAllocation = async (req, res) => {
       previousAssignedAgentId,
     } = req.body;
 
+    let updatedVehicle;
+
     const vehicle = await CarAllocation.findById(id);
     if (!vehicle) {
       return res.status(404).json({ message: "Vehicle not found" });
@@ -285,7 +287,7 @@ export const updateCarAllocation = async (req, res) => {
       vehicle.actualReturnAt = null;
       vehicle.usageLogs = usageLogs;
 
-      let updatedVehicle = await vehicle.save();
+      updatedVehicle = await vehicle.save();
 
       // =========================================================
       // 🔔 4.2 VEHICLE BOOKING APPROVED
@@ -324,7 +326,7 @@ export const updateCarAllocation = async (req, res) => {
 
       // Notify Team Lead
       const teamLead = await User.findOne({
-        role: "TEAM_LEAD",
+        role: "team_lead",
         team: agentToAssign.team,
       });
 
@@ -341,9 +343,7 @@ export const updateCarAllocation = async (req, res) => {
           entityId: vehicle._id,
         });
       }
-
-    } else if (status === "available" && vehicle.status === "assigned") {
-
+    } else if (status === "available" && previousStatus === "assigned") {
       vehicle.assignedTo = null;
       vehicle.assignedBy = null;
       vehicle.assignedAt = null;
@@ -357,7 +357,7 @@ export const updateCarAllocation = async (req, res) => {
         const logToUpdate = vehicle.usageLogs.findLast(
           (log) =>
             log.agent.toString() === previousAssignedAgentId &&
-            !log.actualReturnAt
+            !log.actualReturnAt,
         );
 
         if (logToUpdate) {
@@ -365,6 +365,7 @@ export const updateCarAllocation = async (req, res) => {
           vehicle.markModified("usageLogs");
         }
       }
+      updatedVehicle = await vehicle.save();
     }
 
     // =========================================================
@@ -408,13 +409,16 @@ export const updateCarAllocation = async (req, res) => {
       });
     }
 
+    if (!updatedVehicle) {
+      updatedVehicle = await vehicle.save();
+    }
+
     updatedVehicle = await updatedVehicle.populate([
       { path: "assignedTo.agent" },
       { path: "assignedBy" },
     ]);
 
     res.status(200).json(updatedVehicle);
-
   } catch (error) {
     console.error("Error updating car allocation:", error);
     res.status(500).json({ message: "Server error", error: error.message });
