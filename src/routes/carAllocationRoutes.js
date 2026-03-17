@@ -4,11 +4,12 @@ import {
   saveCarAllocation,
   updateCarAllocation,
 } from "../controller/carAllocationController.js";
+import { authenticate } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/saveCar", saveCarAllocation);
-router.get("/getAllCars", getAllCarAllocations);
-router.put("/updateCarById/:id", updateCarAllocation);
+router.post("/saveCar", authenticate, saveCarAllocation);
+router.get("/getAllCars", authenticate, getAllCarAllocations);
+router.put("/updateCarById/:id", authenticate, updateCarAllocation);
 
 export default router;
