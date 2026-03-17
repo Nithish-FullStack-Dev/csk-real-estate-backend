@@ -63,6 +63,7 @@
 import asyncHandler from "../utils/asyncHandler.js";
 import { AuditLog } from "../modals/auditLog.model.js";
 import { createNotification } from "../utils/notificationHelper.js";
+import User from "../modals/user.js";
 
 export const getAuditLogs = asyncHandler(async (req, res) => {
   const {
