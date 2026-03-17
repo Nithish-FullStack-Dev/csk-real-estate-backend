@@ -134,39 +134,39 @@ export const createSiteVisit = async (req, res) => {
        Notify: Team Lead + Admin (Fleet Approver)
     ========================================================= */
 
-    const team = await TeamManagement.findOne({
-      agentId: req.user._id,
-      isDeleted: false,
-    }).select("teamLeadId");
+    // const team = await TeamManagement.findOne({
+    //   agentId: req.user._id,
+    //   isDeleted: false,
+    // }).select("teamLeadId");
 
-    let teamLeadId = null;
+    // let teamLeadId = null;
 
-    if (team) {
-      teamLeadId = team.teamLeadId;
-    }
+    // if (team) {
+    //   teamLeadId = team.teamLeadId;
+    // }
 
-    const admins = await User.find({
-      role: "admin",
-    }).select("_id");
+    // const admins = await User.find({
+    //   role: "admin",
+    // }).select("_id");
 
-    const receivers = [
-      teamLeadId,
-      ...admins.map((u) => u._id),
-    ].filter(Boolean);
+    // const receivers = [
+    //   teamLeadId,
+    //   ...admins.map((u) => u._id),
+    // ].filter(Boolean);
 
-    if (receivers.length > 0) {
-      await createNotification({
-        userId: receivers,
-        title: "Vehicle Booking Requested",
-        message: `A vehicle booking has been requested for a site visit.`,
-        triggeredBy: req.user._id,
-        category: "vehicle",
-        priority: "P2",
-        deepLink: `/site-visits/${siteVisit._id}`,
-        entityType: "SiteVisit",
-        entityId: siteVisit._id,
-      });
-    }
+    // if (receivers.length > 0) {
+    //   await createNotification({
+    //     userId: receivers,
+    //     title: "Vehicle Booking Requested",
+    //     message: `A vehicle booking has been requested for a site visit.`,
+    //     triggeredBy: req.user._id,
+    //     category: "vehicle",
+    //     priority: "P2",
+    //     deepLink: `/site-visits/${siteVisit._id}`,
+    //     entityType: "SiteVisit",
+    //     entityId: siteVisit._id,
+    //   });
+    // }
 
     res.status(201).json(siteVisit);
   } catch (error) {

@@ -17,7 +17,6 @@ export const saveCarAllocation = async (req, res) => {
       type, // Added type
       capacity, // Added capacity
     } = req.body;
-
     // Validate if license plate already exists
     const existingCar = await CarAllocation.findOne({ licensePlate });
     if (existingCar) {
@@ -216,9 +215,219 @@ export const getAllCarAllocations = async (req, res) => {
 // };
 
 // ✅ Update Car Allocation (Unified and Robust)
+// export const updateCarAllocation = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const {
+//       model,
+//       licensePlate,
+//       status,
+//       type,
+//       capacity,
+//       assignedTo,
+//       assignedBy,
+//       assignedAt,
+//       actualReturnAt,
+//       fuelLevel,
+//       mileage,
+//       lastService,
+//       location,
+//       notes,
+//       usageLogs,
+//       previousAssignedAgentId,
+//     } = req.body;
+// console.log("testt helikja🔥🔥🔥🔥🔥", req.body);
+//     let updatedVehicle;
+
+//     const vehicle = await CarAllocation.findById(id);
+//     if (!vehicle) {
+//       return res.status(404).json({ message: "Vehicle not found" });
+//     }
+
+//     // store previous assignment for comparison
+//     const previousStatus = vehicle.status;
+//     const previousAgent = vehicle.assignedTo?.agent;
+
+//     vehicle.model = model;
+//     vehicle.licensePlate = licensePlate;
+//     vehicle.type = type;
+//     vehicle.capacity = capacity;
+//     vehicle.fuelLevel = fuelLevel;
+//     vehicle.mileage = mileage;
+//     vehicle.lastService = lastService;
+//     vehicle.location = location;
+//     vehicle.notes = notes;
+//     vehicle.status = status;
+
+//     if (status === "assigned" && assignedTo && assignedTo.agent) {
+//       const agentToAssign = await User.findById(assignedTo.agent);
+//       if (!agentToAssign) {
+//         return res.status(400).json({ message: "Assigned agent not found." });
+//       }
+
+//       const isAgentAlreadyAssigned = await CarAllocation.findOne({
+//         "assignedTo.agent": assignedTo.agent,
+//         _id: { $ne: id },
+//       });
+
+//       if (isAgentAlreadyAssigned) {
+//         return res
+//           .status(400)
+//           .json({ message: "Agent is already assigned to another vehicle." });
+//       }
+
+//       vehicle.assignedTo = {
+//         agent: assignedTo.agent,
+//         assignedUntil: assignedTo.assignedUntil,
+//       };
+
+//       vehicle.assignedBy = assignedBy;
+//       vehicle.assignedAt = assignedAt || new Date();
+//       vehicle.actualReturnAt = null;
+//       vehicle.usageLogs = usageLogs;
+
+//       updatedVehicle = await vehicle.save();
+
+//       // =========================================================
+//       // 🔔 4.2 VEHICLE BOOKING APPROVED
+//       // Notify Requester + Team Lead + Agent
+//       // =========================================================
+
+//       const requesterId = assignedBy;
+
+//       // Notify Agent
+//       await createNotification({
+//         userId: assignedTo.agent,
+//         title: "Vehicle Booking Approved ag",
+//         message: `Vehicle ${vehicle.model} (${vehicle.licensePlate}) has been assigned to you.`,
+//         triggeredBy: req.user._id,
+//         category: "vehicle",
+//         priority: "P2",
+//         deepLink: `/fleet/bookings/${vehicle._id}`,
+//         entityType: "Vehicle",
+//         entityId: vehicle._id,
+//       });
+
+//       // Notify Requester
+//       if (requesterId) {
+//         await createNotification({
+//           userId: requesterId,
+//           title: "Vehicle Booking Approved req",
+//           message: `Vehicle ${vehicle.model} (${vehicle.licensePlate}) booking has been approved.`,
+//           triggeredBy: req.user._id,
+//           category: "vehicle",
+//           priority: "P2",
+//           deepLink: `/fleet/bookings/${vehicle._id}`,
+//           entityType: "Vehicle",
+//           entityId: vehicle._id,
+//         });
+//       }
+
+//       // Notify Team Lead
+//       const teamLead = await User.findOne({
+//         role: "team_lead",
+//         team: agentToAssign.team,
+//       });
+
+//       if (teamLead) {
+//         await createNotification({
+//           userId: teamLead._id,
+//           title: "Vehicle Booking Approved",
+//           message: `Vehicle ${vehicle.model} (${vehicle.licensePlate}) assigned to ${agentToAssign.name}.`,
+//           triggeredBy: req.user._id,
+//           category: "vehicle",
+//           priority: "P2",
+//           deepLink: `/fleet/bookings/${vehicle._id}`,
+//           entityType: "Vehicle",
+//           entityId: vehicle._id,
+//         });
+//       }
+//     } else if (status === "available" && previousStatus === "assigned") {
+//       vehicle.assignedTo = null;
+//       vehicle.assignedBy = null;
+//       vehicle.assignedAt = null;
+//       vehicle.actualReturnAt = actualReturnAt || new Date();
+
+//       if (
+//         vehicle.usageLogs &&
+//         vehicle.usageLogs.length > 0 &&
+//         previousAssignedAgentId
+//       ) {
+//         const logToUpdate = vehicle.usageLogs.findLast(
+//           (log) =>
+//             log.agent.toString() === previousAssignedAgentId &&
+//             !log.actualReturnAt,
+//         );
+
+//         if (logToUpdate) {
+//           logToUpdate.actualReturnAt = vehicle.actualReturnAt;
+//           vehicle.markModified("usageLogs");
+//         }
+//       }
+//       updatedVehicle = await vehicle.save();
+//     }
+
+//     // =========================================================
+//     // 🔔 4.3 VEHICLE BOOKING CHANGED
+//     // Notify Requester + Agent if booking data changed
+//     // =========================================================
+
+//     if (
+//       previousStatus === "assigned" &&
+//       status === "assigned" &&
+//       previousAgent &&
+//       assignedTo?.agent &&
+//       previousAgent.toString() === assignedTo.agent.toString()
+//     ) {
+//       const requesterId = assignedBy;
+
+//       if (requesterId) {
+//         await createNotification({
+//           userId: requesterId,
+//           title: "Vehicle Booking Updated",
+//           message: `Vehicle booking for ${vehicle.model} (${vehicle.licensePlate}) has been updated.`,
+//           triggeredBy: req.user._id,
+//           category: "vehicle",
+//           priority: "P2",
+//           deepLink: `/fleet/bookings/${vehicle._id}`,
+//           entityType: "Vehicle",
+//           entityId: vehicle._id,
+//         });
+//       }
+
+//       await createNotification({
+//         userId: assignedTo.agent,
+//         title: "Vehicle Booking Updated",
+//         message: `Vehicle booking details for ${vehicle.model} (${vehicle.licensePlate}) have been updated.`,
+//         triggeredBy: req.user._id,
+//         category: "vehicle",
+//         priority: "P2",
+//         deepLink: `/fleet/bookings/${vehicle._id}`,
+//         entityType: "Vehicle",
+//         entityId: vehicle._id,
+//       });
+//     }
+
+//     if (!updatedVehicle) {
+//       updatedVehicle = await vehicle.save();
+//     }
+
+//     updatedVehicle = await updatedVehicle.populate([
+//       { path: "assignedTo.agent" },
+//       { path: "assignedBy" },
+//     ]);
+
+//     res.status(200).json(updatedVehicle);
+//   } catch (error) {
+//     console.error("Error updating car allocation:", error);
+//     res.status(500).json({ message: "Server error", error: error.message });
+//   }
+// };
+
 export const updateCarAllocation = async (req, res) => {
   try {
     const { id } = req.params;
+
     const {
       model,
       licensePlate,
@@ -238,6 +447,8 @@ export const updateCarAllocation = async (req, res) => {
       previousAssignedAgentId,
     } = req.body;
 
+    // console.log("testt helikja🔥🔥🔥🔥🔥", req.body);
+
     let updatedVehicle;
 
     const vehicle = await CarAllocation.findById(id);
@@ -245,9 +456,25 @@ export const updateCarAllocation = async (req, res) => {
       return res.status(404).json({ message: "Vehicle not found" });
     }
 
-    // store previous assignment for comparison
+    /* =========================================================
+       STORE PREVIOUS VALUES (IMPORTANT)
+    ========================================================= */
+
     const previousStatus = vehicle.status;
     const previousAgent = vehicle.assignedTo?.agent;
+    const previousRequester = vehicle.assignedBy;
+
+    const previousData = {
+      location: vehicle.location,
+      fuelLevel: vehicle.fuelLevel,
+      mileage: vehicle.mileage,
+      notes: vehicle.notes,
+      assignedUntil: vehicle.assignedTo?.assignedUntil?.toString(),
+    };
+
+    /* =========================================================
+       UPDATE VEHICLE DATA
+    ========================================================= */
 
     vehicle.model = model;
     vehicle.licensePlate = licensePlate;
@@ -260,7 +487,12 @@ export const updateCarAllocation = async (req, res) => {
     vehicle.notes = notes;
     vehicle.status = status;
 
+    /* =========================================================
+       4.2 VEHICLE BOOKING APPROVED
+    ========================================================= */
+
     if (status === "assigned" && assignedTo && assignedTo.agent) {
+
       const agentToAssign = await User.findById(assignedTo.agent);
       if (!agentToAssign) {
         return res.status(400).json({ message: "Assigned agent not found." });
@@ -289,14 +521,9 @@ export const updateCarAllocation = async (req, res) => {
 
       updatedVehicle = await vehicle.save();
 
-      // =========================================================
-      // 🔔 4.2 VEHICLE BOOKING APPROVED
-      // Notify Requester + Team Lead + Agent
-      // =========================================================
-
       const requesterId = assignedBy;
 
-      // Notify Agent
+      // Agent Notification
       await createNotification({
         userId: assignedTo.agent,
         title: "Vehicle Booking Approved",
@@ -309,7 +536,7 @@ export const updateCarAllocation = async (req, res) => {
         entityId: vehicle._id,
       });
 
-      // Notify Requester
+      // Requester Notification
       if (requesterId) {
         await createNotification({
           userId: requesterId,
@@ -324,7 +551,7 @@ export const updateCarAllocation = async (req, res) => {
         });
       }
 
-      // Notify Team Lead
+      // Team Lead Notification
       const teamLead = await User.findOne({
         role: "team_lead",
         team: agentToAssign.team,
@@ -343,7 +570,14 @@ export const updateCarAllocation = async (req, res) => {
           entityId: vehicle._id,
         });
       }
-    } else if (status === "available" && previousStatus === "assigned") {
+    }
+
+    /* =========================================================
+       4.2 VEHICLE BOOKING REJECTED
+    ========================================================= */
+
+    else if (status === "available" && previousStatus === "assigned") {
+
       vehicle.assignedTo = null;
       vehicle.assignedBy = null;
       vehicle.assignedAt = null;
@@ -357,7 +591,7 @@ export const updateCarAllocation = async (req, res) => {
         const logToUpdate = vehicle.usageLogs.findLast(
           (log) =>
             log.agent.toString() === previousAssignedAgentId &&
-            !log.actualReturnAt,
+            !log.actualReturnAt
         );
 
         if (logToUpdate) {
@@ -365,28 +599,16 @@ export const updateCarAllocation = async (req, res) => {
           vehicle.markModified("usageLogs");
         }
       }
+
       updatedVehicle = await vehicle.save();
-    }
 
-    // =========================================================
-    // 🔔 4.3 VEHICLE BOOKING CHANGED
-    // Notify Requester + Agent if booking data changed
-    // =========================================================
-
-    if (
-      previousStatus === "assigned" &&
-      status === "assigned" &&
-      previousAgent &&
-      assignedTo?.agent &&
-      previousAgent.toString() === assignedTo.agent.toString()
-    ) {
-      const requesterId = assignedBy;
+      const requesterId = previousRequester;
 
       if (requesterId) {
         await createNotification({
           userId: requesterId,
-          title: "Vehicle Booking Updated",
-          message: `Vehicle booking for ${vehicle.model} (${vehicle.licensePlate}) has been updated.`,
+          title: "Vehicle Booking Rejected",
+          message: `Vehicle booking for ${vehicle.model} (${vehicle.licensePlate}) has been rejected.`,
           triggeredBy: req.user._id,
           category: "vehicle",
           priority: "P2",
@@ -395,18 +617,55 @@ export const updateCarAllocation = async (req, res) => {
           entityId: vehicle._id,
         });
       }
+    }
 
-      await createNotification({
-        userId: assignedTo.agent,
-        title: "Vehicle Booking Updated",
-        message: `Vehicle booking details for ${vehicle.model} (${vehicle.licensePlate}) have been updated.`,
-        triggeredBy: req.user._id,
-        category: "vehicle",
-        priority: "P2",
-        deepLink: `/fleet/bookings/${vehicle._id}`,
-        entityType: "Vehicle",
-        entityId: vehicle._id,
-      });
+    /* =========================================================
+       4.3 VEHICLE BOOKING CHANGED
+       (Only when status unchanged)
+    ========================================================= */
+
+    if (previousStatus === status && status === "assigned") {
+
+      const bookingChanged =
+        previousData.location !== location ||
+        previousData.fuelLevel !== fuelLevel ||
+        previousData.mileage !== mileage ||
+        previousData.notes !== notes ||
+        (assignedTo?.assignedUntil &&
+          previousData.assignedUntil !== assignedTo.assignedUntil.toString());
+
+      if (bookingChanged) {
+
+        const requesterId = previousRequester || assignedBy;
+
+        if (requesterId) {
+          await createNotification({
+            userId: requesterId,
+            title: "Vehicle Booking Updated",
+            message: `Vehicle booking for ${vehicle.model} (${vehicle.licensePlate}) has been updated.`,
+            triggeredBy: req.user._id,
+            category: "vehicle",
+            priority: "P2",
+            deepLink: `/fleet/bookings/${vehicle._id}`,
+            entityType: "Vehicle",
+            entityId: vehicle._id,
+          });
+        }
+
+        if (assignedTo?.agent) {
+          await createNotification({
+            userId: assignedTo.agent,
+            title: "Vehicle Booking Updated",
+            message: `Vehicle booking details for ${vehicle.model} (${vehicle.licensePlate}) have been updated.`,
+            triggeredBy: req.user._id,
+            category: "vehicle",
+            priority: "P2",
+            deepLink: `/fleet/bookings/${vehicle._id}`,
+            entityType: "Vehicle",
+            entityId: vehicle._id,
+          });
+        }
+      }
     }
 
     if (!updatedVehicle) {
@@ -419,6 +678,7 @@ export const updateCarAllocation = async (req, res) => {
     ]);
 
     res.status(200).json(updatedVehicle);
+
   } catch (error) {
     console.error("Error updating car allocation:", error);
     res.status(500).json({ message: "Server error", error: error.message });

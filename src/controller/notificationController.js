@@ -77,7 +77,7 @@ export const getUnreadNotifications = async (req, res) => {
       isRead: false,
     }).sort({ createdAt: -1 });
 
-    console.log("Sending notifications as : ",notifications);
+    // console.log("Sending notifications as : ",notifications);
     res.status(200).json({ notifications });
   } catch (error) {
     console.error("Error fetching unread notifications:", error);

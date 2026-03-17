@@ -5,6 +5,8 @@ import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 // import { uploadFile } from "../utils/uploadFile.js";
 import Customer from "../modals/customerSchema.js";
+import User from "../modals/user.js";
+import { createNotification } from "../utils/notificationHelper.js";
 
 export const createBuilding = asyncHandler(async (req, res) => {
   const {
@@ -170,6 +172,7 @@ export const getBuildingById = asyncHandler(async (req, res) => {
 export const updateBuilding = asyncHandler(async (req, res) => {
   const { _id } = req.params;
   const body = req.body;
+  // console.log("test property update", body);
 
   if (!_id) {
     throw new ApiError(400, "Building ID (_id) is required");
@@ -239,6 +242,65 @@ export const updateBuilding = asyncHandler(async (req, res) => {
     new: true,
     runValidators: true,
   });
+
+  /* =========================================================
+   🔔 Notification: Construction Status Change
+========================================================= */
+
+  const oldStatus = existingBuilding.constructionStatus;
+  const newStatus = body.constructionStatus;
+
+  if (newStatus && newStatus !== oldStatus) {
+    const receivers = await User.find({
+      role: { $in: ["owner", "sales_manager", "agent"] },
+    }).select("_id");
+
+    const userIds = receivers.map((u) => u._id);
+// console.log(userIds, "userdda");
+
+    await createNotification({
+      userId: userIds,
+      title: "Construction Status Updated",
+      message: `Construction status for ${updatedBuilding.projectName || updatedBuilding._id
+        } changed to ${newStatus}.`,
+      triggeredBy: req.user._id,
+      category: "construction",
+      priority: "P2",
+      deepLink: `/properties/${updatedBuilding._id}`,
+      entityType: "Building",
+      entityId: updatedBuilding._id,
+    });
+  }
+
+  /* =========================================================
+     🔔 Notification: Documents Uploaded
+  ========================================================= */
+
+  const docsUploaded =
+    req.files?.thumbnailUrl?.length ||
+    req.files?.brochureUrl?.length ||
+    req.files?.images?.length;
+
+  if (docsUploaded) {
+    const receivers = await User.find({
+      role: { $in: ["owner", "agent"] },
+    }).select("_id");
+
+    const userIds = receivers.map((u) => u._id);
+
+    await createNotification({
+      userId: userIds,
+      title: "New Property Documents Uploaded",
+      message: `New documents were uploaded for ${updatedBuilding.projectName || updatedBuilding._id
+        }.`,
+      triggeredBy: req.user._id,
+      category: "property",
+      priority: "P3",
+      deepLink: `/properties/${updatedBuilding._id}`,
+      entityType: "Building",
+      entityId: updatedBuilding._id,
+    });
+  }
 
   return res
     .status(200)
