@@ -10,6 +10,8 @@ import Customer from "../modals/customerSchema.js";
 import ContractorModel from "../modals/contractor.model.js";
 import { createNotification } from "../utils/notificationHelper.js";
 import Contractor from "../modals/contractor.model.js";
+import Property from "../modals/propertyModel.js";
+
 export const getUserProjects = async (req, res) => {
   try {
     const { _id, role } = req.user;
@@ -435,30 +437,29 @@ export const updateProject = asyncHandler(async (req, res) => {
      Notify: Site Incharge + Contractors (if linked)
   ========================================================= */
 
-    await Promise.all(
-      receivers.map((user) =>
-        createNotification({
-          userId: user._id,
-          title: "Project Completed",
-          message: `Project ${
-            updatedProject.name || updatedProject._id
+  await Promise.all(
+    receivers.map((user) =>
+      createNotification({
+        userId: user._id,
+        title: "Project Completed",
+        message: `Project ${updatedProject.name || updatedProject._id
           } has been marked as Completed.`,
-          triggeredBy: req.user._id,
-        }),
-      ),
-    );
+        triggeredBy: req.user._id,
+      }),
+    ),
+  );
 
-    await createNotification({
-      userId: receivers,
-      title: "Site Incharge Assigned",
-      message: `You have been assigned to manage a project.`,
-      triggeredBy: req.user._id,
-      category: "project",
-      priority: "P1",
-      deepLink: `/projects/${updatedProject._id}`,
-      entityType: "Project",
-      entityId: updatedProject._id,
-    });
+  await createNotification({
+    userId: receivers,
+    title: "Site Incharge Assigned",
+    message: `You have been assigned to manage a project.`,
+    triggeredBy: req.user._id,
+    category: "project",
+    priority: "P1",
+    deepLink: `/projects/${updatedProject._id}`,
+    entityType: "Project",
+    entityId: updatedProject._id,
+  });
 
   return res
     .status(200)
@@ -922,6 +923,7 @@ export const updateTaskByIdForContractor = async (req, res) => {
     const newTask = req.body;
     const { shouldSubmit } = req.body;
     const { role } = req.user;
+    // console.log("helloo🔥🔥🔥");
 
     if (
       !mongoose.Types.ObjectId.isValid(taskId) ||
@@ -1002,12 +1004,17 @@ export const updateTaskByIdForContractor = async (req, res) => {
     await project.save();
 
     /* =========================================================
-       🔔 5.4 Proof of Work / Progress Uploaded
-       Notify: Site Incharge + Contractor + Owner/Admin (optional)
-       (UNCHANGED)
-    ========================================================= */
+   🔔 5.4 Proof of Work / Progress Uploaded
+   Notify: Site Incharge + Contractor + Owner/Admin
+========================================================= */
 
-    if (shouldSubmit) {
+    const proofUploaded =
+      (Array.isArray(newTask.photos) && newTask.photos.length > 0) ||
+      newTask.evidenceTitleByContractor ||
+      typeof newTask.progressPercentage === "number";
+
+    if (proofUploaded) {
+
       const ownersAdmins = await User.find({
         role: { $in: ["owner", "admin"] },
       }).select("_id");
@@ -1029,7 +1036,7 @@ export const updateTaskByIdForContractor = async (req, res) => {
         entityType: "Project",
         entityId: project._id,
       });
-
+// console.log("customerReceivers🔥🔥🔥");
       /* =========================================================
          🔔 7.3 Customer Progress Update
          Notify: Purchased Customer + Owner
@@ -1410,27 +1417,27 @@ export const addContractorForSiteIncharge = async (req, res) => {
        Notify: Contractor + Site Incharge + Owner/Admin (optional)
     ========================================================= */
 
-    const ownersAdmins = await User.find({
-      role: { $in: ["owner", "admin"] },
-    }).select("_id");
+    // const ownersAdmins = await User.find({
+    //   role: { $in: ["owner", "admin"] },
+    // }).select("_id");
 
-    const receivers = [
-      contractor,
-      projectDoc.siteIncharge,
-      ...ownersAdmins.map((u) => u._id),
-    ].filter(Boolean);
+    // const receivers = [
+    //   contractor,
+    //   projectDoc.siteIncharge,
+    //   ...ownersAdmins.map((u) => u._id),
+    // ].filter(Boolean);
 
-    await createNotification({
-      userId: receivers,
-      title: "Contractor Assigned to Project",
-      message: `A contractor has been assigned a new construction task.`,
-      triggeredBy: req.user._id,
-      category: "project",
-      priority: "P2",
-      deepLink: `/projects/${projectDoc._id}`,
-      entityType: "Project",
-      entityId: projectDoc._id,
-    });
+    // await createNotification({
+    //   userId: receivers,
+    //   title: "Contractor Assigned to Project",
+    //   message: `A contractor has been assigned a new construction task.`,
+    //   triggeredBy: req.user._id,
+    //   category: "project",
+    //   priority: "P2",
+    //   deepLink: `/projects/${projectDoc._id}`,
+    //   entityType: "Project",
+    //   entityId: projectDoc._id,
+    // });
 
     return res.status(201).json({
       message: "Contractor assigned successfully",

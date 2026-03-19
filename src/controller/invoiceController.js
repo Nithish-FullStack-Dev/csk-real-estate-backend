@@ -167,8 +167,8 @@ export const createInvoice = async (req, res) => {
     // Notify Accountant + Owner
     // =========================================================
 
-    const accountants = await User.find({ role: "ACCOUNTANT" });
-    const owners = await User.find({ role: "OWNER" });
+    const accountants = await User.find({ role: "accountant" });
+    const owners = await User.find({ role: "owner" });
 
     // Notify Accountants
     for (const accountant of accountants) {
@@ -537,32 +537,32 @@ export const updateInvoice = async (req, res) => {
     // 🔔 6.2 Proofs Uploaded
     // =============================================
 
-    const newProofCount =
-      (invoice.proofs?.length || 0) +
-      (invoice.attachments?.length || 0) +
-      (invoice.documents?.length || 0);
+    // const newProofCount =
+    //   (invoice.proofs?.length || 0) +
+    //   (invoice.attachments?.length || 0) +
+    //   (invoice.documents?.length || 0);
 
-    if (newProofCount > previousProofCount) {
-      const accountants = await User.find({ role: "accountant" }).select("_id");
-      const owners = await User.find({ role: "owner" }).select("_id");
+    // if (newProofCount > previousProofCount) {
+    //   const accountants = await User.find({ role: "accountant" }).select("_id");
+    //   const owners = await User.find({ role: "owner" }).select("_id");
 
-      const receivers = [
-        ...accountants.map((u) => u._id),
-        ...owners.map((u) => u._id),
-      ].filter(Boolean);
+    //   const receivers = [
+    //     ...accountants.map((u) => u._id),
+    //     ...owners.map((u) => u._id),
+    //   ].filter(Boolean);
 
-      await createNotification({
-        userId: receivers,
-        title: "Invoice Proof Uploaded",
-        message: `New supporting documents were uploaded for invoice ${invoice.invoiceNumber}.`,
-        triggeredBy: req.user._id,
-        category: "finance",
-        priority: "P2",
-        deepLink: `/finance/invoices/${invoice._id}`,
-        entityType: "Invoice",
-        entityId: invoice._id,
-      });
-    }
+    //   await createNotification({
+    //     userId: receivers,
+    //     title: "Invoice Proof Uploaded",
+    //     message: `New supporting documents were uploaded for invoice ${invoice.invoiceNumber}.`,
+    //     triggeredBy: req.user._id,
+    //     category: "finance",
+    //     priority: "P2",
+    //     deepLink: `/finance/invoices/${invoice._id}`,
+    //     entityType: "Invoice",
+    //     entityId: invoice._id,
+    //   });
+    // }
 
     // =============================================
     // 🔔 6.3 Invoice Status Changed
