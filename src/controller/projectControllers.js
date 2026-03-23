@@ -426,7 +426,7 @@ export const updateProject = asyncHandler(async (req, res) => {
     projectId,
     { $set: updateData },
     { new: true, runValidators: true },
-  );
+  ).populate("site_incharge contractor");
 
   if (!updatedProject) {
     throw new ApiError(404, "Project not found");
@@ -436,6 +436,16 @@ export const updateProject = asyncHandler(async (req, res) => {
      🔔 5.3 Site Incharge Assigned to Project
      Notify: Site Incharge + Contractors (if linked)
   ========================================================= */
+
+  const receivers = [];
+
+  if (updatedProject.siteIncharge) {
+    receivers.push(updatedProject.siteIncharge);
+  }
+
+  if (updatedProject.contractor) {
+    receivers.push(updatedProject.contractor);
+  }
 
   await Promise.all(
     receivers.map((user) =>
@@ -1036,7 +1046,7 @@ export const updateTaskByIdForContractor = async (req, res) => {
         entityType: "Project",
         entityId: project._id,
       });
-// console.log("customerReceivers🔥🔥🔥");
+      // console.log("customerReceivers🔥🔥🔥");
       /* =========================================================
          🔔 7.3 Customer Progress Update
          Notify: Purchased Customer + Owner
