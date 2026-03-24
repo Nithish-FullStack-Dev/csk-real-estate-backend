@@ -1527,7 +1527,17 @@ export const addContractorForSiteIncharge = async (req, res) => {
     //   entityType: "Project",
     //   entityId: projectDoc._id,
     // });
-
+await createNotification({
+  userId: [contractor], // 👈 only contractor
+  title: "New Task Assigned",
+  message: `You have been assigned a new construction task: "${taskTitle}".`,
+  triggeredBy: req.user._id,
+  category: "project",
+  priority: "P2",
+  deepLink: `/projects/${projectDoc._id}`,
+  entityType: "Project",
+  entityId: projectDoc._id,
+});
     return res.status(201).json({
       message: "Contractor assigned successfully",
       task: newTask,
