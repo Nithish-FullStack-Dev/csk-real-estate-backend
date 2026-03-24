@@ -93,7 +93,7 @@ export const getQualityIssuesByUserId = async (req, res) => {
       return res.status(400).json({ error: "Invalid user ID" });
     }
 
-    let filter = {};
+    let filter = { deletedBy: null };
 
     if (role === "site_incharge") {
       const projects = await Project.find({
@@ -104,7 +104,7 @@ export const getQualityIssuesByUserId = async (req, res) => {
 
       filter.project = { $in: projectIds };
     } else if (role === "contractor") {
-      filter = { contractor: userId };
+      filter.contractor = userId;
     }
 
     const issues = await QualityIssue.find(filter)
@@ -127,10 +127,12 @@ export const getQualityIssuesByUserId = async (req, res) => {
             select: "_id plotNo propertyType",
           },
         ],
-        select: "projectId floorUnit unit",
       })
       .populate("contractor", "_id name")
       .sort({ reported_date: -1 });
+
+    console.log("FILTER", filter);
+    console.log("ISSUES", issues.length);
 
     res.status(200).json({ issues });
   } catch (error) {
