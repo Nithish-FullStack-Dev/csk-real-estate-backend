@@ -78,7 +78,7 @@ buildingSchema.methods.softDelete = async function (userId) {
   return this.save();
 };
 
-buildingSchema.methods.restore = async function () {
+buildingSchema.methods.restore = async function (userId) {
   this.isDeleted = false;
   this.deletedAt = null;
   this.deletedBy = null;
@@ -92,47 +92,6 @@ buildingSchema.pre(/^find/, function (next) {
   }
   next();
 });
-
-buildingSchema.pre("findOneAndDelete", async function (next) {
-  const building = await this.model.findOne(this.getQuery());
-  if (!building) return next();
-
-  const buildingId = building._id;
-
-  // 1. Find all floors
-  const floors = await FloorUnit.find({ buildingId }, { _id: 1 });
-
-  const floorIds = floors.map((f) => f._id);
-
-  // 2. Delete all units under those floors
-  if (floorIds.length > 0) {
-    await PropertyUnit.deleteMany({ floorId: { $in: floorIds } });
-  }
-
-  // 3. Delete floors
-  await FloorUnit.deleteMany({ buildingId });
-
-  next();
-});
-
-buildingSchema.pre(
-  "deleteOne",
-  { document: true, query: false },
-  async function (next) {
-    const buildingId = this._id;
-
-    const floors = await FloorUnit.find({ buildingId }, { _id: 1 });
-
-    const floorIds = floors.map((f) => f._id);
-
-    if (floorIds.length > 0) {
-      await PropertyUnit.deleteMany({ floorId: { $in: floorIds } });
-    }
-
-    await FloorUnit.deleteMany({ buildingId });
-    next();
-  },
-);
 
 export default mongoose.models.Building ||
   mongoose.model("Building", buildingSchema);

@@ -7,15 +7,8 @@ import { createNotification } from "../utils/notificationHelper.js";
 export const createQualityIssue = async (req, res) => {
   try {
     const user = req.user._id;
-    const {
-      title,
-      project,
-      severity,
-      status,
-      contractor,
-      description,
-      evidenceImages,
-    } = req.body;
+    const { title, project, severity, status, contractor, description } =
+      req.body;
 
     if (
       !user ||
@@ -39,6 +32,17 @@ export const createQualityIssue = async (req, res) => {
       return res.status(404).json({ error: "Project not found." });
     }
 
+    let imageUrls = [];
+
+    if (req.files?.evidenceImages && Array.isArray(req.files.evidenceImages)) {
+      imageUrls = req.files.evidenceImages.map(
+        (file) =>
+          `${req.protocol}://${req.get(
+            "host",
+          )}/api/uploads/images/${file.filename}`,
+      );
+    }
+
     const newIssue = new QualityIssue({
       user,
       title,
@@ -47,11 +51,7 @@ export const createQualityIssue = async (req, res) => {
       severity,
       status: status || "open",
       description,
-      evidenceImages: Array.isArray(evidenceImages)
-        ? evidenceImages.map((img) =>
-            typeof img === "string" ? img : img?.secure_url || img?.url,
-          )
-        : [],
+      evidenceImages: imageUrls,
     });
     newIssue.createdBy = user;
     const savedIssue = await newIssue.save();
@@ -96,11 +96,15 @@ export const getQualityIssuesByUserId = async (req, res) => {
     let filter = {};
 
     if (role === "site_incharge") {
-      filter = { user: userId };
+      const projects = await Project.find({
+        siteIncharge: userId,
+      }).select("_id");
+
+      const projectIds = projects.map((p) => p._id);
+
+      filter.project = { $in: projectIds };
     } else if (role === "contractor") {
       filter = { contractor: userId };
-    } else if (role === "admin") {
-      filter = {};
     }
 
     const issues = await QualityIssue.find(filter)
@@ -140,22 +144,27 @@ export const getQualityIssuesByUserId = async (req, res) => {
 export const updateIssue = async (req, res) => {};
 
 export const updateStatus = async (req, res) => {
-  const { status } = req.body;
-  const validStatuses = ["open", "under_review", "resolved"];
+  try {
+    const { status } = req.body;
+    const validStatuses = ["open", "under_review", "resolved"];
 
-  if (!validStatuses.includes(status)) {
-    return res.status(400).json({ error: "Invalid status" });
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+
+    const issue = await QualityIssue.findByIdAndUpdate(
+      req.params.id,
+      { status, updatedBy: req.user._id },
+      { new: true },
+    );
+
+    if (!issue) {
+      return res.status(404).json({ error: "Issue not found" });
+    }
+
+    res.json(issue);
+  } catch (error) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
   }
-
-  const issue = await QualityIssue.findByIdAndUpdate(
-    req.params.id,
-    { status, updatedBy: req.user._id },
-    { new: true },
-  );
-
-  if (!issue) {
-    return res.status(404).json({ error: "Issue not found" });
-  }
-
-  res.json(issue);
 };

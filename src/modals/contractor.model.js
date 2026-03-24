@@ -57,12 +57,12 @@ const contractorSchema = new Schema(
       type: Date,
     },
 
-    projectsAssigned: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Project",
-      },
-    ],
+    // projectsAssigned: [
+    //   {
+    //     type: mongoose.Schema.Types.ObjectId,
+    //     ref: "Project",
+    //   },
+    // ],
 
     siteIncharge: {
       type: mongoose.Schema.Types.ObjectId,

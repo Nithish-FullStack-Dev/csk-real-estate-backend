@@ -50,7 +50,15 @@ export const createLaborTeam = async (req, res) => {
 
 export const getLaborTeamsForContractor = async (req, res) => {
   try {
-    const teams = await LaborTeam.find({ contractor: req.user._id })
+    const { _id, role } = req.user;
+
+    let query = {};
+
+    if (role === "contractor") {
+      query.contractor = _id;
+    }
+
+    const teams = await LaborTeam.find(query)
       .populate({
         path: "project",
         populate: [

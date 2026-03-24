@@ -317,6 +317,7 @@ export const getUserTasks = async (req, res) => {
                 noteBySiteIncharge: task.noteBySiteIncharge || "",
                 siteInchargeUploadedPhotos:
                   task.siteInchargeUploadedPhotos || [],
+                statusForSiteIncharge: task.statusForSiteIncharge || "",
               });
             }
           } else if (
@@ -332,6 +333,7 @@ export const getUserTasks = async (req, res) => {
               qualityAssessment: task.qualityAssessment || "",
               noteBySiteIncharge: task.noteBySiteIncharge || "",
               siteInchargeUploadedPhotos: task.siteInchargeUploadedPhotos || [],
+              statusForSiteIncharge: task.statusForSiteIncharge || "",
             });
           } else if (["owner", "admin", "customer_purchased"].includes(role)) {
             taskList.push({
@@ -345,6 +347,7 @@ export const getUserTasks = async (req, res) => {
               qualityAssessment: task.qualityAssessment || "",
               noteBySiteIncharge: task.noteBySiteIncharge || "",
               siteInchargeUploadedPhotos: task.siteInchargeUploadedPhotos || [],
+              statusForSiteIncharge: task.statusForSiteIncharge || "",
             });
           }
         }
@@ -452,8 +455,9 @@ export const updateProject = asyncHandler(async (req, res) => {
       createNotification({
         userId: user._id,
         title: "Project Completed",
-        message: `Project ${updatedProject.name || updatedProject._id
-          } has been marked as Completed.`,
+        message: `Project ${
+          updatedProject.name || updatedProject._id
+        } has been marked as Completed.`,
         triggeredBy: req.user._id,
       }),
     ),
@@ -545,19 +549,17 @@ export const deleteProject = asyncHandler(async (req, res) => {
 
 export const getContractorsForSiteIncharge = async (req, res) => {
   try {
-    const { role, _id: siteInchargeId } = req.user;
+    const { role, _id } = req.user;
 
-    // if (role !== "site_incharge" && role !== "accountant") {
-    //   return res.status(403).json({
-    //     error: "Access denied",
-    //   });
-    // }
+    let matchStage = {};
+
+    if (role === "site_incharge") {
+      matchStage.siteIncharge = new mongoose.Types.ObjectId(_id);
+    }
 
     const contractors = await Project.aggregate([
       {
-        $match: {
-          siteIncharge: new mongoose.Types.ObjectId(siteInchargeId),
-        },
+        $match: matchStage,
       },
 
       // Populate references
@@ -1079,7 +1081,6 @@ export const updateTaskByIdForContractor = async (req, res) => {
     //   }
     // }
 
-
     /* =========================================================
    🔔 5.4 Smart Task Update Notifications
    Notify based on actual change type
@@ -1090,8 +1091,7 @@ export const updateTaskByIdForContractor = async (req, res) => {
 
     const hasEvidenceTitle = !!newTask.evidenceTitleByContractor;
 
-    const hasProgressUpdate =
-      typeof newTask.progressPercentage === "number";
+    const hasProgressUpdate = typeof newTask.progressPercentage === "number";
 
     const hasStatusUpdate = !!newTask.status;
 
@@ -1124,66 +1124,15 @@ export const updateTaskByIdForContractor = async (req, res) => {
         entityType: "Project",
         entityId: project._id,
       });
-    }
+      // console.log("customerReceivers🔥🔥🔥");
+      /* =========================================================
+         🔔 7.3 Customer Progress Update
+         Notify: Purchased Customer + Owner
+      ========================================================= */
 
-    /* ================================
-       📊 Progress Update
-    ================================ */
-    else if (hasProgressUpdate) {
-      await createNotification({
-        userId: receivers,
-        title: "Task Progress Updated",
-        message: `Task progress updated to ${newTask.progressPercentage}%.`,
-        triggeredBy: req.user._id,
-        category: "project",
-        priority: "P3",
-        deepLink: `/projects/${project._id}`,
-        entityType: "Project",
-        entityId: project._id,
-      });
-    }
-
-    /* ================================
-       🔄 Status Update
-    ================================ */
-    else if (hasStatusUpdate) {
-      await createNotification({
-        userId: [project.siteIncharge, contractorId].filter(Boolean),
-        title: "Task Status Updated",
-        message: `Task status changed to "${newTask.status}".`,
-        triggeredBy: req.user._id,
-        category: "project",
-        priority: "P3",
-        deepLink: `/projects/${project._id}`,
-        entityType: "Project",
-        entityId: project._id,
-      });
-    }
-
-    /* ================================
-       ✅ Completion + Submission
-    ================================ */
-    if (isCompletedAndSubmitted) {
-      await createNotification({
-        userId: [project.siteIncharge].filter(Boolean),
-        title: "Task Submitted for Approval",
-        message: `Contractor completed the task (100%) and submitted it for approval.`,
-        triggeredBy: req.user._id,
-        category: "project",
-        priority: "P1",
-        deepLink: `/projects/${project._id}`,
-        entityType: "Project",
-        entityId: project._id,
-      });
-    }
-
-    /* =========================================================
-       🔔 7.3 Customer Progress Update (ONLY for real progress/evidence)
-    ========================================================= */
-
-    if (hasNewPhotos || hasEvidenceTitle || hasProgressUpdate) {
-      const property = await Property.findById(project.projectId)
-        .select("customerInfo.customerId");
+      const property = await Property.findById(project.projectId).select(
+        "customerInfo.customerId",
+      );
 
       const customerId = property?.customerInfo?.customerId;
 
@@ -1874,44 +1823,50 @@ export const createTaskForProjectUnit = async (req, res) => {
     }
 
     const project = await Project.findById(projectId);
+
     if (!project) {
       return res
         .status(404)
         .json({ success: false, message: "Project not found" });
     }
 
+    const unitKey = project.unit?.toString();
+
     const newTask = {
       title,
       description,
-      contractor: req.user?._id, // assuming auth middleware injects user
+      contractor: req.user?._id,
       deadline: new Date(deadline),
       constructionPhase: phase,
       priority,
     };
-    const unit = project?.unit;
 
     if (!project.units) {
       project.units = new Map();
     }
-    // Initialize unit if not present
-    if (!project.units.has(unit)) {
-      project.units.set(unit, []);
-    }
 
-    const taskArray = project.units.get(unit);
-    taskArray.push(newTask);
+    const existingTasks = project.units.get(unitKey) || [];
 
-    project.units.set(unit, taskArray);
+    existingTasks.push(newTask);
+
+    project.units.set(unitKey, existingTasks);
+
     project.markModified("units");
+
     project.updatedBy = req.user._id;
+
     await project.save();
 
-    return res
-      .status(201)
-      .json({ success: true, message: "Task created successfully" });
+    return res.status(201).json({
+      success: true,
+      message: "Task created successfully",
+    });
   } catch (error) {
     console.error("Error creating task:", error);
-    return res.status(500).json({ success: false, message: "Server error" });
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 };
 
@@ -2100,7 +2055,7 @@ export const getAllContractors = asyncHandler(async (req, res) => {
   const contractors = await User.find({
     role: "contractor",
     _id: { $nin: existingContractorsId },
-  }).select("_id name");
+  }).select("_id name email");
 
   const message =
     contractors.length === 0
@@ -2108,6 +2063,19 @@ export const getAllContractors = asyncHandler(async (req, res) => {
       : "Contractors fetched successfully";
 
   res.status(200).json(new ApiResponse(200, contractors, message));
+});
+
+export const getAllAccountant = asyncHandler(async (req, res) => {
+  const accountants = await User.find({
+    role: "accountant",
+  }).select("_id name email");
+
+  const message =
+    accountants.length === 0
+      ? "No accountants found"
+      : "accountants fetched successfully";
+
+  res.status(200).json(new ApiResponse(200, accountants, message));
 });
 
 export const getCompletedTasksForUnit = asyncHandler(async (req, res) => {

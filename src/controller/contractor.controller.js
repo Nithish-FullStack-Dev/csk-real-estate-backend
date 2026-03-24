@@ -21,7 +21,7 @@ export const addContractor = asyncHandler(async (req, res) => {
     contractEndDate,
     siteIncharge,
     accountsIncharge,
-    projectsAssigned,
+    // projectsAssigned,
     amount,
     advancePaid,
     balancePaid,
@@ -92,7 +92,7 @@ export const addContractor = asyncHandler(async (req, res) => {
 
     siteIncharge,
     accountsIncharge,
-    projectsAssigned,
+    // projectsAssigned,
 
     amount,
     advancePaid,
@@ -125,26 +125,26 @@ export const getAllContractorsById = asyncHandler(async (req, res) => {
     .populate("userId", "name email phone")
     .populate("siteIncharge", "name email phone")
     .populate("accountsIncharge", "name email phone")
-    .populate({
-      path: "projectsAssigned",
-      populate: [
-        {
-          path: "projectId",
-          model: "Building",
-          select: "projectName location",
-        },
-        {
-          path: "floorUnit",
-          model: "FloorUnit",
-          select: "floorNumber",
-        },
-        {
-          path: "unit",
-          model: "PropertyUnit",
-          select: "plotNo",
-        },
-      ],
-    })
+    // .populate({
+    //   path: "projectsAssigned",
+    //   populate: [
+    //     {
+    //       path: "projectId",
+    //       model: "Building",
+    //       select: "projectName location",
+    //     },
+    //     {
+    //       path: "floorUnit",
+    //       model: "FloorUnit",
+    //       select: "floorNumber",
+    //     },
+    //     {
+    //       path: "unit",
+    //       model: "PropertyUnit",
+    //       select: "plotNo",
+    //     },
+    //   ],
+    // })
     .lean();
 
   if (!contractor) throw new ApiError(404, "contrator not found");
@@ -158,27 +158,27 @@ export const getAllContractorList = asyncHandler(async (req, res) => {
   const contractors = await ContractorModel.find({ isDeleted: false })
     .populate("userId", "name email phone")
     .populate("siteIncharge", "name email phone")
-    .populate("accountsIncharge", "name email phone")
-    .populate({
-      path: "projectsAssigned",
-      populate: [
-        {
-          path: "projectId",
-          model: "Building",
-          select: "projectName location",
-        },
-        {
-          path: "floorUnit",
-          model: "FloorUnit",
-          select: "floorNumber",
-        },
-        {
-          path: "unit",
-          model: "PropertyUnit",
-          select: "plotNo",
-        },
-      ],
-    });
+    .populate("accountsIncharge", "name email phone");
+  // .populate({
+  //   path: "projectsAssigned",
+  //   populate: [
+  //     {
+  //       path: "projectId",
+  //       model: "Building",
+  //       select: "projectName location",
+  //     },
+  //     {
+  //       path: "floorUnit",
+  //       model: "FloorUnit",
+  //       select: "floorNumber",
+  //     },
+  //     {
+  //       path: "unit",
+  //       model: "PropertyUnit",
+  //       select: "plotNo",
+  //     },
+  //   ],
+  // });
 
   res
     .status(200)
@@ -208,7 +208,7 @@ export const updateContractor = asyncHandler(async (req, res) => {
 
     siteIncharge,
     accountsIncharge,
-    projectsAssigned,
+    // projectsAssigned,
 
     amount,
     advancePaid,
@@ -247,15 +247,15 @@ export const updateContractor = asyncHandler(async (req, res) => {
 
   let normalizedProjectsAssigned = [];
 
-  if (projectsAssigned !== undefined) {
-    if (Array.isArray(projectsAssigned)) {
-      normalizedProjectsAssigned = projectsAssigned;
-    } else {
-      normalizedProjectsAssigned = [projectsAssigned];
-    }
-  } else {
-    normalizedProjectsAssigned = [];
-  }
+  // if (projectsAssigned !== undefined) {
+  //   if (Array.isArray(projectsAssigned)) {
+  //     normalizedProjectsAssigned = projectsAssigned;
+  //   } else {
+  //     normalizedProjectsAssigned = [projectsAssigned];
+  //   }
+  // } else {
+  //   normalizedProjectsAssigned = [];
+  // }
 
   const updateData = {
     companyName,
@@ -271,7 +271,7 @@ export const updateContractor = asyncHandler(async (req, res) => {
 
     siteIncharge,
     accountsIncharge,
-    projectsAssigned: normalizedProjectsAssigned,
+    // projectsAssigned: normalizedProjectsAssigned,
 
     amount,
     advancePaid,

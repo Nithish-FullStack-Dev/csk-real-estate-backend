@@ -20,6 +20,7 @@ import {
   updateProject,
   deleteProject,
   projectDropDownDataForSiteIncharge,
+  getAllAccountant,
 } from "../controller/projectControllers.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { upload } from "../middlewares/multer.js";
@@ -54,6 +55,7 @@ router.get(
 );
 
 router.get("/contractorDropdown", authenticate, getAllContractors);
+router.get("/accountantDropdown", authenticate, getAllAccountant);
 
 router.get(
   "/units/:projectId/:unit/completed-tasks",
