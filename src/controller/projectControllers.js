@@ -2018,6 +2018,41 @@ export const projectDropDownData = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(201, projects, message));
 });
 
+export const projectDropDownDataForIssue = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const role = req.user.role;
+
+  let filter = {};
+
+  // ✅ site incharge → only his projects
+  if (role === "site_incharge") {
+    filter.siteIncharge = userId;
+  }
+
+  // ✅ contractor → only assigned projects (if you store contractors in project)
+  if (role === "contractor") {
+    filter.contractors = userId;
+  }
+
+  // admin / owner → all projects
+
+  const projects = await Project.find(filter)
+    .select("_id projectId floorUnit unit")
+    .populate("projectId", "_id projectName")
+    .populate("floorUnit", "_id floorNumber unitType")
+    .populate("unit", "_id plotNo propertyType");
+
+  let message;
+
+  if (!projects.length) {
+    message = "No projects found";
+  } else {
+    message = "Projects fetched successfully";
+  }
+
+  res.status(200).json(new ApiResponse(200, projects, message));
+});
+
 export const projectDropDownDataForSiteIncharge = asyncHandler(
   async (req, res) => {
     const { role, _id: siteInchargeId } = req.user;
@@ -2063,6 +2098,55 @@ export const getAllContractors = asyncHandler(async (req, res) => {
       : "Contractors fetched successfully";
 
   res.status(200).json(new ApiResponse(200, contractors, message));
+});
+
+export const getAllContractorsForIssue = asyncHandler(async (req, res) => {
+  const { projectId } = req.query;
+  const userId = req.user._id;
+  const role = req.user.role;
+
+  let contractorIds = [];
+
+  // ✅ if projectId provided → get contractors of that project
+  if (projectId) {
+    const project = await Project.findById(projectId).select("contractors");
+
+    if (project && project.contractors) {
+      contractorIds = project.contractors;
+    }
+  }
+
+  // ✅ site incharge → only contractors of his projects
+  else if (role === "site_incharge") {
+    const projects = await Project.find({
+      siteIncharge: userId,
+    }).select("contractors");
+
+    contractorIds = projects.flatMap((p) => p.contractors);
+  }
+
+  // ✅ admin → all contractors
+  else {
+    const users = await User.find({ role: "contractor" }).select(
+      "_id name email"
+    );
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, users, "All contractors"));
+  }
+
+  const contractors = await User.find({
+    _id: { $in: contractorIds },
+  }).select("_id name email");
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      contractors,
+      contractors.length ? "Contractors fetched" : "No contractors"
+    )
+  );
 });
 
 export const getAllAccountant = asyncHandler(async (req, res) => {

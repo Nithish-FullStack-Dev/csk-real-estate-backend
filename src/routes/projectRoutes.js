@@ -21,6 +21,8 @@ import {
   deleteProject,
   projectDropDownDataForSiteIncharge,
   getAllAccountant,
+  projectDropDownDataForIssue,
+  getAllContractorsForIssue,
 } from "../controller/projectControllers.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { upload } from "../middlewares/multer.js";
@@ -49,12 +51,23 @@ router.get(
 
 router.get("/projectsDropdown", authenticate, projectDropDownData);
 router.get(
+  "/projectDropDownDataForIssue",
+  authenticate,
+  projectDropDownDataForIssue,
+);
+
+router.get(
   "/projectsDropdown/site-incharge",
   authenticate,
   projectDropDownDataForSiteIncharge,
 );
 
 router.get("/contractorDropdown", authenticate, getAllContractors);
+router.get(
+  "/contractorDropdownForIssue",
+  authenticate,
+  getAllContractorsForIssue,
+);
 router.get("/accountantDropdown", authenticate, getAllAccountant);
 
 router.get(
