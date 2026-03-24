@@ -429,7 +429,7 @@ export const updateProject = asyncHandler(async (req, res) => {
     projectId,
     { $set: updateData },
     { new: true, runValidators: true },
-  );
+  ).populate("site_incharge contractor");
 
   if (!updatedProject) {
     throw new ApiError(404, "Project not found");
@@ -439,6 +439,16 @@ export const updateProject = asyncHandler(async (req, res) => {
      🔔 5.3 Site Incharge Assigned to Project
      Notify: Site Incharge + Contractors (if linked)
   ========================================================= */
+
+  const receivers = [];
+
+  if (updatedProject.siteIncharge) {
+    receivers.push(updatedProject.siteIncharge);
+  }
+
+  if (updatedProject.contractor) {
+    receivers.push(updatedProject.contractor);
+  }
 
   await Promise.all(
     receivers.map((user) =>
@@ -1010,26 +1020,103 @@ export const updateTaskByIdForContractor = async (req, res) => {
    Notify: Site Incharge + Contractor + Owner/Admin
 ========================================================= */
 
-    const proofUploaded =
-      (Array.isArray(newTask.photos) && newTask.photos.length > 0) ||
-      newTask.evidenceTitleByContractor ||
-      typeof newTask.progressPercentage === "number";
+    // const proofUploaded =
+    //   (Array.isArray(newTask.photos) && newTask.photos.length > 0) ||
+    //   newTask.evidenceTitleByContractor ||
+    //   typeof newTask.progressPercentage === "number";
 
-    if (proofUploaded) {
-      const ownersAdmins = await User.find({
-        role: { $in: ["owner", "admin"] },
-      }).select("_id");
+    // if (proofUploaded) {
 
-      const receivers = [
-        project.siteIncharge,
-        contractorId,
-        ...ownersAdmins.map((u) => u._id),
-      ].filter(Boolean);
+    //   const ownersAdmins = await User.find({
+    //     role: { $in: ["owner", "admin"] },
+    //   }).select("_id");
 
+    //   const receivers = [
+    //     project.siteIncharge,
+    //     contractorId,
+    //     ...ownersAdmins.map((u) => u._id),
+    //   ].filter(Boolean);
+
+    //   await createNotification({
+    //     userId: receivers,
+    //     title: "Work Progress Submitted",
+    //     message: `New work evidence has been uploaded for a construction task and requires review.`,
+    //     triggeredBy: req.user._id,
+    //     category: "project",
+    //     priority: "P2",
+    //     deepLink: `/projects/${project._id}`,
+    //     entityType: "Project",
+    //     entityId: project._id,
+    //   });
+    //   // console.log("customerReceivers🔥🔥🔥");
+    //   /* =========================================================
+    //      🔔 7.3 Customer Progress Update
+    //      Notify: Purchased Customer + Owner
+    //   ========================================================= */
+
+    //   const property = await Property.findById(project.projectId)
+    //     .select("customerInfo.customerId");
+
+    //   const customerId = property?.customerInfo?.customerId;
+
+    //   const owners = await User.find({ role: "owner" }).select("_id");
+
+    //   const customerReceivers = [
+    //     customerId,
+    //     ...owners.map((u) => u._id),
+    //   ].filter(Boolean);
+
+    //   if (customerReceivers.length > 0) {
+    //     await createNotification({
+    //       userId: customerReceivers,
+    //       title: "Construction Progress Update",
+    //       message: `New construction progress has been uploaded for your property.`,
+    //       triggeredBy: req.user._id,
+    //       category: "project",
+    //       priority: "P2",
+    //       deepLink: `/projects/${project._id}`,
+    //       entityType: "Project",
+    //       entityId: project._id,
+    //     });
+    //   }
+    // }
+
+    /* =========================================================
+   🔔 5.4 Smart Task Update Notifications
+   Notify based on actual change type
+========================================================= */
+
+    const hasNewPhotos =
+      Array.isArray(newTask.photos) && newTask.photos.length > 0;
+
+    const hasEvidenceTitle = !!newTask.evidenceTitleByContractor;
+
+    const hasProgressUpdate = typeof newTask.progressPercentage === "number";
+
+    const hasStatusUpdate = !!newTask.status;
+
+    const isCompletedAndSubmitted =
+      shouldSubmit && newTask.progressPercentage === 100;
+
+    // Common receivers
+    const ownersAdmins = await User.find({
+      role: { $in: ["owner", "admin"] },
+    }).select("_id");
+
+    const receivers = [
+      project.siteIncharge,
+      contractorId,
+      ...ownersAdmins.map((u) => u._id),
+    ].filter(Boolean);
+
+    /* ================================
+       📸 Evidence Upload
+    ================================ */
+    if (hasNewPhotos || hasEvidenceTitle) {
       await createNotification({
         userId: receivers,
-        title: "Work Progress Submitted",
-        message: `New work evidence has been uploaded for a construction task and requires review.`,
+        title: "Work Evidence Uploaded",
+        message: `Contractor uploaded new work evidence (photos/details) for a task.`,
         triggeredBy: req.user._id,
         category: "project",
         priority: "P2",
