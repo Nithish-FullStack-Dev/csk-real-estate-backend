@@ -6,6 +6,8 @@ import asyncHandler from "../utils/asyncHandler.js";
 // import { uploadFile } from "../utils/uploadFile.js";
 import Customer from "../modals/customerSchema.js";
 import User from "../modals/user.js";
+import FloorUnit from "../modals/floorUnit.model.js";
+import PropertyUnit from "../modals/propertyUnit.model.js";
 import { createNotification } from "../utils/notificationHelper.js";
 
 export const createBuilding = asyncHandler(async (req, res) => {
@@ -256,13 +258,14 @@ export const updateBuilding = asyncHandler(async (req, res) => {
     }).select("_id");
 
     const userIds = receivers.map((u) => u._id);
-// console.log(userIds, "userdda");
+    // console.log(userIds, "userdda");
 
     await createNotification({
       userId: userIds,
       title: "Construction Status Updated",
-      message: `Construction status for ${updatedBuilding.projectName || updatedBuilding._id
-        } changed to ${newStatus}.`,
+      message: `Construction status for ${
+        updatedBuilding.projectName || updatedBuilding._id
+      } changed to ${newStatus}.`,
       triggeredBy: req.user._id,
       category: "construction",
       priority: "P2",
@@ -291,8 +294,9 @@ export const updateBuilding = asyncHandler(async (req, res) => {
     await createNotification({
       userId: userIds,
       title: "New Property Documents Uploaded",
-      message: `New documents were uploaded for ${updatedBuilding.projectName || updatedBuilding._id
-        }.`,
+      message: `New documents were uploaded for ${
+        updatedBuilding.projectName || updatedBuilding._id
+      }.`,
       triggeredBy: req.user._id,
       category: "property",
       priority: "P3",
@@ -396,18 +400,38 @@ export const restoreBuilding = asyncHandler(async (req, res) => {
 
   if (!building) throw new ApiError(404, "Building not found in trash");
 
-  await building.restore();
+  await building.restore(req.user._id);
 
   res.json(new ApiResponse(200, null, "Building restored successfully"));
 });
 
 export const deleteBuildingPermanently = asyncHandler(async (req, res) => {
-  const deletedBuilding = await Building.findOneAndDelete({
-    _id: req.params._id,
-    isDeleted: true,
-  });
+  const buildingId = req.params.id;
 
-  if (!deletedBuilding) throw new ApiError(404, "Building not found in trash");
+  const building = await Building.findOne({
+    _id: buildingId,
+    isDeleted: true,
+  }).setOptions({ withDeleted: true });
+
+  if (!building) {
+    throw new ApiError(404, "Building not found in trash");
+  }
+
+  const floors = await FloorUnit.find({ buildingId }, { _id: 1 });
+
+  const floorIds = floors.map((f) => f._id);
+
+  if (floorIds.length > 0) {
+    await PropertyUnit.deleteMany({
+      floorId: { $in: floorIds },
+    });
+  }
+
+  await FloorUnit.deleteMany({ buildingId });
+
+  await Building.deleteOne({ _id: buildingId }).setOptions({
+    withDeleted: true,
+  });
 
   res.json(new ApiResponse(200, null, "Building permanently deleted"));
 });

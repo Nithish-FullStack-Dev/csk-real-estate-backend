@@ -20,7 +20,6 @@ const qualityIssueSchema = new Schema(
     contractor: {
       type: Types.ObjectId,
       ref: "User",
-      required: true,
     },
     reported_date: {
       type: Date,

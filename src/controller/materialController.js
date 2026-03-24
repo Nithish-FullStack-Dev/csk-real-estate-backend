@@ -3,7 +3,15 @@ import Material from "../modals/materialManagement.js";
 
 export const getAllMaterials = async (req, res) => {
   try {
-    const materials = await Material.find({ contractor: req.user._id })
+    const { _id, role } = req?.user;
+
+    const query = {};
+
+    if (role === "contractor") {
+      query.contractor = _id;
+    }
+
+    const materials = await Material.find(query)
       .populate({
         path: "project",
         populate: [

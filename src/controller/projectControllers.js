@@ -317,6 +317,7 @@ export const getUserTasks = async (req, res) => {
                 noteBySiteIncharge: task.noteBySiteIncharge || "",
                 siteInchargeUploadedPhotos:
                   task.siteInchargeUploadedPhotos || [],
+                statusForSiteIncharge: task.statusForSiteIncharge || "",
               });
             }
           } else if (
@@ -332,6 +333,7 @@ export const getUserTasks = async (req, res) => {
               qualityAssessment: task.qualityAssessment || "",
               noteBySiteIncharge: task.noteBySiteIncharge || "",
               siteInchargeUploadedPhotos: task.siteInchargeUploadedPhotos || [],
+              statusForSiteIncharge: task.statusForSiteIncharge || "",
             });
           } else if (["owner", "admin", "customer_purchased"].includes(role)) {
             taskList.push({
@@ -345,6 +347,7 @@ export const getUserTasks = async (req, res) => {
               qualityAssessment: task.qualityAssessment || "",
               noteBySiteIncharge: task.noteBySiteIncharge || "",
               siteInchargeUploadedPhotos: task.siteInchargeUploadedPhotos || [],
+              statusForSiteIncharge: task.statusForSiteIncharge || "",
             });
           }
         }
@@ -442,8 +445,9 @@ export const updateProject = asyncHandler(async (req, res) => {
       createNotification({
         userId: user._id,
         title: "Project Completed",
-        message: `Project ${updatedProject.name || updatedProject._id
-          } has been marked as Completed.`,
+        message: `Project ${
+          updatedProject.name || updatedProject._id
+        } has been marked as Completed.`,
         triggeredBy: req.user._id,
       }),
     ),
@@ -535,19 +539,17 @@ export const deleteProject = asyncHandler(async (req, res) => {
 
 export const getContractorsForSiteIncharge = async (req, res) => {
   try {
-    const { role, _id: siteInchargeId } = req.user;
+    const { role, _id } = req.user;
 
-    // if (role !== "site_incharge" && role !== "accountant") {
-    //   return res.status(403).json({
-    //     error: "Access denied",
-    //   });
-    // }
+    let matchStage = {};
+
+    if (role === "site_incharge") {
+      matchStage.siteIncharge = new mongoose.Types.ObjectId(_id);
+    }
 
     const contractors = await Project.aggregate([
       {
-        $match: {
-          siteIncharge: new mongoose.Types.ObjectId(siteInchargeId),
-        },
+        $match: matchStage,
       },
 
       // Populate references
@@ -1014,7 +1016,6 @@ export const updateTaskByIdForContractor = async (req, res) => {
       typeof newTask.progressPercentage === "number";
 
     if (proofUploaded) {
-
       const ownersAdmins = await User.find({
         role: { $in: ["owner", "admin"] },
       }).select("_id");
@@ -1036,14 +1037,15 @@ export const updateTaskByIdForContractor = async (req, res) => {
         entityType: "Project",
         entityId: project._id,
       });
-// console.log("customerReceivers🔥🔥🔥");
+      // console.log("customerReceivers🔥🔥🔥");
       /* =========================================================
          🔔 7.3 Customer Progress Update
          Notify: Purchased Customer + Owner
       ========================================================= */
 
-      const property = await Property.findById(project.projectId)
-        .select("customerInfo.customerId");
+      const property = await Property.findById(project.projectId).select(
+        "customerInfo.customerId",
+      );
 
       const customerId = property?.customerInfo?.customerId;
 
@@ -1734,44 +1736,50 @@ export const createTaskForProjectUnit = async (req, res) => {
     }
 
     const project = await Project.findById(projectId);
+
     if (!project) {
       return res
         .status(404)
         .json({ success: false, message: "Project not found" });
     }
 
+    const unitKey = project.unit?.toString();
+
     const newTask = {
       title,
       description,
-      contractor: req.user?._id, // assuming auth middleware injects user
+      contractor: req.user?._id,
       deadline: new Date(deadline),
       constructionPhase: phase,
       priority,
     };
-    const unit = project?.unit;
 
     if (!project.units) {
       project.units = new Map();
     }
-    // Initialize unit if not present
-    if (!project.units.has(unit)) {
-      project.units.set(unit, []);
-    }
 
-    const taskArray = project.units.get(unit);
-    taskArray.push(newTask);
+    const existingTasks = project.units.get(unitKey) || [];
 
-    project.units.set(unit, taskArray);
+    existingTasks.push(newTask);
+
+    project.units.set(unitKey, existingTasks);
+
     project.markModified("units");
+
     project.updatedBy = req.user._id;
+
     await project.save();
 
-    return res
-      .status(201)
-      .json({ success: true, message: "Task created successfully" });
+    return res.status(201).json({
+      success: true,
+      message: "Task created successfully",
+    });
   } catch (error) {
     console.error("Error creating task:", error);
-    return res.status(500).json({ success: false, message: "Server error" });
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 };
 
@@ -1960,7 +1968,7 @@ export const getAllContractors = asyncHandler(async (req, res) => {
   const contractors = await User.find({
     role: "contractor",
     _id: { $nin: existingContractorsId },
-  }).select("_id name");
+  }).select("_id name email");
 
   const message =
     contractors.length === 0
@@ -1968,6 +1976,19 @@ export const getAllContractors = asyncHandler(async (req, res) => {
       : "Contractors fetched successfully";
 
   res.status(200).json(new ApiResponse(200, contractors, message));
+});
+
+export const getAllAccountant = asyncHandler(async (req, res) => {
+  const accountants = await User.find({
+    role: "accountant",
+  }).select("_id name email");
+
+  const message =
+    accountants.length === 0
+      ? "No accountants found"
+      : "accountants fetched successfully";
+
+  res.status(200).json(new ApiResponse(200, accountants, message));
 });
 
 export const getCompletedTasksForUnit = asyncHandler(async (req, res) => {

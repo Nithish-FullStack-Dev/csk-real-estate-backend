@@ -135,17 +135,17 @@ export const deleteFloorById = asyncHandler(async (req, res) => {
     return res.status(404).json(new ApiResponse(404, null, "Floor not found"));
   }
 
-  const pendingUnitsCount = await propertyUnitModel.countDocuments({
-    floorId: _id,
-    projectStatus: { $ne: "completed" },
-  });
+  // const pendingUnitsCount = await propertyUnitModel.countDocuments({
+  //   floorId: _id,
+  //   projectStatus: { $ne: "completed" },
+  // });
 
-  if (pendingUnitsCount > 0) {
-    throw new ApiError(
-      409,
-      "Floor can be deleted only after all units in this floor are completed status",
-    );
-  }
+  // if (pendingUnitsCount > 0) {
+  //   throw new ApiError(
+  //     409,
+  //     "Floor can be deleted only after all units in this floor are completed status",
+  //   );
+  // }
 
   floor.deletedBy = req.user._id;
   await floor.deleteOne();
