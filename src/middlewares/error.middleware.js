@@ -24,6 +24,7 @@
 // export default errorHandler;
 
 import { createNotification } from "../utils/notificationHelper.js";
+import User from "../modals/user.js";
 
 const errorHandler = async (err, req, res, next) => {
   let statusCode = err.statusCode || 500;
@@ -68,7 +69,10 @@ const errorHandler = async (err, req, res, next) => {
         });
       }
     } catch (notificationError) {
-      console.error("Error sending monitoring notification:", notificationError);
+      console.error(
+        "Error sending monitoring notification:",
+        notificationError,
+      );
     }
   }
 
