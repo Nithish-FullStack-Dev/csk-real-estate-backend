@@ -5,6 +5,7 @@ import ApiError from "../utils/ApiError.js";
 import { getFilePath } from "../utils/getFilePath.js";
 import { uploadFile } from "../utils/uploadFile.js";
 import mongoose from "mongoose";
+import { createNotification } from "../utils/notificationHelper.js";
 
 export const addContractor = asyncHandler(async (req, res) => {
   const {
@@ -108,6 +109,17 @@ export const addContractor = asyncHandler(async (req, res) => {
     isActive,
     createdBy: req.user._id,
   });
+await createNotification({
+  userId: [userId],
+  title: "New Project Assigned",
+  message: "A new construction project has been assigned to you. Please review the details and proceed accordingly.",
+  triggeredBy: req.user._id,
+  category: "project",
+  priority: "P2",
+  deepLink: `/contractors/${contractor._id}`,
+  entityType: "Contractor",
+  entityId: contractor._id,
+});
 
   return res
     .status(201)
