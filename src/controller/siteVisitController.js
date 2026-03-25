@@ -482,6 +482,7 @@ export const getSiteVisitOfAgents = async (req, res) => {
     const siteVisits = await SiteVisit.find({
       ...accessQuery,
       isDeleted: false,
+      visitStatus: { $ne: "cancelled" },
     })
       .populate({
         path: "bookedBy",
@@ -600,6 +601,21 @@ export const updateVisitStatus = async (req, res) => {
       });
     }
 
+    // ✅ CANCEL → always allowed
+    if (visitStatus === "cancelled") {
+      visit.visitStatus = "cancelled";
+
+      visit.approvalStatus = "rejected";
+      visit.approvalNotes = "Auto rejected because visit cancelled";
+
+      visit.updatedBy = req.user._id;
+      await visit.save();
+
+      return res.status(200).json(visit);
+    }
+
+    // -------- ONLY FOR COMPLETE BELOW --------
+
     if (
       visit.visitStatus === "completed" ||
       visit.visitStatus === "cancelled"
@@ -615,13 +631,14 @@ export const updateVisitStatus = async (req, res) => {
       });
     }
 
+    // approval needed only for complete
     if (visit.approvalStatus !== "approved") {
       return res.status(400).json({
-        message: "Visit not approved yet",
+        message: "Visit must be approved before completing",
       });
     }
 
-    visit.visitStatus = visitStatus;
+    visit.visitStatus = "completed";
     visit.updatedBy = req.user._id;
 
     await visit.save();
