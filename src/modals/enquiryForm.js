@@ -65,7 +65,6 @@ const enquiryFormSchema = new mongoose.Schema(
       default: null,
     },
     timeline: [
-      // Array of objects for notes and timestamps
       {
         timestamp: {
           type: Date,
@@ -73,13 +72,18 @@ const enquiryFormSchema = new mongoose.Schema(
         },
         note: {
           type: String,
-          trim: true,
           required: true,
+          trim: true,
+        },
+        addedBy: {
+          type: Types.ObjectId,
+          ref: "User",
+          default: null,
         },
       },
     ],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const EnquiryForm = model("EnquiryForm", enquiryFormSchema);

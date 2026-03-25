@@ -34,7 +34,9 @@ export const createEnquiryForm = async (req, res) => {
     await newEnquiry.save();
 
     // 🔔 Notify all Admins and Sales Managers
-    const admins = await User.find({ role: { $in: ["admin", "sales_manager"] } });
+    const admins = await User.find({
+      role: { $in: ["admin", "sales_manager"] },
+    });
     for (const admin of admins) {
       await createNotification({
         userId: admin._id,
@@ -54,7 +56,9 @@ export const createEnquiryForm = async (req, res) => {
 // GET ALL ENQUIRIES
 export const getAllEnquiries = async (req, res) => {
   try {
-    const enquiries = await EnquiryForm.find().sort({ createdAt: -1 });
+    const enquiries = await EnquiryForm.find()
+      .populate("timeline.addedBy")
+      .sort({ createdAt: -1 });
     res.status(200).json(enquiries);
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
@@ -77,28 +81,56 @@ export const getEnquiryById = async (req, res) => {
 // UPDATE ENQUIRY
 export const updateEnquiry = async (req, res) => {
   try {
-    console.log("🔁 Updating Enquiry");
-    console.log("➡️ Params ID:", req.params.id);
-    console.log("📝 Request Body:", req.body);
+    const id = req.params.id;
 
-    const updated = await EnquiryForm.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      {
-        new: true,
-        runValidators: true,
-      }
-    );
+    const {
+      status,
+      assignedTo,
+      project,
+      address,
+      lastContactDate,
+      nextFollowUpDate,
+      note,
+    } = req.body;
 
-    if (!updated) {
+    const enquiry = await EnquiryForm.findById(id);
+
+    if (!enquiry) {
       return res.status(404).json({ message: "Enquiry not found" });
     }
 
-    res
-      .status(200)
-      .json({ message: "Enquiry updated", updatedEnquiry: updated });
+    if (status !== undefined) enquiry.status = status;
+    if (assignedTo !== undefined) enquiry.assignedTo = assignedTo;
+    if (project !== undefined) enquiry.project = project;
+    if (address !== undefined) enquiry.address = address;
+
+    if (lastContactDate !== undefined)
+      enquiry.lastContactDate = lastContactDate;
+
+    if (nextFollowUpDate !== undefined)
+      enquiry.nextFollowUpDate = nextFollowUpDate;
+
+    // ✅ add timeline note
+    if (note && note.trim() !== "") {
+      enquiry.timeline.push({
+        note,
+        addedBy: req.user?._id || null,
+      });
+
+      enquiry.status = "Follow up";
+    }
+
+    await enquiry.save();
+
+    res.status(200).json({
+      message: "Enquiry updated",
+      updatedEnquiry: enquiry,
+    });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
 
