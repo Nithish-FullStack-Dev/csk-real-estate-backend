@@ -255,12 +255,12 @@ export const deleteUnit = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Unit not found");
   }
 
-  if (unit.projectStatus !== "completed") {
-    throw new ApiError(
-      400,
-      "Unit can be deleted only after the project is completed",
-    );
-  }
+  // if (unit.projectStatus !== "completed") {
+  //   throw new ApiError(
+  //     400,
+  //     "Unit can be deleted only after the project is completed",
+  //   );
+  // }
 
   unit.deletedBy = req.user._id;
   await unit.deleteOne();

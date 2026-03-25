@@ -429,7 +429,7 @@ export const updateProject = asyncHandler(async (req, res) => {
     projectId,
     { $set: updateData },
     { new: true, runValidators: true },
-  ).populate("site_incharge contractor");
+  ).populate("siteIncharge contractors");
 
   if (!updatedProject) {
     throw new ApiError(404, "Project not found");
@@ -446,8 +446,8 @@ export const updateProject = asyncHandler(async (req, res) => {
     receivers.push(updatedProject.siteIncharge);
   }
 
-  if (updatedProject.contractor) {
-    receivers.push(updatedProject.contractor);
+  if (updatedProject.contractors?.length) {
+    receivers.push(...updatedProject.contractors);
   }
 
   await Promise.all(
@@ -1527,17 +1527,17 @@ export const addContractorForSiteIncharge = async (req, res) => {
     //   entityType: "Project",
     //   entityId: projectDoc._id,
     // });
-await createNotification({
-  userId: [contractor], // 👈 only contractor
-  title: "New Task Assigned",
-  message: `You have been assigned a new construction task: "${taskTitle}".`,
-  triggeredBy: req.user._id,
-  category: "project",
-  priority: "P2",
-  deepLink: `/projects/${projectDoc._id}`,
-  entityType: "Project",
-  entityId: projectDoc._id,
-});
+    await createNotification({
+      userId: [contractor], // 👈 only contractor
+      title: "New Task Assigned",
+      message: `You have been assigned a new construction task: "${taskTitle}".`,
+      triggeredBy: req.user._id,
+      category: "project",
+      priority: "P2",
+      deepLink: `/projects/${projectDoc._id}`,
+      entityType: "Project",
+      entityId: projectDoc._id,
+    });
     return res.status(201).json({
       message: "Contractor assigned successfully",
       task: newTask,
@@ -2138,25 +2138,25 @@ export const getAllContractorsForIssue = asyncHandler(async (req, res) => {
   // ✅ admin → all contractors
   else {
     const users = await User.find({ role: "contractor" }).select(
-      "_id name email"
+      "_id name email",
     );
 
-    return res
-      .status(200)
-      .json(new ApiResponse(200, users, "All contractors"));
+    return res.status(200).json(new ApiResponse(200, users, "All contractors"));
   }
 
   const contractors = await User.find({
     _id: { $in: contractorIds },
   }).select("_id name email");
 
-  res.status(200).json(
-    new ApiResponse(
-      200,
-      contractors,
-      contractors.length ? "Contractors fetched" : "No contractors"
-    )
-  );
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        contractors,
+        contractors.length ? "Contractors fetched" : "No contractors",
+      ),
+    );
 });
 
 export const getAllAccountant = asyncHandler(async (req, res) => {

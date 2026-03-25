@@ -8,6 +8,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import { createNotification } from "../utils/notificationHelper.js";
+import mongoose from "mongoose";
 
 // export const saveLead = asyncHandler(async (req, res) => {
 //   const leadData = req.body;
@@ -51,7 +52,9 @@ export const saveLead = asyncHandler(async (req, res) => {
   // Notify: Sales Manager + Admin (optional)
   // =========================================================
 
-  const salesManagers = await User.find({ role: "sales_manager" }).select("_id");
+  const salesManagers = await User.find({ role: "sales_manager" }).select(
+    "_id",
+  );
   const admins = await User.find({ role: "admin" }).select("_id");
 
   const receivers = [
@@ -156,7 +159,9 @@ export const createOpenPlotLead = asyncHandler(async (req, res) => {
   // Notify: Sales Manager + Admin
   // =========================================================
 
-  const salesManagers = await User.find({ role: "sales_manager" }).select("_id");
+  const salesManagers = await User.find({ role: "sales_manager" }).select(
+    "_id",
+  );
   const admins = await User.find({ role: "admin" }).select("_id");
 
   const receivers = [
@@ -261,7 +266,9 @@ export const createOpenLandLead = asyncHandler(async (req, res) => {
   // Notify: Sales Manager + Admin (optional)
   // =========================================================
 
-  const salesManagers = await User.find({ role: "sales_manager" }).select("_id");
+  const salesManagers = await User.find({ role: "sales_manager" }).select(
+    "_id",
+  );
   const admins = await User.find({ role: "admin" }).select("_id");
 
   const receivers = [
@@ -332,7 +339,9 @@ export const getAllLeads = async (req, res) => {
         isDeleted: false,
       }).select("agentId");
 
-      const agentIds = teamAgents.map((t) => t.agentId);
+      const agentIds = teamAgents.map(
+        (t) => new mongoose.Types.ObjectId(t.agentId),
+      );
 
       query = {
         $or: [
