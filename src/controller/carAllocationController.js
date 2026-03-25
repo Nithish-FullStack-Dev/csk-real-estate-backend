@@ -67,7 +67,10 @@ export const getAllCarAllocations = async (req, res) => {
   try {
     const now = new Date();
 
-    // 1️⃣ Auto-expire allocations
+    const userId = req.user?._id;
+    const role = req.user?.role;
+
+    // 1️⃣ Auto expire allocations
     await CarAllocation.updateMany(
       {
         status: "assigned",
@@ -86,13 +89,20 @@ export const getAllCarAllocations = async (req, res) => {
       },
     );
 
-    // 2️⃣ Apply optional status filter
+    // 2️⃣ Build query
     const query = {};
+
+    // status filter
     if (req.query.status) {
       query.status = req.query.status;
     }
 
-    // 3️⃣ Fetch updated data
+    // 3️⃣ role based filter
+    if (role === "agent") {
+      query["assignedTo.agent"] = userId;
+    }
+
+    // 4️⃣ fetch
     const carAllocations = await CarAllocation.find(query)
       .populate("assignedTo.agent")
       .populate("assignedBy");
@@ -492,7 +502,6 @@ export const updateCarAllocation = async (req, res) => {
     ========================================================= */
 
     if (status === "assigned" && assignedTo && assignedTo.agent) {
-
       const agentToAssign = await User.findById(assignedTo.agent);
       if (!agentToAssign) {
         return res.status(400).json({ message: "Assigned agent not found." });
@@ -570,14 +579,11 @@ export const updateCarAllocation = async (req, res) => {
           entityId: vehicle._id,
         });
       }
-    }
+    } else if (status === "available" && previousStatus === "assigned") {
 
     /* =========================================================
        4.2 VEHICLE BOOKING REJECTED
     ========================================================= */
-
-    else if (status === "available" && previousStatus === "assigned") {
-
       vehicle.assignedTo = null;
       vehicle.assignedBy = null;
       vehicle.assignedAt = null;
@@ -591,7 +597,7 @@ export const updateCarAllocation = async (req, res) => {
         const logToUpdate = vehicle.usageLogs.findLast(
           (log) =>
             log.agent.toString() === previousAssignedAgentId &&
-            !log.actualReturnAt
+            !log.actualReturnAt,
         );
 
         if (logToUpdate) {
@@ -625,7 +631,6 @@ export const updateCarAllocation = async (req, res) => {
     ========================================================= */
 
     if (previousStatus === status && status === "assigned") {
-
       const bookingChanged =
         previousData.location !== location ||
         previousData.fuelLevel !== fuelLevel ||
@@ -635,7 +640,6 @@ export const updateCarAllocation = async (req, res) => {
           previousData.assignedUntil !== assignedTo.assignedUntil.toString());
 
       if (bookingChanged) {
-
         const requesterId = previousRequester || assignedBy;
 
         if (requesterId) {
@@ -678,7 +682,6 @@ export const updateCarAllocation = async (req, res) => {
     ]);
 
     res.status(200).json(updatedVehicle);
-
   } catch (error) {
     console.error("Error updating car allocation:", error);
     res.status(500).json({ message: "Server error", error: error.message });
