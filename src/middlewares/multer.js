@@ -4,7 +4,7 @@ import fs from "fs";
 import path from "path";
 
 // Root uploads folder (outside src)
-const rootUploadPath = path.join(process.cwd(), "uploads");
+const rootUploadPath = "/app/uploads";
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
