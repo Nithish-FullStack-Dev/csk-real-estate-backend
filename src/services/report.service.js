@@ -70,6 +70,7 @@ export const propertiesReport = async ({ dateFrom, dateTo, groupBy }) => {
     {
       $match: {
         createdAt: { $gte: dateFrom, $lte: dateTo },
+        isDeleted: false,
       },
     },
     {
@@ -240,6 +241,7 @@ export const agentReport = async ({ dateFrom, dateTo, groupBy }) => {
     {
       $match: {
         createdAt: { $gte: dateFrom, $lte: dateTo },
+        isDeleted: false,
       },
     },
     {
@@ -280,6 +282,7 @@ export const agentReport = async ({ dateFrom, dateTo, groupBy }) => {
     {
       $match: {
         date: { $gte: dateFrom, $lte: dateTo },
+        isDeleted: false,
       },
     },
     {
@@ -328,6 +331,7 @@ export const teamLeadReport = async ({ dateFrom, dateTo, groupBy }) => {
     {
       $match: {
         createdAt: { $gte: dateFrom, $lte: dateTo },
+        isDeleted: false,
       },
     },
     {
@@ -400,6 +404,7 @@ export const salesManagerReport = async ({ dateFrom, dateTo, groupBy }) => {
     {
       $match: {
         bookingDate: { $gte: new Date(dateFrom), $lte: new Date(dateTo) },
+        isDeleted: false,
       },
     },
 
