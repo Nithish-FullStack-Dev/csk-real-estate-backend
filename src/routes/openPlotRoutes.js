@@ -20,7 +20,7 @@ const uploadFields = upload.fields([
 
 router.post("/saveOpenplot", authenticate, uploadFields, createOpenPlot);
 router.put("/updateOpenplot/:_id", authenticate, uploadFields, updateOpenPlot);
-router.get("/getAllOpenPlot", getAllOpenPlots);
+router.get("/getAllOpenPlot", authenticate, getAllOpenPlots);
 router.get("/getOpenplot/:_id", getOpenPlotById);
 router.delete("/deleteOpenplot/:_id", authenticate, deleteOpenPlot);
 

@@ -5,6 +5,7 @@ import OpenLand from "../modals/openLand.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import Customer from "../modals/customerSchema.js";
 
 /* ------------------------------------------------------- */
 /* POPULATE HELPER */
@@ -26,66 +27,74 @@ const populateOpenLand = (query) =>
 /* ------------------------------------------------------- */
 
 export const createOpenLand = asyncHandler(async (req, res) => {
-  const data = { ...req.body };
+  try {
+    const data = { ...req.body };
 
-  data.projectName = data.projectName?.trim();
-  data.location = data.location?.trim();
-  data.surveyNumber = data.surveyNumber?.trim();
+    data.projectName = data.projectName?.trim();
+    data.location = data.location?.trim();
+    data.surveyNumber = data.surveyNumber?.trim();
 
-  if (!data.projectName || !data.location || !data.surveyNumber) {
-    throw new ApiError(400, "Required fields missing");
+    if (!data.projectName || !data.location || !data.surveyNumber) {
+      throw new ApiError(400, "Required fields missing");
+    }
+
+    const existingLand = await OpenLand.findOne({
+      isDeleted: false,
+      surveyNumber: data.surveyNumber,
+      location: data.location,
+    });
+
+    if (existingLand) {
+      throw new ApiError(
+        409,
+        "Land already exists for this survey number in this location",
+      );
+    }
+
+    /* -------- FILE HANDLING -------- */
+
+    let thumbnailUrl = null;
+    let brochureUrl = null;
+
+    if (req.files?.thumbnailUrl?.[0]) {
+      thumbnailUrl = `${req.protocol}://${req.get("host")}/api/uploads/images/${req.files.thumbnailUrl[0].filename}`;
+    }
+
+    if (req.files?.brochureUrl?.[0]) {
+      brochureUrl = `${req.protocol}://${req.get("host")}/api/uploads/pdfs/${req.files.brochureUrl[0].filename}`;
+    }
+
+    let imageUrls = [];
+
+    if (req.files?.images && Array.isArray(req.files.images)) {
+      imageUrls = req.files.images.map(
+        (file) =>
+          `${req.protocol}://${req.get("host")}/api/uploads/images/${file.filename}`,
+      );
+    }
+
+    const newLand = await OpenLand.create({
+      ...data,
+      thumbnailUrl,
+      brochureUrl,
+      images: imageUrls,
+      createdBy: req.user._id,
+    });
+
+    const populated = await populateOpenLand(
+      OpenLand.findOne({ _id: newLand._id, isDeleted: false }),
+    ).exec();
+
+    res
+      .status(201)
+      .json(new ApiResponse(201, populated, "Open land created successfully"));
+  } catch (err) {
+    if (err.code === 11000) {
+      throw new ApiError(409, "Survey Number already exists for this location");
+    }
+
+    throw err;
   }
-
-  const existingLand = await OpenLand.findOne({
-    isDeleted: false,
-    surveyNumber: data.surveyNumber,
-    location: data.location,
-  });
-
-  if (existingLand) {
-    throw new ApiError(
-      409,
-      "Land already exists for this survey number in this location",
-    );
-  }
-
-  /* -------- FILE HANDLING -------- */
-
-  let thumbnailUrl = null;
-  let brochureUrl = null;
-
-  if (req.files?.thumbnailUrl?.[0]) {
-    thumbnailUrl = `${req.protocol}://${req.get("host")}/api/uploads/images/${req.files.thumbnailUrl[0].filename}`;
-  }
-
-  if (req.files?.brochureUrl?.[0]) {
-    brochureUrl = `${req.protocol}://${req.get("host")}/api/uploads/pdfs/${req.files.brochureUrl[0].filename}`;
-  }
-
-  let imageUrls = [];
-
-  if (req.files?.images && Array.isArray(req.files.images)) {
-    imageUrls = req.files.images.map(
-      (file) =>
-        `${req.protocol}://${req.get("host")}/api/uploads/images/${file.filename}`,
-    );
-  }
-
-  const newLand = await OpenLand.create({
-    ...data,
-    thumbnailUrl,
-    brochureUrl,
-    images: imageUrls,
-    createdBy: req.user._id,
-  });
-
-  const populated = await populateOpenLand(
-    OpenLand.findOne({ _id: newLand._id, isDeleted: false }),
-  ).exec();
-
-  res
-    .status(201)
-    .json(new ApiResponse(201, populated, "Open land created successfully"));
 });
 
 /* ------------------------------------------------------- */
@@ -93,8 +102,25 @@ export const createOpenLand = asyncHandler(async (req, res) => {
 /* ------------------------------------------------------- */
 
 export const getAllOpenLand = asyncHandler(async (req, res) => {
+  let query = {
+    isDeleted: false,
+  };
+
+  // restrict for purchased customer
+  if (req.user?.role === "customer_purchased") {
+    const purchasedLands = await Customer.find({
+      customerId: req.user._id,
+      purchaseType: "LAND",
+      isDeleted: false,
+    }).select("openLand");
+
+    const landIds = purchasedLands.map((p) => p.openLand).filter(Boolean);
+
+    query._id = { $in: landIds };
+  }
+
   const lands = await populateOpenLand(
-    OpenLand.find({ isDeleted: false }).sort({ createdAt: -1 }),
+    OpenLand.find(query).sort({ createdAt: -1 }),
   ).exec();
 
   res.status(200).json(new ApiResponse(200, lands));
@@ -149,68 +175,76 @@ export const deleteOpenLandById = asyncHandler(async (req, res) => {
 /* ------------------------------------------------------- */
 
 export const updateOpenLand = asyncHandler(async (req, res) => {
-  const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    throw new ApiError(400, "Invalid Open Land ID");
-  }
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new ApiError(400, "Invalid Open Land ID");
+    }
 
-  const existingLand = await OpenLand.findOne({ _id: id, isDeleted: false });
-  if (!existingLand) throw new ApiError(404, "Open Land not found");
+    const existingLand = await OpenLand.findOne({ _id: id, isDeleted: false });
+    if (!existingLand) throw new ApiError(404, "Open Land not found");
 
-  const data = { ...req.body };
+    const data = { ...req.body };
 
-  let thumbnailUrl = existingLand.thumbnailUrl;
-  let brochureUrl = existingLand.brochureUrl;
-  let images = existingLand.images || [];
+    let thumbnailUrl = existingLand.thumbnailUrl;
+    let brochureUrl = existingLand.brochureUrl;
+    let images = existingLand.images || [];
 
-  if (req.files?.thumbnailUrl?.[0]) {
-    thumbnailUrl = `${req.protocol}://${req.get("host")}/api/uploads/images/${req.files.thumbnailUrl[0].filename}`;
-  }
-  if (data.brochureRemoved === "true" || data.brochureRemoved === true) {
-    brochureUrl = "";
-  }
-  if (req.files?.brochureUrl?.[0]) {
-    brochureUrl = `${req.protocol}://${req.get("host")}/api/uploads/pdfs/${req.files.brochureUrl[0].filename}`;
-  }
-  if (data.removedImages) {
-    const removed = Array.isArray(data.removedImages)
-      ? data.removedImages
-      : [data.removedImages];
+    if (req.files?.thumbnailUrl?.[0]) {
+      thumbnailUrl = `${req.protocol}://${req.get("host")}/api/uploads/images/${req.files.thumbnailUrl[0].filename}`;
+    }
+    if (data.brochureRemoved === "true" || data.brochureRemoved === true) {
+      brochureUrl = "";
+    }
+    if (req.files?.brochureUrl?.[0]) {
+      brochureUrl = `${req.protocol}://${req.get("host")}/api/uploads/pdfs/${req.files.brochureUrl[0].filename}`;
+    }
+    if (data.removedImages) {
+      const removed = Array.isArray(data.removedImages)
+        ? data.removedImages
+        : [data.removedImages];
 
-    images = images.filter((img) => !removed.includes(img));
-  }
+      images = images.filter((img) => !removed.includes(img));
+    }
 
-  /* -------- ADD NEW IMAGES -------- */
+    /* -------- ADD NEW IMAGES -------- */
 
-  if (req.files?.images && Array.isArray(req.files.images)) {
-    const newImages = req.files.images.map(
-      (file) =>
-        `${req.protocol}://${req.get("host")}/api/uploads/images/${file.filename}`,
+    if (req.files?.images && Array.isArray(req.files.images)) {
+      const newImages = req.files.images.map(
+        (file) =>
+          `${req.protocol}://${req.get("host")}/api/uploads/images/${file.filename}`,
+      );
+
+      images = [...images, ...newImages];
+    }
+
+    const updatedLand = await OpenLand.findOneAndUpdate(
+      { _id: id, isDeleted: false },
+      {
+        ...data,
+        thumbnailUrl,
+        brochureUrl,
+        images,
+        updatedBy: req.user._id,
+      },
+      { new: true, runValidators: true },
     );
 
-    images = [...images, ...newImages];
+    const populated = await populateOpenLand(
+      OpenLand.findOne({ _id: updatedLand._id, isDeleted: false }),
+    ).exec();
+
+    res
+      .status(200)
+      .json(new ApiResponse(200, populated, "Open land updated successfully"));
+  } catch (error) {
+    if (err.code === 11000) {
+      throw new ApiError(409, "Survey Number already exists for this location");
+    }
+
+    throw err;
   }
-
-  const updatedLand = await OpenLand.findOneAndUpdate(
-    { _id: id, isDeleted: false },
-    {
-      ...data,
-      thumbnailUrl,
-      brochureUrl,
-      images,
-      updatedBy: req.user._id,
-    },
-    { new: true, runValidators: true },
-  );
-
-  const populated = await populateOpenLand(
-    OpenLand.findOne({ _id: updatedLand._id, isDeleted: false }),
-  ).exec();
-
-  res
-    .status(200)
-    .json(new ApiResponse(200, populated, "Open land updated successfully"));
 });
 /* ------------------------------------------------------- */
 /* INTERESTED CUSTOMERS */

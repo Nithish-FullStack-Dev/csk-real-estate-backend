@@ -9,7 +9,7 @@ const AttendanceRecordSchema = new Schema(
     absent: { type: Number, required: true },
     remarks: { type: String },
   },
-  { _id: true, timestamps: true }
+  { _id: true, timestamps: true },
 );
 
 // Embedded Wage History Schema
@@ -19,7 +19,7 @@ const WageHistorySchema = new Schema(
     wage: { type: Number, required: true },
     reason: { type: String },
   },
-  { _id: true, timestamps: true }
+  { _id: true, timestamps: true },
 );
 
 // Main LaborTeam Schema
@@ -88,8 +88,29 @@ const LaborTeamSchema = new Schema(
     remarks: {
       type: String,
     },
+
+    // isDeleted: {
+    //       type: Boolean,
+    //       default: false,
+    //       index: true,
+    //     },
+    //     deletedBy: {
+    //       type: mongoose.Schema.Types.ObjectId,
+    //       ref: "User",
+    //       default: null,
+    //     },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const LaborTeam = model("LaborTeam", LaborTeamSchema);

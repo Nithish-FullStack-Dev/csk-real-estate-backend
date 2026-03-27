@@ -24,6 +24,7 @@ const collectionsToWatch = [
   "invoices",
   "payments",
   "purchases",
+  "materials",
 ];
 
 const INTERNAL_AUDIT_COLLECTION = "auditlogs";

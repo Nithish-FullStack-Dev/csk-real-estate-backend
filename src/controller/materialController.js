@@ -83,6 +83,7 @@ export const createMaterial = async (req, res) => {
       invoiceNumber,
       remarks,
       contractor: contractorId,
+      createdBy: req.user._id,
     });
 
     // totalCost is auto-calculated via pre-save hook
@@ -110,7 +111,7 @@ export const updateMaterialStatus = async (req, res) => {
 
     const updated = await Material.findByIdAndUpdate(
       materialId,
-      { status },
+      { status, updatedBy: req.user._id },
       { new: true },
     );
 
