@@ -23,6 +23,7 @@ export const createUnit = asyncHandler(async (req, res) => {
       buildingId,
       floorId,
       plotNo: { $in: incomingPlotNos },
+      isDeleted: false,
     });
 
     if (existingUnits.length > 0) {
@@ -41,6 +42,7 @@ export const createUnit = asyncHandler(async (req, res) => {
       buildingId,
       floorId,
       plotNo,
+      isDeleted: false,
     });
 
     if (existingUnit) {
@@ -115,6 +117,7 @@ export const getUnitsByFloorIdAndBuildingId = asyncHandler(async (req, res) => {
   let query = {
     buildingId: new mongoose.Types.ObjectId(buildingId),
     floorId: new mongoose.Types.ObjectId(floorId),
+    isDeleted: false,
   };
 
   // Restrict for customer
@@ -153,7 +156,10 @@ export const updateUnit = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid unit ID");
   }
 
-  const unit = await PropertyUnitModel.findById(unitId);
+  const unit = await PropertyUnitModel.findOne({
+    _id: unitId,
+    isDeleted: false,
+  });
   if (!unit) {
     throw new ApiError(404, "Unit not found");
   }
@@ -165,6 +171,7 @@ export const updateUnit = asyncHandler(async (req, res) => {
       floorId: floorId || unit.floorId,
       plotNo,
       _id: { $ne: unitId },
+      isDeleted: false,
     });
 
     if (duplicate) {
@@ -249,31 +256,23 @@ export const deleteUnit = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid unit ID");
   }
 
-  const unit = await PropertyUnitModel.findById(unitId);
+  const unit = await PropertyUnitModel.findOne({
+    _id: unitId,
+    isDeleted: false,
+  });
 
   if (!unit) {
     throw new ApiError(404, "Unit not found");
   }
 
-  // if (unit.projectStatus !== "completed") {
-  //   throw new ApiError(
-  //     400,
-  //     "Unit can be deleted only after the project is completed",
-  //   );
-  // }
+  unit.isDeleted = true;
+  unit.deletedBy = req.user?._id;
 
-  unit.deletedBy = req.user._id;
-  await unit.deleteOne();
+  await unit.save();
 
   return res
     .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        null,
-        "Unit deleted successfully because the project is completed",
-      ),
-    );
+    .json(new ApiResponse(200, null, "Unit deleted successfully"));
 });
 
 export const getUnit = asyncHandler(async (req, res) => {
@@ -283,7 +282,10 @@ export const getUnit = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid unit ID");
   }
 
-  const unit = await PropertyUnitModel.findById(unitId)
+  const unit = await PropertyUnitModel.findOne({
+    _id: unitId,
+    isDeleted: false,
+  })
     .populate("buildingId", "projectName location propertyType")
     .populate("floorId", "floorNumber unitType totalSubUnits")
     .populate("customerId", "user.name user.email")
@@ -312,6 +314,7 @@ export const getUnitsByFloorIdAndBuildingIdForDropDown = asyncHandler(
     const units = await PropertyUnitModel.find({
       buildingId: new mongoose.Types.ObjectId(buildingId),
       floorId: new mongoose.Types.ObjectId(floorId),
+      isDeleted: false,
     }).select("plotNo propertyType");
 
     const message = units.length
@@ -333,6 +336,7 @@ export const getAvailableUnitsByFloorIdAndBuildingIdForDropDown = asyncHandler(
       buildingId: new mongoose.Types.ObjectId(buildingId),
       floorId: new mongoose.Types.ObjectId(floorId),
       status: { $in: ["Available", "Under Construction"] },
+      isDeleted: false,
     }).select("_id plotNo propertyType status");
 
     const message = units.length
@@ -356,6 +360,7 @@ export const getPurchasedCustomerUnits = asyncHandler(async (req, res) => {
     {
       $match: {
         unit: new mongoose.Types.ObjectId(unitId),
+        isDeleted: false,
       },
     },
     {

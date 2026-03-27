@@ -41,7 +41,7 @@ router.get("/getAllAgents", getAllAgentPersons);
 router.get("/getAllcustomer_purchased", getAllCustomer_Purchased);
 
 router.post("/logout", authenticate, (req, res) => {
-  const { token } = req.cookies;
+  const { token, secure_access } = req.cookies;
   if (token) {
     tokenBlacklist.add(token); // Add this
   }
@@ -51,6 +51,16 @@ router.post("/logout", authenticate, (req, res) => {
     sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
     path: "/",
   });
+
+  if (secure_access) {
+    res.clearCookie("secure_access", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+      path: "/",
+    });
+  }
+
   res.status(200).json({ message: "Logged out successfully" });
 });
 

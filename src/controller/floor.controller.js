@@ -24,6 +24,7 @@ export const createFloor = asyncHandler(async (req, res) => {
   const existingFloor = await FloorUnit.findOne({
     buildingId,
     floorNumber,
+    isDeleted: false,
   });
 
   if (existingFloor) {
@@ -60,6 +61,7 @@ export const getAllFloorsByBuildingId = asyncHandler(async (req, res) => {
 
   let query = {
     buildingId: new mongoose.Types.ObjectId(buildingId),
+    isDeleted: false,
   };
 
   if (role === "customer_purchased") {
@@ -69,7 +71,9 @@ export const getAllFloorsByBuildingId = asyncHandler(async (req, res) => {
       isDeleted: false,
     }).select("floorUnit");
 
-    const floorIds = [...new Set(purchases.map((p) => p.floorUnit.toString()))];
+    const floorIds = [
+      ...new Set(purchases.map((p) => p.floorUnit?.toString()).filter(Boolean)),
+    ];
 
     query._id = { $in: floorIds };
   }
@@ -89,7 +93,7 @@ export const updateFloorById = asyncHandler(async (req, res) => {
 
   if (!_id) throw new ApiError(400, "Floor ID missing");
 
-  const floor = await FloorUnit.findById(_id);
+  const floor = await FloorUnit.findOne({ _id, isDeleted: false });
   if (!floor) throw new ApiError(404, "Floor not found");
 
   /* 🔐 CHECK DUPLICATE BEFORE UPDATE */
@@ -98,6 +102,7 @@ export const updateFloorById = asyncHandler(async (req, res) => {
       buildingId: floor.buildingId,
       floorNumber: data.floorNumber,
       _id: { $ne: _id },
+      isDeleted: false,
     });
 
     if (duplicate) {
@@ -108,8 +113,8 @@ export const updateFloorById = asyncHandler(async (req, res) => {
     }
   }
 
-  const updatedFloor = await FloorUnit.findByIdAndUpdate(
-    _id,
+  const updatedFloor = await FloorUnit.findOneAndUpdate(
+    { _id, isDeleted: false },
     { ...data, updatedBy: req.user._id },
     {
       new: true,
@@ -129,7 +134,7 @@ export const deleteFloorById = asyncHandler(async (req, res) => {
     return res.status(400).json(new ApiResponse(400, null, "Invalid floor ID"));
   }
 
-  const floor = await FloorUnit.findById(_id);
+  const floor = await FloorUnit.findOne({ _id, isDeleted: false });
 
   if (!floor) {
     return res.status(404).json(new ApiResponse(404, null, "Floor not found"));
@@ -147,8 +152,29 @@ export const deleteFloorById = asyncHandler(async (req, res) => {
   //   );
   // }
 
+  floor.isDeleted = true;
   floor.deletedBy = req.user._id;
-  await floor.deleteOne();
+  await floor.save();
+
+  const unitsCount = await propertyUnitModel.countDocuments({
+    floorId: _id,
+    isDeleted: false,
+  });
+
+  if (unitsCount > 0) {
+    await propertyUnitModel.updateMany(
+      {
+        floorId: _id,
+        isDeleted: false,
+      },
+      {
+        $set: {
+          isDeleted: true,
+          deletedBy: req.user._id,
+        },
+      },
+    );
+  }
 
   return res
     .status(200)
@@ -168,6 +194,7 @@ export const getAllFloorsByBuildingIdForDropDown = asyncHandler(
 
     const floors = await FloorUnit.find({
       buildingId: new mongoose.Types.ObjectId(buildingId),
+      isDeleted: false,
     })
       .sort({ floorNumber: 1 })
       .select("_id floorNumber unitType");

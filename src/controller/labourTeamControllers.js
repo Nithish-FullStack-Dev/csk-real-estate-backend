@@ -39,6 +39,7 @@ export const createLaborTeam = async (req, res) => {
           reason: "Initial wage",
         },
       ],
+      createdBy: req.user._id,
     });
 
     return res.status(201).json(newTeam);
@@ -139,6 +140,8 @@ export const recordAttendance = async (req, res) => {
     team.attendancePercentage = Math.round(
       (totalPresent / totalPossible) * 100,
     );
+
+    team.updatedBy = req.user._id;
 
     await team.save();
 
