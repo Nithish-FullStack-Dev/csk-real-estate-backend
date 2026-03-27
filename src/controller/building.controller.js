@@ -149,9 +149,9 @@ export const getAllBuildings = asyncHandler(async (req, res) => {
     },
   ]);
 
-  if (!buildings.length) {
-    throw new ApiError(404, "No buildings found");
-  }
+  // if (!buildings.length) {
+  //   throw new ApiError(404, "No buildings found");
+  // }
 
   return res
     .status(200)

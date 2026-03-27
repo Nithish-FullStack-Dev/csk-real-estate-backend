@@ -5,6 +5,7 @@ import OpenLand from "../modals/openLand.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import Customer from "../modals/customerSchema.js";
 
 /* ------------------------------------------------------- */
 /* POPULATE HELPER */
@@ -101,8 +102,25 @@ export const createOpenLand = asyncHandler(async (req, res) => {
 /* ------------------------------------------------------- */
 
 export const getAllOpenLand = asyncHandler(async (req, res) => {
+  let query = {
+    isDeleted: false,
+  };
+
+  // restrict for purchased customer
+  if (req.user?.role === "customer_purchased") {
+    const purchasedLands = await Customer.find({
+      customerId: req.user._id,
+      purchaseType: "LAND",
+      isDeleted: false,
+    }).select("openLand");
+
+    const landIds = purchasedLands.map((p) => p.openLand).filter(Boolean);
+
+    query._id = { $in: landIds };
+  }
+
   const lands = await populateOpenLand(
-    OpenLand.find({ isDeleted: false }).sort({ createdAt: -1 }),
+    OpenLand.find(query).sort({ createdAt: -1 }),
   ).exec();
 
   res.status(200).json(new ApiResponse(200, lands));
