@@ -24,6 +24,21 @@ export const createTeamLeadMapping = async (req, res) => {
     });
 
     await newEntry.save();
+
+    const salesUser = await Users.findById(salesId).select("name");
+
+    await createNotification({
+      userId: new ObjectId(teamLeadId),
+      title: "New Team Member Assigned",
+      message: `You have been assigned a new sales member: ${salesUser?.name || "Unknown User"}.`,
+      triggeredBy: req.user._id,
+      category: "team",
+      priority: performance === "high" ? "P1" : "P2",
+      deepLink: `/team-leads/${newEntry._id}`,
+      entityType: "TeamLeadMapping",
+      entityId: newEntry._id,
+    });
+
     res.status(201).json(newEntry);
   } catch (error) {
     res
@@ -120,6 +135,20 @@ export const deleteTeamMember = async (req, res) => {
     if (!deleted) {
       return res.status(404).json({ error: "Team member not found" });
     }
+
+    const salesUser = await Users.findById(deleted.salesId).select("name");
+
+    await createNotification({
+      userId: new ObjectId(deleted.teamLeadId),
+      title: "Team Member Removed",
+      message: `${salesUser?.name || "A sales member"} has been removed from your team.`,
+      triggeredBy: req.user._id,
+      category: "team",
+      priority: "P2",
+      deepLink: `/team-leads/${deleted._id}`,
+      entityType: "TeamLeadMapping",
+      entityId: deleted._id,
+    });
 
     res.status(200).json({ message: "Team member deleted" });
   } catch (error) {

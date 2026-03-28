@@ -168,6 +168,43 @@ export const createSiteVisit = async (req, res) => {
     //   });
     // }
 
+    if (req.body.assignedTo) {
+      // 👉 Notify specific assigned user
+      await createNotification({
+        userId: req.body.assignedTo,
+        title: "New Site Visit Assigned",
+        message: `A site visit has been assigned to you.`,
+        triggeredBy: req.user._id,
+        category: "task",
+        priority: req.body.priority === "high" ? "P1" : "P2",
+        deepLink: `/site-visits/${siteVisit._id}`,
+        entityType: "SiteVisit",
+        entityId: siteVisit._id,
+      });
+    } else {
+      // 👉 Notify all team leads
+      const teamLeads = await User.find({
+        role: "team_lead",
+        isDeleted: false,
+      }).select("_id");
+
+      const teamLeadIds = teamLeads.map((u) => u._id);
+
+      if (teamLeadIds.length > 0) {
+        await createNotification({
+          userId: teamLeadIds, // 👈 multiple users
+          title: "New Site Visit Request",
+          message: `A new site visit has been requested.`,
+          triggeredBy: req.user._id,
+          category: "approval",
+          priority: req.body.priority === "high" ? "P1" : "P2",
+          deepLink: `/site-visits/${siteVisit._id}`,
+          entityType: "SiteVisit",
+          entityId: siteVisit._id,
+        });
+      }
+    }
+
     res.status(201).json(siteVisit);
   } catch (error) {
     res.status(400).json({
@@ -568,6 +605,27 @@ export const approvalOrRejectStatus = async (req, res) => {
     visit.updatedBy = _id;
 
     await visit.save();
+
+    await createNotification({
+      userId: visit.bookedBy, // 👈 VERY IMPORTANT (agent who created request)
+      title:
+        approvalStatus === "approved"
+          ? "Site Visit Approved"
+          : "Site Visit Rejected",
+
+      message:
+        approvalStatus === "approved"
+          ? "Your site visit request has been approved."
+          : "Your site visit request has been rejected.",
+
+      triggeredBy: req.user._id, // team lead/admin
+      category: "approval",
+      priority: visit.priority === "high" ? "P1" : "P2",
+
+      deepLink: `/site-visits/${visit._id}`,
+      entityType: "SiteVisit",
+      entityId: visit._id,
+    });
 
     res.status(200).json(visit);
   } catch (error) {
