@@ -5,6 +5,7 @@ import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import Customer from "../modals/customerSchema.js";
 import propertyUnitModel from "../modals/propertyUnit.model.js";
+import { AuditLog } from "../modals/auditLog.model.js";
 
 export const createFloor = asyncHandler(async (req, res) => {
   const {
@@ -133,52 +134,58 @@ export const deleteFloorById = asyncHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(_id)) {
     return res.status(400).json(new ApiResponse(400, null, "Invalid floor ID"));
   }
+  const session = await mongoose.startSession();
+  try {
+    session.startTransaction();
 
-  const floor = await FloorUnit.findOne({ _id, isDeleted: false });
+    const floor = await FloorUnit.findById(_id).lean().session(session);
 
-  if (!floor) {
-    return res.status(404).json(new ApiResponse(404, null, "Floor not found"));
-  }
+    if (!floor) {
+      await session.abortTransaction();
+      session.endSession();
+      return res
+        .status(404)
+        .json(new ApiResponse(404, null, "Floor not found"));
+    }
 
-  // const pendingUnitsCount = await propertyUnitModel.countDocuments({
-  //   floorId: _id,
-  //   projectStatus: { $ne: "completed" },
-  // });
+    const units = await propertyUnitModel
+      .find({ floorId: _id })
+      .lean()
+      .session(session);
 
-  // if (pendingUnitsCount > 0) {
-  //   throw new ApiError(
-  //     409,
-  //     "Floor can be deleted only after all units in this floor are completed status",
-  //   );
-  // }
+    await propertyUnitModel.deleteMany({ floorId: _id }).session(session);
 
-  floor.isDeleted = true;
-  floor.deletedBy = req.user._id;
-  await floor.save();
+    await FloorUnit.findByIdAndDelete(_id).session(session);
 
-  const unitsCount = await propertyUnitModel.countDocuments({
-    floorId: _id,
-    isDeleted: false,
-  });
-
-  if (unitsCount > 0) {
-    await propertyUnitModel.updateMany(
-      {
-        floorId: _id,
-        isDeleted: false,
-      },
-      {
-        $set: {
-          isDeleted: true,
-          deletedBy: req.user._id,
+    await AuditLog.create(
+      [
+        {
+          operationType: "delete",
+          database: "CSKestate",
+          collectionName: "floorunits",
+          documentId: floor._id,
+          fullDocument: floor,
+          previousFields: floor,
+          changeEventId: new mongoose.Types.ObjectId().toString(),
+          userId: req.user?._id || null,
         },
-      },
+      ],
+      { session },
     );
-  }
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, null, "Floor deleted successfully"));
+    await session.commitTransaction();
+    // session.endSession();
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, null, "Floor deleted successfully"));
+  } catch (error) {
+    await session.abortTransaction();
+    // session.endSession();
+    throw error;
+  } finally {
+    session.endSession();
+  }
 });
 
 export const getAllFloorsByBuildingIdForDropDown = asyncHandler(

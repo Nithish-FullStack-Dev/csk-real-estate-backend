@@ -9,6 +9,8 @@ import asyncHandler from "../utils/asyncHandler.js";
 // import { getFilePath } from "../utils/getFilePath.js";
 // import { uploadFile } from "../utils/uploadFile.js";
 import Customer from "../modals/customerSchema.js";
+import InnerPlot from "../modals/InnerPlot.js";
+import { AuditLog } from "../modals/auditLog.model.js";
 
 /* ========================================================= */
 /* CREATE OPEN PLOT */
@@ -241,20 +243,65 @@ export const getOpenPlotById = asyncHandler(async (req, res) => {
 export const deleteOpenPlot = asyncHandler(async (req, res) => {
   const { _id } = req.params;
 
-  if (!_id) throw new ApiError(400, "Open Plot ID required");
+  if (!mongoose.Types.ObjectId.isValid(_id)) {
+    throw new ApiError(400, "Invalid Open Plot ID");
+  }
 
-  const plot = await OpenPlot.findOne({ _id, isDeleted: false });
-  if (!plot) throw new ApiError(404, "Open Plot not found");
+  const session = await mongoose.startSession();
 
-  await OpenPlot.findByIdAndUpdate(_id, {
-    isDeleted: true,
-    deletedAt: new Date(),
-    deletedBy: req.user._id,
-  });
+  try {
+    await session.startTransaction();
 
-  res
-    .status(200)
-    .json(new ApiResponse(200, null, "Open Plot deleted successfully"));
+    // ✅ 1. Fetch open plot
+    const plot = await OpenPlot.findById(_id).lean().session(session);
+
+    if (!plot) {
+      await session.abortTransaction();
+      throw new ApiError(404, "Open Plot not found");
+    }
+
+    // ✅ 2. Fetch inner plots (for audit)
+    const innerPlots = await InnerPlot.find({ openPlotId: _id })
+      .lean()
+      .session(session);
+
+    // ✅ 3. Delete inner plots
+    await InnerPlot.deleteMany({ openPlotId: _id }).session(session);
+
+    // ✅ 4. Delete open plot
+    await OpenPlot.findByIdAndDelete(_id).session(session);
+
+    // ✅ 5. Audit log (parent + children snapshot)
+    await AuditLog.create(
+      [
+        {
+          operationType: "delete",
+          database: "CSKestate",
+          collectionName: "openplots",
+          documentId: plot._id,
+          fullDocument: {
+            plot,
+            innerPlots,
+          },
+          previousFields: plot,
+          changeEventId: new mongoose.Types.ObjectId().toString(),
+          userId: req.user?._id || null,
+        },
+      ],
+      { session },
+    );
+
+    await session.commitTransaction();
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, null, "Open Plot deleted successfully"));
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
 });
 
 export const getOpenPlotDropdown = asyncHandler(async (req, res) => {

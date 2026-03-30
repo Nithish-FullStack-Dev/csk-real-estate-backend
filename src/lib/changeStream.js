@@ -117,6 +117,8 @@ const buildAuditDoc = (change) => {
       wasDeletedBefore === false &&
       isDeletedNow === true;
 
+    if (isSoftDelete) return null;
+
     return {
       ...base,
       operationType: isSoftDelete ? "delete" : "update",
