@@ -13,7 +13,7 @@ const floorUnitSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "Building",
       required: true,
-      index: true,
+      // index: true,
     },
     floorNumber: { type: Number, required: true },
     unitType: { type: String, required: true },
@@ -45,22 +45,22 @@ const floorUnitSchema = new Schema(
   { timestamps: true },
 );
 
-floorUnitSchema.pre("findOneAndDelete", async function (next) {
-  const floor = await this.model.findOne(this.getQuery());
-  if (!floor) return next();
+// floorUnitSchema.pre("findOneAndDelete", async function (next) {
+//   const floor = await this.model.findOne(this.getQuery());
+//   if (!floor) return next();
 
-  await PropertyUnit.deleteMany({ floorId: floor._id });
-  next();
-});
+//   await PropertyUnit.deleteMany({ floorId: floor._id });
+//   next();
+// });
 
-floorUnitSchema.pre(
-  "deleteOne",
-  { document: true, query: false },
-  async function (next) {
-    await PropertyUnit.deleteMany({ floorId: this._id });
-    next();
-  },
-);
+// floorUnitSchema.pre(
+//   "deleteOne",
+//   { document: true, query: false },
+//   async function (next) {
+//     await PropertyUnit.deleteMany({ floorId: this._id });
+//     next();
+//   },
+// );
 
 floorUnitSchema.index({ buildingId: 1, floorNumber: 1 }, { unique: true });
 

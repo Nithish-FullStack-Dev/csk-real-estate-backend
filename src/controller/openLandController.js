@@ -6,6 +6,7 @@ import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import Customer from "../modals/customerSchema.js";
+import { AuditLog } from "../modals/auditLog.model.js";
 
 /* ------------------------------------------------------- */
 /* POPULATE HELPER */
@@ -157,17 +158,50 @@ export const deleteOpenLandById = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid land ID");
   }
 
-  const land = await OpenLand.findOneAndUpdate(
-    { _id: id, isDeleted: false },
-    { isDeleted: true, deletedAt: new Date(), deletedBy: req.user._id },
-    { new: true },
-  );
+  const session = await mongoose.startSession();
 
-  if (!land) throw new ApiError(404, "Open land not found");
+  try {
+    await session.startTransaction();
 
-  res
-    .status(200)
-    .json(new ApiResponse(200, null, "Open land deleted successfully"));
+    // ✅ 1. Fetch land
+    const land = await OpenLand.findById(id).lean().session(session);
+
+    if (!land) {
+      await session.abortTransaction();
+      throw new ApiError(404, "Open land not found");
+    }
+
+    // ✅ 2. HARD DELETE (same as InnerPlot)
+    await OpenLand.findByIdAndDelete(id).session(session);
+
+    // ✅ 3. Audit log (same structure)
+    await AuditLog.create(
+      [
+        {
+          operationType: "delete",
+          database: "CSKestate",
+          collectionName: "openlands",
+          documentId: land._id,
+          fullDocument: land,
+          previousFields: land,
+          changeEventId: new mongoose.Types.ObjectId().toString(),
+          userId: req.user?._id || null,
+        },
+      ],
+      { session },
+    );
+
+    await session.commitTransaction();
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, null, "Open land deleted successfully"));
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
 });
 
 /* ------------------------------------------------------- */
@@ -310,19 +344,61 @@ export const updateInterestedCustomer = asyncHandler(async (req, res) => {
 export const removeInterestedCustomer = asyncHandler(async (req, res) => {
   const { id, interestId } = req.params;
 
-  await OpenLand.findOneAndUpdate(
+  // 🔹 Step 1: Fetch existing land
+  const existing = await OpenLand.findOne({
+    _id: id,
+    isDeleted: false,
+  });
+
+  if (!existing) {
+    throw new ApiError(404, "Open land not found");
+  }
+
+  // 🔹 Step 2: Capture OLD value
+  const oldInterest = existing.interestedCustomers.find(
+    (c) => c._id.toString() === interestId,
+  );
+
+  if (!oldInterest) {
+    throw new ApiError(404, "Interested customer not found");
+  }
+
+  // 🔹 Step 3: Perform delete
+  const updated = await OpenLand.findOneAndUpdate(
     { _id: id, isDeleted: false },
     {
       $pull: { interestedCustomers: { _id: interestId } },
+      updatedBy: req.user._id,
     },
     { new: true },
   );
 
-  const populated = await populateOpenLand(
-    OpenLand.findOne({ _id: id, isDeleted: false }),
-  ).exec();
+  // 🔹 Step 4: Populate updated data
+  const populated = await populateOpenLand(OpenLand.findById(id)).exec();
 
-  res.status(200).json(new ApiResponse(200, populated));
+  // 🔥 Step 5: AUDIT LOG
+  await createAuditLog({
+    userId: req.user._id,
+    role: req.user.role,
+    module: "OpenLand",
+    recordId: id,
+    action: "DELETE_INTERESTED_CUSTOMER",
+
+    oldValues: {
+      removedCustomer: oldInterest,
+    },
+
+    newValues: {
+      remainingCount: updated.interestedCustomers.length,
+    },
+
+    ipAddress: req.ip,
+    userAgent: req.headers["user-agent"],
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, populated, "Interested customer removed"));
 });
 
 /* ------------------------------------------------------- */

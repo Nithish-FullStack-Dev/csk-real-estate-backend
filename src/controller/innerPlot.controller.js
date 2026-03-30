@@ -6,6 +6,8 @@ import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import Customer from "../modals/customerSchema.js";
+import mongoose from "mongoose";
+import { AuditLog } from "../modals/auditLog.model.js";
 
 /* ================= CREATE INNER PLOT ================= */
 export const createInnerPlot = asyncHandler(async (req, res) => {
@@ -203,21 +205,54 @@ export const updateInnerPlot = asyncHandler(async (req, res) => {
 export const deleteInnerPlot = asyncHandler(async (req, res) => {
   const { _id } = req.params;
 
-  const plot = await InnerPlot.findOne({
-    _id,
-    isDeleted: false,
-  });
-
-  if (!plot) {
-    throw new ApiError(404, "Inner plot not found");
+  if (!mongoose.Types.ObjectId.isValid(_id)) {
+    throw new ApiError(400, "Invalid Inner Plot ID");
   }
 
-  plot.isDeleted = true;
-  plot.deletedBy = req.user._id;
+  const session = await mongoose.startSession();
 
-  await plot.save();
+  try {
+    await session.startTransaction();
 
-  return res.status(200).json(new ApiResponse(200, null, "Inner plot deleted"));
+    // ✅ 1. Fetch inner plot
+    const plot = await InnerPlot.findById(_id).lean().session(session);
+
+    if (!plot) {
+      await session.abortTransaction();
+      throw new ApiError(404, "Inner plot not found");
+    }
+
+    // ✅ 2. Delete inner plot
+    await InnerPlot.findByIdAndDelete(_id).session(session);
+
+    // ✅ 3. Audit log
+    await AuditLog.create(
+      [
+        {
+          operationType: "delete",
+          database: "CSKestate",
+          collectionName: "innerplots",
+          documentId: plot._id,
+          fullDocument: plot,
+          previousFields: plot,
+          changeEventId: new mongoose.Types.ObjectId().toString(),
+          userId: req.user?._id || null,
+        },
+      ],
+      { session },
+    );
+
+    await session.commitTransaction();
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, null, "Inner plot deleted successfully"));
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
 });
 
 /* ================= DROPDOWN ================= */

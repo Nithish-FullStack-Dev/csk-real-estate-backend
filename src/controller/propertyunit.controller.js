@@ -5,6 +5,7 @@ import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import mongoose from "mongoose";
 import Customer from "../modals/customerSchema.js";
+import { AuditLog } from "../modals/auditLog.model.js";
 
 export const createUnit = asyncHandler(async (req, res) => {
   const { buildingId, floorId, plotNo } = req.body;
@@ -256,23 +257,52 @@ export const deleteUnit = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid unit ID");
   }
 
-  const unit = await PropertyUnitModel.findOne({
-    _id: unitId,
-    isDeleted: false,
-  });
+  const session = await mongoose.startSession();
 
-  if (!unit) {
-    throw new ApiError(404, "Unit not found");
+  try {
+    await session.startTransaction();
+
+    // ✅ 1. Get unit
+    const unit = await PropertyUnitModel.findById(unitId)
+      .lean()
+      .session(session);
+
+    if (!unit) {
+      await session.abortTransaction();
+      throw new ApiError(404, "Unit not found");
+    }
+
+    // ✅ 2. Delete unit
+    await PropertyUnitModel.findByIdAndDelete(unitId).session(session);
+
+    // ✅ 3. Audit log
+    await AuditLog.create(
+      [
+        {
+          operationType: "delete",
+          database: "CSKestate",
+          collectionName: "propertyunits",
+          documentId: unit._id,
+          fullDocument: unit,
+          previousFields: unit,
+          changeEventId: new mongoose.Types.ObjectId().toString(),
+          userId: req.user?._id || null,
+        },
+      ],
+      { session },
+    );
+
+    await session.commitTransaction();
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, null, "Unit deleted successfully"));
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
   }
-
-  unit.isDeleted = true;
-  unit.deletedBy = req.user?._id;
-
-  await unit.save();
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, null, "Unit deleted successfully"));
 });
 
 export const getUnit = asyncHandler(async (req, res) => {

@@ -29,7 +29,7 @@ const openLandSchema = new Schema(
       default: "Available",
     },
 
-    landSize: { type: String },
+    // landSize: { type: String },
     landArea: { type: Number },
     areaUnit: {
       type: String,
