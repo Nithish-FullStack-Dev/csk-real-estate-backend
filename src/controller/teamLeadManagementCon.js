@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import TeamLeads from "../modals/TeamLeadmanagement.js";
 import User from "../modals/user.js";
 import { createNotification } from "../utils/notificationHelper.js";
+import { ObjectId } from "mongodb";
 
 // CREATE a new Team Lead mapping (Sales agent under a Team Lead)
 export const createTeamLeadMapping = async (req, res) => {
