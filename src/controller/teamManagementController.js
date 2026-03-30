@@ -19,6 +19,20 @@ export const addTeamMember = async (req, res) => {
 
     await teamAgent.save();
 
+    const teamLead = await Users.findById(teamLeadId).select("name");
+
+    await createNotification({
+      userId: new ObjectId(agentId),
+      title: "Added to Team",
+      message: `You have been added to a team by ${teamLead?.name || "your team lead"}.`,
+      triggeredBy: req.user._id,
+      category: "team",
+      priority: performance === "high" ? "P1" : "P2",
+      deepLink: `/team-management/${teamAgent._id}`,
+      entityType: "TeamManagement",
+      entityId: teamAgent._id,
+    })
+
     res.status(201).json({
       message: "Team member added successfully",
       teamAgent,
@@ -127,6 +141,18 @@ export const deleteTeamAgentById = async (req, res) => {
       { _id: id, isDeleted: false },
       { isDeleted: true, deletedBy: req.user._id },
     );
+
+    await createNotification({
+      userId: new mongoose.Types.ObjectId(agent.agentId), // 👈 notify agent
+      title: "Removed from Team",
+      message: `You have been removed from the team.`,
+      triggeredBy: req.user._id,
+      category: "team",
+      priority: "P2",
+      deepLink: `/team-management/${agent._id}`,
+      entityType: "TeamManagement",
+      entityId: agent._id,
+    });
 
     res.status(200).json({ message: "Team agent deleted successfully" });
   } catch (error) {
