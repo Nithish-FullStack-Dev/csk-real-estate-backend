@@ -2,6 +2,7 @@ import TeamManagement from "../modals/teamManagementModal.js";
 import User from "../modals/user.js";
 import AgentModel from "../modals/agent.model.js";
 import mongoose from "mongoose";
+import { createNotification } from "../utils/notificationHelper.js";
 // 1. CREATE TEAM AGENT
 export const addTeamMember = async (req, res) => {
   try {
@@ -19,10 +20,10 @@ export const addTeamMember = async (req, res) => {
 
     await teamAgent.save();
 
-    const teamLead = await Users.findById(teamLeadId).select("name");
+    const teamLead = await User.findById(teamLeadId).select("name");
 
     await createNotification({
-      userId: new ObjectId(agentId),
+      userId: agentId,
       title: "Added to Team",
       message: `You have been added to a team by ${teamLead?.name || "your team lead"}.`,
       triggeredBy: req.user._id,
@@ -31,7 +32,7 @@ export const addTeamMember = async (req, res) => {
       deepLink: `/team-management/${teamAgent._id}`,
       entityType: "TeamManagement",
       entityId: teamAgent._id,
-    })
+    });
 
     res.status(201).json({
       message: "Team member added successfully",
@@ -124,36 +125,35 @@ export const deleteTeamAgentById = async (req, res) => {
   try {
     const { id } = req.params;
     const role = req.user.role;
-    const userId = new mongoose.Types.ObjectId(req.user._id);
+    const userId = req.user._id;
 
-    const agent = await TeamManagement.findOne({ _id: id, isDeleted: false });
+    // Step 1: find existing
+    const agent = await TeamManagement.findOne({
+      _id: id,
+      isDeleted: false,
+    });
 
     if (!agent) {
       return res.status(404).json({ message: "Team agent not found" });
     }
 
-    // Admin can delete all
-    if (role !== "admin" && agent.teamLeadId.toString() !== userId.toString()) {
-      return res.status(403).json({ message: "Unauthorized action" });
+    const previousAgentId = agent.agentId;
+
+    const updated = await TeamManagement.findByIdAndDelete(id);
+
+    if (previousAgentId) {
+      await createNotification({
+        userId: previousAgentId, // 👈 notify agent
+        title: "Removed from Team",
+        message: `You have been removed from the team.`,
+        triggeredBy: req.user._id,
+        category: "team",
+        priority: "P2",
+        deepLink: `/team-management/${agent._id}`,
+        entityType: "TeamManagement",
+        entityId: agent._id,
+      });
     }
-
-    await TeamManagement.findOneAndUpdate(
-      { _id: id, isDeleted: false },
-      { isDeleted: true, deletedBy: req.user._id },
-    );
-
-    await createNotification({
-      userId: new mongoose.Types.ObjectId(agent.agentId), // 👈 notify agent
-      title: "Removed from Team",
-      message: `You have been removed from the team.`,
-      triggeredBy: req.user._id,
-      category: "team",
-      priority: "P2",
-      deepLink: `/team-management/${agent._id}`,
-      entityType: "TeamManagement",
-      entityId: agent._id,
-    });
-
     res.status(200).json({ message: "Team agent deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: "Failed to delete team agent", error });
@@ -177,18 +177,20 @@ export const getTeamAgentById = async (req, res) => {
 // GET /api/agents/unassigned
 export const getUnassignedAgents = async (req, res) => {
   try {
-    // Step 1: Get all agent IDs already assigned to a team
-    const assignedAgentIds = await TeamManagement.distinct("agentId");
+    // ✅ ONLY ACTIVE assignments
+    const assignedAgentIds = await TeamManagement.find({
+      isDeleted: false,
+      agentId: { $ne: null },
+    }).distinct("agentId");
 
     const assignedAgentListIds = await AgentModel.distinct("agentId");
 
     const excludeIds = [...assignedAgentIds, ...assignedAgentListIds];
 
-    // Step 2: Find agents (role: 'agent') who are NOT assigned
     const unassignedAgents = await User.find({
       role: "agent",
       _id: { $nin: excludeIds },
-    }).select("-password"); // Exclude password field for safety
+    }).select("-password");
 
     res.status(200).json({
       success: true,

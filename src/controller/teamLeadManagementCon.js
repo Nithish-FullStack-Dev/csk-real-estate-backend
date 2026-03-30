@@ -1,39 +1,51 @@
+import mongoose from "mongoose";
 import TeamLeads from "../modals/TeamLeadmanagement.js";
 import User from "../modals/user.js";
+import { createNotification } from "../utils/notificationHelper.js";
 
 // CREATE a new Team Lead mapping (Sales agent under a Team Lead)
 export const createTeamLeadMapping = async (req, res) => {
   try {
-    const { salesId, teamLeadId, performance, status } = req.body;
+    const { teamLeadId, performance, status } = req.body;
 
+    const salesManagerId = req.user._id;
+
+    // Validate
+    if (!mongoose.Types.ObjectId.isValid(teamLeadId)) {
+      return res.status(400).json({ error: "Invalid teamLeadId" });
+    }
+
+    // Ensure TL not already assigned
     const exists = await TeamLeads.findOne({
-      $or: [{ salesId }, { teamLeadId }],
+      teamLeadId,
       isDeleted: false,
     });
 
     if (exists) {
-      return res.status(400).json({ error: "Team Lead already mapped." });
+      return res.status(400).json({
+        error: "This team lead already belongs to another manager",
+      });
     }
 
     const newEntry = new TeamLeads({
-      salesId,
+      salesId: salesManagerId,
       teamLeadId,
       performance,
       status,
-      createdBy: req.user._id,
+      createdBy: salesManagerId,
     });
 
     await newEntry.save();
 
-    const salesUser = await Users.findById(salesId).select("name");
+    const salesUser = await User.findById(salesManagerId).select("name");
 
     await createNotification({
-      userId: new ObjectId(teamLeadId),
+      userId: teamLeadId,
       title: "New Team Member Assigned",
       message: `You have been assigned a new sales member: ${salesUser?.name || "Unknown User"}.`,
-      triggeredBy: req.user._id,
+      triggeredBy: salesManagerId,
       category: "team",
-      priority: performance === "high" ? "P1" : "P2",
+      priority: performance?.sales > 50 ? "P1" : "P2",
       deepLink: `/team-leads/${newEntry._id}`,
       entityType: "TeamLeadMapping",
       entityId: newEntry._id,
@@ -41,9 +53,10 @@ export const createTeamLeadMapping = async (req, res) => {
 
     res.status(201).json(newEntry);
   } catch (error) {
+    console.error("FULL ERROR 👉", error);
     res
       .status(500)
-      .json({ error: "Failed to create team member", details: error });
+      .json({ error: "Failed to create team member", details: error.message });
   }
 };
 
@@ -126,22 +139,25 @@ export const deleteTeamMember = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const deleted = await TeamLeads.findOneAndUpdate(
-      { _id: id, isDeleted: false },
-      { isDeleted: true, deletedBy: req.user._id },
-      { new: true },
-    );
+    const existing = await TeamLeads.findOne({
+      _id: id,
+      isDeleted: false,
+    });
 
-    if (!deleted) {
+    if (!existing) {
       return res.status(404).json({ error: "Team member not found" });
     }
 
-    const salesUser = await Users.findById(deleted.salesId).select("name");
+    const previousTeamLeadId = existing.teamLeadId;
+
+    const deleted = await TeamLeads.findByIdAndDelete(id);
+
+    // const salesUser = await User.findById(deleted.salesId).select("name");
 
     await createNotification({
-      userId: new ObjectId(deleted.teamLeadId),
+      userId: previousTeamLeadId,
       title: "Team Member Removed",
-      message: `${salesUser?.name || "A sales member"} has been removed from your team.`,
+      message: `You have been removed from your team.`,
       triggeredBy: req.user._id,
       category: "team",
       priority: "P2",
@@ -160,10 +176,13 @@ export const deleteTeamMember = async (req, res) => {
 
 export const getUnassignedTeamLead = async (req, res) => {
   try {
-    // Step 1: Get all agent IDs already assigned to a team
-    const assignedteamLeadIds = await TeamLeads.distinct("teamLeadId");
+    // ✅ Step 1: Get ONLY ACTIVE assigned team leads
+    const assignedteamLeadIds = await TeamLeads.find({
+      isDeleted: false, // 🔥 IMPORTANT
+      teamLeadId: { $ne: null },
+    }).distinct("teamLeadId");
 
-    // Step 2: Find agents (role: 'agent') who are NOT assigned
+    // ✅ Step 2: Fetch users NOT in active team
     const unassignedteamLead = await User.find({
       role: "team_lead",
       _id: { $nin: assignedteamLeadIds },
