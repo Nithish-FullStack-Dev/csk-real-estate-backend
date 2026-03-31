@@ -9,6 +9,8 @@ import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import { createNotification } from "../utils/notificationHelper.js";
 import mongoose from "mongoose";
+import { AuditLog } from "../modals/auditLog.model.js";
+import SiteVisit from "../modals/siteVisitModal.js";
 
 // export const saveLead = asyncHandler(async (req, res) => {
 //   const leadData = req.body;
@@ -700,25 +702,69 @@ export const updateLeadById = async (req, res) => {
 
 export const deleteLeadById = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { role, _id } = req.user;
+  const userId = req.user?._id;
 
-  const lead = await Lead.findOne({ _id: id, isDeleted: false });
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid lead ID");
+  }
 
-  if (!lead) throw new ApiError(404, "Lead not found");
+  const session = await mongoose.startSession();
 
-  lead.isDeleted = true;
-  lead.deletedBy = _id;
-  lead.updatedBy = _id;
+  try {
+    await session.startTransaction();
 
-  await lead.save();
+    // ✅ 1. Find lead
+    const lead = await Lead.findById(id).session(session);
 
-  await lead.deleteOne();
+    if (!lead) {
+      throw new ApiError(404, "Lead not found");
+    }
 
-  res
-    .status(200)
-    .json(
-      new ApiResponse(200, null, "Lead and related data deleted successfully"),
+    // ✅ 2. Delete related SiteVisits (cascade)
+    await SiteVisit.deleteMany({ clientId: id }).session(session);
+
+    // 👉 (Optional future cascade)
+    // await Commission.deleteMany({ clientId: id }).session(session);
+    // await AgentSchedule.deleteMany({ lead: id }).session(session);
+
+    // ✅ 3. Delete lead
+    await Lead.findByIdAndDelete(id).session(session);
+
+    // ✅ 4. Audit log
+    await AuditLog.create(
+      [
+        {
+          operationType: "delete",
+          database: "CSKestate",
+          collectionName: "leads",
+          documentId: lead._id,
+          fullDocument: lead.toObject(),
+          previousFields: lead.toObject(),
+          changeEventId: new mongoose.Types.ObjectId().toString(),
+          userId: userId || null,
+        },
+      ],
+      { session },
     );
+
+    // ✅ 5. Commit
+    await session.commitTransaction();
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          null,
+          "Lead and related site visits deleted successfully",
+        ),
+      );
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
 });
 
 export const getAvailableProperties = async (req, res) => {

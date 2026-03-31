@@ -4,6 +4,7 @@ import AgentModel from "../modals/agent.model.js";
 import mongoose from "mongoose";
 import { createNotification } from "../utils/notificationHelper.js";
 import { ObjectId } from "mongodb";
+import { AuditLog } from "../modals/auditLog.model.js";
 // 1. CREATE TEAM AGENT
 export const addTeamMember = async (req, res) => {
   try {
@@ -123,28 +124,65 @@ export const updateTeamAgentById = async (req, res) => {
 
 // 4. DELETE TEAM AGENT BY ID
 export const deleteTeamAgentById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const role = req.user.role;
-    const userId = req.user._id;
+  const { id } = req.params;
 
-    // Step 1: find existing
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: "Invalid Team Agent ID" });
+  }
+
+  const session = await mongoose.startSession();
+
+  try {
+    await session.startTransaction();
+
+    // ✅ 1. Fetch existing agent
     const agent = await TeamManagement.findOne({
       _id: id,
       isDeleted: false,
-    });
+    })
+      .lean()
+      .session(session);
 
     if (!agent) {
+      await session.abortTransaction();
       return res.status(404).json({ message: "Team agent not found" });
     }
 
     const previousAgentId = agent.agentId;
 
-    const updated = await TeamManagement.findByIdAndDelete(id);
+    // ✅ 2. Delete agent
+    const deleted = await TeamManagement.findByIdAndDelete(id).session(session);
 
+    if (!deleted) {
+      await session.abortTransaction();
+      return res.status(500).json({ message: "Delete failed" });
+    }
+
+    // ✅ 3. Audit Log (DELETE)
+    await AuditLog.create(
+      [
+        {
+          operationType: "delete",
+          database: "CSKestate",
+          collectionName: "teammanagements", // ⚠️ confirm your actual collection name
+          documentId: agent._id,
+          fullDocument: agent,
+          previousFields: agent,
+          removedFields: Object.keys(agent),
+          changeEventId: new mongoose.Types.ObjectId().toString(),
+          userId: req.user?._id || null,
+        },
+      ],
+      { session },
+    );
+
+    // ✅ 4. Commit transaction
+    await session.commitTransaction();
+
+    // ✅ 5. Notification (AFTER commit → safer)
     if (previousAgentId) {
       await createNotification({
-        userId: previousAgentId, // 👈 notify agent
+        userId: previousAgentId,
         title: "Removed from Team",
         message: `You have been removed from the team.`,
         triggeredBy: req.user._id,
@@ -155,9 +193,17 @@ export const deleteTeamAgentById = async (req, res) => {
         entityId: agent._id,
       });
     }
-    res.status(200).json({ message: "Team agent deleted successfully" });
+
+    return res.status(200).json({ message: "Team agent deleted successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Failed to delete team agent", error });
+    await session.abortTransaction();
+
+    return res.status(500).json({
+      message: "Failed to delete team agent",
+      error: error.message,
+    });
+  } finally {
+    session.endSession();
   }
 };
 

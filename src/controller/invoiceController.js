@@ -220,9 +220,10 @@ export const getCompletedTasksForContractor = async (req, res) => {
     }
 
     // Populate projectId to get actual project details (like name)
-    const projects = await Project.find({ contractors: contractor }).populate(
-      "projectId",
-    );
+    const projects = await Project.find({ contractors: contractor })
+      .populate("projectId")
+      .populate("floorUnit")
+      .populate("unit");
 
     const completedTasks = [];
 
@@ -240,7 +241,9 @@ export const getCompletedTasksForContractor = async (req, res) => {
               title: task.title,
               unit: unitName,
               projectId: project._id,
-              projectName: project.projectId.projectName || "Unknown Project",
+              projectName: project.projectId?.projectName || "Unknown Project",
+              floorNumber: project.floorUnit?.floorNumber ?? "N/A",
+              unitType: project.unit?.plotNo ?? "N/A",
               submittedOn: task.submittedByContractorOn,
               deadline: task.deadline,
             });

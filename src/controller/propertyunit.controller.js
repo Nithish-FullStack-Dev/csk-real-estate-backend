@@ -4,8 +4,13 @@ import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import mongoose from "mongoose";
-import Customer from "../modals/customerSchema.js";
 import { AuditLog } from "../modals/auditLog.model.js";
+import Project from "../modals/projects.js";
+import SiteInspection from "../modals/siteInspection.js";
+import UserSchedule from "../modals/userSchedule.js";
+import Invoice from "../modals/invoice.js";
+import Customer from "../modals/customerSchema.js";
+import Lead from "../modals/leadModal.js";
 
 export const createUnit = asyncHandler(async (req, res) => {
   const { buildingId, floorId, plotNo } = req.body;
@@ -271,6 +276,18 @@ export const deleteUnit = asyncHandler(async (req, res) => {
       await session.abortTransaction();
       throw new ApiError(404, "Unit not found");
     }
+
+    await Project.deleteOne({ unit: unitId }).session(session);
+
+    await SiteInspection.deleteMany({ unit: unitId }).session(session);
+
+    await UserSchedule.deleteMany({ unit: unitId }).session(session);
+
+    await Invoice.deleteMany({ unit: unitId }).session(session);
+
+    await Customer.deleteMany({ unit: unitId }).session(session);
+
+    await Lead.deleteMany({ unit: unitId }).session(session);
 
     // ✅ 2. Delete unit
     await PropertyUnitModel.findByIdAndDelete(unitId).session(session);
