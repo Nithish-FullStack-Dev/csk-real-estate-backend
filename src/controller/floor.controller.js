@@ -6,6 +6,11 @@ import asyncHandler from "../utils/asyncHandler.js";
 import Customer from "../modals/customerSchema.js";
 import propertyUnitModel from "../modals/propertyUnit.model.js";
 import { AuditLog } from "../modals/auditLog.model.js";
+import Project from "../modals/projects.js";
+import SiteInspection from "../modals/siteInspection.js";
+import UserSchedule from "../modals/userSchedule.js";
+import Invoice from "../modals/invoice.js";
+import Lead from "../modals/leadModal.js";
 
 export const createFloor = asyncHandler(async (req, res) => {
   const {
@@ -132,31 +137,56 @@ export const deleteFloorById = asyncHandler(async (req, res) => {
   const { _id } = req.params;
 
   if (!mongoose.Types.ObjectId.isValid(_id)) {
-    return res.status(400).json(new ApiResponse(400, null, "Invalid floor ID"));
+    throw new ApiError(400, "Invalid floor ID");
   }
-  const session = await mongoose.startSession();
-  try {
-    session.startTransaction();
 
-    const floor = await FloorUnit.findById(_id).lean().session(session);
+  const session = await mongoose.startSession();
+
+  try {
+    await session.startTransaction();
+
+    // ✅ 1. Check floor
+    const floor = await FloorUnit.findById(_id).session(session);
 
     if (!floor) {
-      await session.abortTransaction();
-      session.endSession();
-      return res
-        .status(404)
-        .json(new ApiResponse(404, null, "Floor not found"));
+      throw new ApiError(404, "Floor not found");
     }
 
+    // ✅ 2. Get all units under this floor
     const units = await propertyUnitModel
       .find({ floorId: _id })
+      .select("_id")
       .lean()
       .session(session);
 
+    const unitIds = units.map((u) => u._id);
+
+    // ✅ 3. Delete all related data using UNIT (strong relation)
+    if (unitIds.length > 0) {
+      await Project.deleteMany({ unit: { $in: unitIds } }).session(session);
+
+      await SiteInspection.deleteMany({ unit: { $in: unitIds } }).session(
+        session,
+      );
+
+      await UserSchedule.deleteMany({ unit: { $in: unitIds } }).session(
+        session,
+      );
+
+      await Customer.deleteMany({ unit: { $in: unitIds } }).session(session);
+
+      await Invoice.deleteMany({ unit: { $in: unitIds } }).session(session);
+
+      await Lead.deleteMany({ unit: { $in: unitIds } }).session(session);
+    }
+
+    // ✅ 4. Delete units
     await propertyUnitModel.deleteMany({ floorId: _id }).session(session);
 
+    // ✅ 5. Delete floor
     await FloorUnit.findByIdAndDelete(_id).session(session);
 
+    // ✅ 6. Audit log
     await AuditLog.create(
       [
         {
@@ -173,15 +203,14 @@ export const deleteFloorById = asyncHandler(async (req, res) => {
       { session },
     );
 
+    // ✅ 7. Commit transaction
     await session.commitTransaction();
-    // session.endSession();
 
     return res
       .status(200)
       .json(new ApiResponse(200, null, "Floor deleted successfully"));
   } catch (error) {
     await session.abortTransaction();
-    // session.endSession();
     throw error;
   } finally {
     session.endSession();

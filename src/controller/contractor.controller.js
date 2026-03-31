@@ -6,6 +6,8 @@ import { getFilePath } from "../utils/getFilePath.js";
 import { uploadFile } from "../utils/uploadFile.js";
 import mongoose from "mongoose";
 import { createNotification } from "../utils/notificationHelper.js";
+import { AuditLog } from "../modals/auditLog.model.js";
+import Project from "../modals/projects.js";
 
 export const addContractor = asyncHandler(async (req, res) => {
   const {
@@ -109,17 +111,18 @@ export const addContractor = asyncHandler(async (req, res) => {
     isActive,
     createdBy: req.user._id,
   });
-await createNotification({
-  userId: [userId],
-  title: "New Project Assigned",
-  message: "A new construction project has been assigned to you. Please review the details and proceed accordingly.",
-  triggeredBy: req.user._id,
-  category: "project",
-  priority: "P2",
-  deepLink: `/contractors/${contractor._id}`,
-  entityType: "Contractor",
-  entityId: contractor._id,
-});
+  await createNotification({
+    userId: [userId],
+    title: "New Project Assigned",
+    message:
+      "A new construction project has been assigned to you. Please review the details and proceed accordingly.",
+    triggeredBy: req.user._id,
+    category: "project",
+    priority: "P2",
+    deepLink: `/contractors/${contractor._id}`,
+    entityType: "Contractor",
+    entityId: contractor._id,
+  });
 
   return res
     .status(201)
@@ -317,24 +320,122 @@ export const updateContractor = asyncHandler(async (req, res) => {
 
 export const deleteContractor = asyncHandler(async (req, res) => {
   const { id } = req.params;
+  const userId = req.user?._id;
 
-  if (!mongoose.Types.ObjectId.isValid(id))
+  if (!mongoose.Types.ObjectId.isValid(id)) {
     throw new ApiError(400, "Invalid contractor ID");
+  }
 
-  const contractor = await ContractorModel.findOneAndUpdate(
-    { _id: id, isDeleted: false },
-    {
-      isDeleted: true,
-      deletedBy: req.user._id,
-    },
-    { new: true },
-  );
+  const session = await mongoose.startSession();
 
-  if (!contractor) throw new ApiError(404, "Contractor not found");
+  try {
+    await session.startTransaction();
 
-  res
-    .status(200)
-    .json(new ApiResponse(200, contractor, "Contractor deleted successfully"));
+    // ✅ 1. Get contractor
+    const contractor = await ContractorModel.findById(id).session(session);
+
+    if (!contractor) {
+      throw new ApiError(404, "Contractor not found");
+    }
+
+    // 🔥 IMPORTANT: extract USER ID
+    const contractorUserId = contractor.userId.toString();
+
+    /* =========================================
+       ✅ 2. REMOVE FROM contractors ARRAY (FIXED)
+    ========================================= */
+    await Project.updateMany(
+      { contractors: contractor.userId }, // 👈 MATCH USER ID
+      { $pull: { contractors: contractor.userId } },
+    ).session(session);
+
+    /* =========================================
+       ✅ 3. CLEAN assignedContractors + TASKS
+    ========================================= */
+    const projects = await Project.find({}).session(session);
+
+    for (const project of projects) {
+      let modified = false;
+
+      // 🔹 assignedContractors
+      if (project.assignedContractors instanceof Map) {
+        for (const [
+          unitKey,
+          contractorList,
+        ] of project.assignedContractors.entries()) {
+          const filtered = contractorList.filter(
+            (cId) => cId.toString() !== contractorUserId,
+          );
+
+          if (filtered.length !== contractorList.length) {
+            project.assignedContractors.set(unitKey, filtered);
+            modified = true;
+          }
+        }
+      }
+
+      // 🔹 tasks cleanup
+      if (project.units instanceof Map) {
+        for (const [unitKey, tasks] of project.units.entries()) {
+          const filteredTasks = tasks.filter(
+            (task) => task.contractor?.toString() !== contractorUserId,
+          );
+
+          if (filteredTasks.length !== tasks.length) {
+            project.units.set(unitKey, filteredTasks);
+            modified = true;
+          }
+        }
+      }
+
+      if (modified) {
+        project.markModified("units");
+        project.markModified("assignedContractors");
+        await project.save({ session });
+      }
+    }
+
+    /* =========================================
+       ✅ 4. DELETE CONTRACTOR
+    ========================================= */
+    await ContractorModel.findByIdAndDelete(id).session(session);
+
+    /* =========================================
+       ✅ 5. AUDIT LOG
+    ========================================= */
+    await AuditLog.create(
+      [
+        {
+          operationType: "delete",
+          database: "CSKestate",
+          collectionName: "contractors",
+          documentId: contractor._id,
+          fullDocument: contractor.toObject(),
+          previousFields: contractor.toObject(),
+          changeEventId: new mongoose.Types.ObjectId().toString(),
+          userId: userId || null,
+        },
+      ],
+      { session },
+    );
+
+    await session.commitTransaction();
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          null,
+          "Contractor unassigned and deleted successfully",
+        ),
+      );
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
 });
 
 export const getContractorsForDropDown = asyncHandler(async (req, res) => {

@@ -3,6 +3,7 @@ import TeamLeads from "../modals/TeamLeadmanagement.js";
 import User from "../modals/user.js";
 import { createNotification } from "../utils/notificationHelper.js";
 import { ObjectId } from "mongodb";
+import { AuditLog } from "../modals/auditLog.model.js";
 
 // CREATE a new Team Lead mapping (Sales agent under a Team Lead)
 export const createTeamLeadMapping = async (req, res) => {
@@ -137,41 +138,89 @@ export const updateTeamMember = async (req, res) => {
 
 // DELETE a team member mapping
 export const deleteTeamMember = async (req, res) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: "Invalid Team Member ID" });
+  }
+
+  const session = await mongoose.startSession();
+
+  try {
+    await session.startTransaction();
+
+    // ✅ 1. Fetch existing document
     const existing = await TeamLeads.findOne({
       _id: id,
       isDeleted: false,
-    });
+    })
+      .lean()
+      .session(session);
 
     if (!existing) {
+      await session.abortTransaction();
       return res.status(404).json({ error: "Team member not found" });
     }
 
     const previousTeamLeadId = existing.teamLeadId;
 
-    const deleted = await TeamLeads.findByIdAndDelete(id);
+    // ✅ 2. Delete document
+    const deleted = await TeamLeads.findByIdAndDelete(id).session(session);
 
-    // const salesUser = await User.findById(deleted.salesId).select("name");
+    // ⚠️ Safety check
+    if (!deleted) {
+      await session.abortTransaction();
+      return res.status(500).json({ error: "Delete failed" });
+    }
 
-    await createNotification({
-      userId: previousTeamLeadId,
-      title: "Team Member Removed",
-      message: `You have been removed from your team.`,
-      triggeredBy: req.user._id,
-      category: "team",
-      priority: "P2",
-      deepLink: `/team-leads/${deleted._id}`,
-      entityType: "TeamLeadMapping",
-      entityId: deleted._id,
+    // ✅ 3. Audit log (DELETE)
+    await AuditLog.create(
+      [
+        {
+          operationType: "delete",
+          database: "CSKestate",
+          collectionName: "teamleads",
+          documentId: existing._id,
+          fullDocument: existing,
+          previousFields: existing,
+          removedFields: Object.keys(existing),
+          changeEventId: new mongoose.Types.ObjectId().toString(),
+          userId: req.user?._id || null,
+        },
+      ],
+      { session },
+    );
+
+    // ✅ 4. Notification (keep inside transaction if critical, else move outside)
+    if (previousTeamLeadId) {
+      await createNotification({
+        userId: previousTeamLeadId,
+        title: "Team Member Removed",
+        message: `You have been removed from your team.`,
+        triggeredBy: req.user._id,
+        category: "team",
+        priority: "P2",
+        deepLink: `/team-leads/${deleted._id}`,
+        entityType: "TeamLeadMapping",
+        entityId: deleted._id,
+      });
+    }
+
+    // ✅ 5. Commit
+    await session.commitTransaction();
+
+    return res.status(200).json({
+      message: "Team member deleted successfully",
     });
-
-    res.status(200).json({ message: "Team member deleted" });
   } catch (error) {
-    res
-      .status(500)
-      .json({ error: "Failed to delete team member", details: error });
+    await session.abortTransaction();
+
+    return res.status(500).json({
+      error: "Failed to delete team member",
+      details: error.message,
+    });
+  } finally {
+    session.endSession();
   }
 };
 

@@ -7,16 +7,47 @@ import asyncHandler from "../utils/asyncHandler.js";
 export const addCustomerPayment = asyncHandler(async (req, res) => {
   const { customerId } = req.params;
 
-  const { amount, date, paymentMode, referenceNumber, remarks } = req.body;
+  const { amount, date, type, paymentMode, referenceNumber, remarks } =
+    req.body;
+
+  if (!amount || amount <= 0) {
+    throw new ApiError(400, "Valid amount is required");
+  }
+
+  if (!date) {
+    throw new ApiError(400, "Payment date is required");
+  }
+
+  const allowedTypes = ["PAYMENT", "ADVANCE", "ADJUSTMENT"];
+
+  if (type && !allowedTypes.includes(type)) {
+    throw new ApiError(400, "Invalid payment type");
+  }
+
+  const paymentDate = new Date(date);
+
+  if (isNaN(paymentDate.getTime())) {
+    throw new ApiError(400, "Invalid date");
+  }
 
   const customer = await Customer.findById(customerId);
 
   if (!customer) throw new ApiError(404, "Customer not found");
 
+  const currentBalance = customer.balancePayment;
+
+  if (amount > currentBalance) {
+    throw new ApiError(
+      400,
+      `Payment exceeds balance. Remaining balance is ₹${currentBalance}`,
+    );
+  }
+
   await CustomerPayment.create({
     customerId,
     amount,
-    date,
+    date: paymentDate,
+    type,
     paymentMode,
     referenceNumber,
     remarks,
