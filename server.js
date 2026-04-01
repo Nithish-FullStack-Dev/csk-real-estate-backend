@@ -220,7 +220,7 @@ app.use("/api/reports", reportsDynamic);
 app.use("/api/innerPlot", InnerPlot);
 app.use("/api/audit", auditRoutes);
 app.use("/api/customer-payment", CustomerPayment);
-
+app.use("/api/notification/clear", CustomerPayment);
 app.use(errorHandler);
 
 // Start the server

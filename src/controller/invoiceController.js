@@ -654,7 +654,7 @@ export const markInvoiceAsPaid = async (req, res) => {
     }).select("_id");
 
     await Promise.all(
-      receivers.map((user) =>
+      financeUsers.map((user) =>
         createNotification({
           userId: user._id,
           title: "Payment Received",

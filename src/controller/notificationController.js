@@ -120,3 +120,20 @@ export const markAllNotificationsAsRead = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+// DELETE /api/notifications/clear/:userId
+export const clearAllNotifications = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const result = await Notification.deleteMany({ userId });
+
+    res.status(200).json({
+      message: "All notifications cleared",
+      deletedCount: result.deletedCount,
+    });
+  } catch (error) {
+    console.error("Error clearing notifications:", error);
+    res.status(500).json({ message: "Server error while clearing notifications" });
+  }
+};
