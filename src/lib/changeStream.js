@@ -156,7 +156,7 @@ export const startStream = async () => {
 
   streamInstance = db.watch(pipeline, options);
 
-  console.log("✅ Audit Change Stream started on DB:", db.name);
+  // console.log("✅ Audit Change Stream started on DB:", db.name);
 
   streamInstance.on("change", async (change) => {
     try {

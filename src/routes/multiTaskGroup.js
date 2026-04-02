@@ -18,8 +18,8 @@ router.post("/multi-task-group", async (req, res) => {
       createdBy,
       users,
     });
-console.log(group, "heloo data");
-console.log("698d64c89e0635144f5a29b4");
+// console.log(group, "heloo data");
+// console.log("698d64c89e0635144f5a29b4");
 
     return res.status(201).json({
       success: true,
@@ -49,7 +49,7 @@ router.get("/multi-task-group/:taskId", async (req, res) => {
       });
     }
 
-    console.log(group, "Found group data");
+    // console.log(group, "Found group data");
 
     return res.status(200).json({
       success: true,

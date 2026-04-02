@@ -86,15 +86,15 @@ const onlineUsers = new Map();
 
 // Socket.IO connection
 io.on("connection", (socket) => {
-  console.log("✅ New socket connected:", socket.id);
+  // console.log("✅ New socket connected:", socket.id);
 
   socket.on("register", (userId) => {
     onlineUsers.set(userId, socket.id);
-    console.log(`🔗 User ${userId} registered with socket ID: ${socket.id}`);
+    // console.log(`🔗 User ${userId} registered with socket ID: ${socket.id}`);
   });
 
   socket.on("disconnect", () => {
-    console.log("❌ Socket disconnected:", socket.id);
+    // console.log("❌ Socket disconnected:", socket.id);
     for (const [userId, sockId] of onlineUsers.entries()) {
       if (sockId === socket.id) {
         onlineUsers.delete(userId);

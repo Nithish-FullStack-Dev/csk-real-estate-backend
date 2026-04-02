@@ -59,7 +59,7 @@ export const getUnreadNotificationCount = async (req, res) => {
     const { userId } = req.params;
 
     const count = await Notification.countDocuments({ userId, isRead: false });
-    console.log("Sending counts as : ",count);
+    // console.log("Sending counts as : ",count);
     res.status(200).json({ unreadCount: count });
   } catch (error) {
     console.error("Error getting unread count:", error);
