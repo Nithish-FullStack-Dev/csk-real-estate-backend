@@ -271,3 +271,23 @@ export const getInnerPlotDropdown = asyncHandler(async (req, res) => {
       ),
     );
 });
+
+export const getCustomerByInnerPlot = asyncHandler(async (req, res) => {
+  const { innerPlotId } = req.params;
+
+  const customers = await Customer.find({
+    purchaseType: "PLOT",
+    innerPlot: innerPlotId,
+    isDeleted: false,
+  })
+    .populate("customerId", "name phone email")
+    .populate("openPlot", "projectName openPlotNo")
+    .populate("innerPlot", "plotNo area facing status")
+    .select(
+      "customerId openPlot innerPlot bookingDate finalPrice paymentStatus paymentPlan",
+    );
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, customers, "Customer for inner plot"));
+});

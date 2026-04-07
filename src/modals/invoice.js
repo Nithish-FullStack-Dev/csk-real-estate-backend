@@ -152,4 +152,6 @@ const InvoiceSchema = new Schema(
   },
 );
 
+InvoiceSchema.index({ _id: 1, remainingAmount: 1 });
+
 export default model("Invoice", InvoiceSchema);

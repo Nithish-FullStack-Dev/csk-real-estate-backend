@@ -669,46 +669,67 @@ export const markInvoiceAsPaid = async (req, res) => {
 
   try {
     if (!reconcile) {
-      const invoice = await Invoice.findOne({ _id: id, isDeleted: false });
+      const session = await mongoose.startSession();
+      try {
+        session.startTransaction();
 
-      if (!invoice) {
-        return res.status(404).json({ message: "Invoice not found" });
+        const invoice = await Invoice.findOne({
+          _id: id,
+          isDeleted: false,
+        }).session(session);
+
+        if (!invoice) {
+          throw new Error("Invoice not found");
+        }
+
+        if (invoice.status === "paid") {
+          throw new Error("Invoice already paid");
+        }
+
+        invoice.status = "paid";
+        invoice.paymentMethod = paymentMethod;
+        invoice.paymentDate = new Date();
+
+        // ✅ VERY IMPORTANT
+        invoice.approvedByAccountant = req.user._id;
+        invoice.updatedBy = req.user._id;
+
+        await invoice.save({ session });
+
+        const payment = new Payment({
+          accountant: req.user._id,
+          invoice: id,
+          paymentNumber: "",
+          isDeleted: false,
+          createdBy: req.user._id,
+          updatedBy: req.user._id,
+        });
+
+        await payment.save({ session });
+
+        const shortId = payment._id.toString().slice(0, 6);
+        const year = new Date().getFullYear();
+        payment.paymentNumber = `PAY-${year}-${shortId.toUpperCase()}`;
+        await payment.save({ session });
+
+        // await payment.save();
+        await session.commitTransaction();
+        session.endSession();
+
+        // 🔔 Notify according to Finance Spec 6.5
+        await notifyRevenueReceived(invoice);
+
+        return res
+          .status(200)
+          .json({ message: "Invoice marked as paid", invoice, payment });
+      } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+
+        return res.status(500).json({
+          message: error.message || "Transaction failed",
+        });
       }
-
-      invoice.status = "paid";
-      invoice.paymentMethod = paymentMethod;
-      invoice.paymentDate = new Date();
-
-      // ✅ VERY IMPORTANT
-      invoice.approvedByAccountant = req.user._id;
-      invoice.updatedBy = req.user._id;
-
-      await invoice.save();
-
-      const payment = new Payment({
-        accountant: req.user._id,
-        invoice: id,
-        paymentNumber: "",
-        isDeleted: false,
-        createdBy: req.user._id,
-        updatedBy: req.user._id,
-      });
-
-      await payment.save();
-
-      const shortId = payment._id.toString().slice(0, 6);
-      const year = new Date().getFullYear();
-      payment.paymentNumber = `PAY-${year}-${shortId.toUpperCase()}`;
-      await payment.save();
-
-      await payment.save();
-
-      // 🔔 Notify according to Finance Spec 6.5
-      await notifyRevenueReceived(invoice);
-
-      return res
-        .status(200)
-        .json({ message: "Invoice marked as paid", invoice, payment });
     }
 
     const invoice = await Invoice.findOne({ _id: id, isDeleted: false });

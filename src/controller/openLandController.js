@@ -449,3 +449,21 @@ export const getOpenLandDropdown = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, openLands, "Open Land dropdown fetched"));
 });
+
+export const getOpenLandForCustomer = asyncHandler(async (req, res) => {
+  const { openLandId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(openLandId)) {
+    throw new ApiError(400, "Invalid Open Land ID");
+  }
+
+  const land = await Customer.find({
+    openLand: openLandId,
+    isDeleted: false,
+    purchaseType: "LAND",
+  })
+    .populate("customerId", "name phone email")
+    .select("customerId");
+
+  res.status(200).json(new ApiResponse(200, land, "Customer for open land"));
+});

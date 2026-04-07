@@ -10,6 +10,7 @@ import {
   getAllInnerPlot,
   getInnerPlotById,
   getInnerPlotDropdown,
+  getCustomerByInnerPlot,
 } from "../controller/innerPlot.controller.js";
 
 import {
@@ -35,6 +36,13 @@ router.put(
   uploadFields,
   updateInnerPlot,
 );
+
+router.get(
+  "/getCustomerUnits/:innerPlotId",
+  authenticate,
+  getCustomerByInnerPlot,
+);
+
 router.delete("/deleteInnerPlot/:_id", authenticate, deleteInnerPlot);
 router.post("/generate-bulk", authenticate, generateBulkInnerPlots);
 router.post(
