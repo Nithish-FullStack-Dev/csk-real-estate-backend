@@ -10,6 +10,7 @@ import {
   updateOpenLand,
   markAsSold,
   getOpenLandDropdown,
+  getOpenLandForCustomer,
 } from "../controller/openLandController.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { upload } from "../middlewares/multer.js"; // 🔥 ADD THIS
@@ -62,5 +63,11 @@ router.delete(
 );
 
 router.post("/:id/markAsSold", authenticate, markAsSold);
+
+router.get(
+  "/getOpenLandForCustomer/:openLandId",
+  authenticate,
+  getOpenLandForCustomer,
+);
 
 export default router;

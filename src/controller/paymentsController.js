@@ -48,7 +48,10 @@ export const getAccountantPayments = async (req, res) => {
 };
 
 export const createPayment = async (req, res) => {
+  const session = await mongoose.startSession();
   try {
+    session.startTransaction();
+
     const accountantId = req.user._id;
 
     const {
@@ -61,24 +64,29 @@ export const createPayment = async (req, res) => {
       note,
     } = req.body;
 
-    const invoice = await Invoice.findOne({ _id: invoiceId, isDeleted: false });
+    const invoice = await Invoice.findOne({
+      _id: invoiceId,
+      isDeleted: false,
+    }).session(session);
 
     if (!invoice) {
-      return res.status(404).json({ message: "Invoice not found" });
+      throw new Error("Invoice not found");
+    }
+
+    if (invoice.status === "paid") {
+      throw new Error("Invoice already fully paid");
     }
 
     const paymentAmount = Number(amount);
 
     if (paymentAmount <= 0) {
-      return res
-        .status(400)
-        .json({ message: "Payment amount must be greater than 0" });
+      throw new Error("Payment amount must be greater than 0");
     }
 
     if (paymentAmount > invoice.remainingAmount) {
-      return res.status(400).json({
-        message: `Payment exceeds remaining balance (${invoice.remainingAmount})`,
-      });
+      throw new Error(
+        `Payment exceeds remaining balance (${invoice.remainingAmount})`,
+      );
     }
 
     // 🔹 Generate payment number BEFORE save
@@ -99,7 +107,7 @@ export const createPayment = async (req, res) => {
       createdBy: req.user._id,
     });
 
-    await payment.save();
+    await payment.save({ session });
 
     // 🔹 Update invoice
     invoice.paidAmount += paymentAmount;
@@ -114,7 +122,10 @@ export const createPayment = async (req, res) => {
 
     invoice.updatedBy = req.user._id;
 
-    await invoice.save();
+    await invoice.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
 
     res.status(201).json({
       message: "Payment recorded successfully",
@@ -127,6 +138,9 @@ export const createPayment = async (req, res) => {
       },
     });
   } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
     console.error("Create payment error:", error);
     res.status(500).json({
       message: "Server error",
