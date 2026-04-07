@@ -50,9 +50,9 @@ export const createNotification = async ({
         io.to(targetSocketId).emit("newNotification", {
           notification,
         });
-        console.log(`📡 Socket notification emitted to User: ${id}`);
+        // console.log(`📡 Socket notification emitted to User: ${id}`);
       } else {
-        console.log(`📴 User ${id} is offline, notification saved to DB only.`);
+        // console.log(`📴 User ${id} is offline, notification saved to DB only.`);
       }
       results.push(notification);
     }

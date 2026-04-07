@@ -59,7 +59,7 @@ export const getUnreadNotificationCount = async (req, res) => {
     const { userId } = req.params;
 
     const count = await Notification.countDocuments({ userId, isRead: false });
-    console.log("Sending counts as : ",count);
+    // console.log("Sending counts as : ",count);
     res.status(200).json({ unreadCount: count });
   } catch (error) {
     console.error("Error getting unread count:", error);
@@ -118,5 +118,22 @@ export const markAllNotificationsAsRead = async (req, res) => {
   } catch (error) {
     console.error("Error marking all notifications as read:", error);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+// DELETE /api/notifications/clear/:userId
+export const clearAllNotifications = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const result = await Notification.deleteMany({ userId });
+
+    res.status(200).json({
+      message: "All notifications cleared",
+      deletedCount: result.deletedCount,
+    });
+  } catch (error) {
+    console.error("Error clearing notifications:", error);
+    res.status(500).json({ message: "Server error while clearing notifications" });
   }
 };
