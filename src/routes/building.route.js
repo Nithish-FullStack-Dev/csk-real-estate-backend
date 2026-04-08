@@ -61,9 +61,9 @@ router.patch(
 );
 
 router.delete("/deleteBuilding/:_id", authenticate, deleteBuilding);
-router.get("/getUpcomingBuilding", authenticate, getUpcomingBuilding);
-router.get("/getOngoingBuilding", authenticate, getOngoingBuilding);
-router.get("/getCompletedBuilding", authenticate, getCompletedBuilding);
+router.get("/getUpcomingBuilding", getUpcomingBuilding);
+router.get("/getOngoingBuilding", getOngoingBuilding);
+router.get("/getCompletedBuilding", getCompletedBuilding);
 router.get("/trash", authenticate, getTrashedBuildings);
 router.patch("/restore/:id", authenticate, restoreBuilding);
 router.delete("/delete-permanent/:id", authenticate, deleteBuildingPermanently);
