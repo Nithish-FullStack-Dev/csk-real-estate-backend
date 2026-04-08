@@ -5,6 +5,8 @@ import Lead from "../modals/leadModal.js";
 import { buildLeadAccessQuery } from "./leadController.js";
 import CarAllocation from "../modals/carAllocation.js";
 import { createNotification } from "../utils/notificationHelper.js";
+import asyncHandler from "../utils/asyncHandler.js";
+import ApiResponse from "../utils/ApiResponse.js";
 
 const buildSiteVisitAccessQuery = async (user) => {
   const { role, _id } = user;
@@ -708,3 +710,63 @@ export const updateVisitStatus = async (req, res) => {
     });
   }
 };
+
+export const getPendingSiteVisitsForAgent = asyncHandler(async (req, res) => {
+  const accessQuery = await buildSiteVisitAccessQuery(req.user);
+
+  const pendingVisits = await SiteVisit.find({
+    ...accessQuery,
+    approvalStatus: "pending",
+    isDeleted: false,
+  }).populate("bookedBy", "name email role");
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        pendingVisits,
+        "Pending site visits fetched successfully",
+      ),
+    );
+});
+
+export const getApprovedSiteVisitsForAgent = asyncHandler(async (req, res) => {
+  const accessQuery = await buildSiteVisitAccessQuery(req.user);
+
+  const approvedVisits = await SiteVisit.find({
+    ...accessQuery,
+    approvalStatus: "approved",
+    isDeleted: false,
+  });
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        approvedVisits,
+        "Approved site visits fetched successfully",
+      ),
+    );
+});
+
+export const getRejectedSiteVisitsForAgent = asyncHandler(async (req, res) => {
+  const accessQuery = await buildSiteVisitAccessQuery(req.user);
+
+  const rejectedVisits = await SiteVisit.find({
+    ...accessQuery,
+    approvalStatus: "rejected",
+    isDeleted: false,
+  });
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        rejectedVisits,
+        "Rejected site visits fetched successfully",
+      ),
+    );
+});
