@@ -7,6 +7,7 @@ import {
   deleteOpenPlot,
   getAllOpenPlots,
   getOpenPlotDropdown,
+  getAllOpenPlotsForPublic,
 } from "../controller/openPlotController.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
 
@@ -21,6 +22,7 @@ const uploadFields = upload.fields([
 router.post("/saveOpenplot", authenticate, uploadFields, createOpenPlot);
 router.put("/updateOpenplot/:_id", authenticate, uploadFields, updateOpenPlot);
 router.get("/getAllOpenPlot", authenticate, getAllOpenPlots);
+router.get("/getAllOpenPlotForPublic", getAllOpenPlotsForPublic);
 router.get("/getOpenplot/:_id", getOpenPlotById);
 router.delete("/deleteOpenplot/:_id", authenticate, deleteOpenPlot);
 

@@ -220,6 +220,12 @@ export const getAllOpenPlots = asyncHandler(async (req, res) => {
   const openPlots = await OpenPlot.find(query).sort({ createdAt: -1 });
   res.status(200).json(new ApiResponse(200, openPlots));
 });
+export const getAllOpenPlotsForPublic = asyncHandler(async (req, res) => {
+  let query = { isDeleted: false };
+
+  const openPlots = await OpenPlot.find(query).sort({ createdAt: -1 });
+  res.status(200).json(new ApiResponse(200, openPlots));
+});
 
 /* ========================================================= */
 /* GET ONE */

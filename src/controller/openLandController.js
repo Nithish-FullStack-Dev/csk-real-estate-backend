@@ -127,6 +127,18 @@ export const getAllOpenLand = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, lands));
 });
 
+export const getAllOpenLandForPublic = asyncHandler(async (req, res) => {
+  let query = {
+    isDeleted: false,
+  };
+
+  const lands = await populateOpenLand(
+    OpenLand.find(query).sort({ createdAt: -1 }),
+  ).exec();
+
+  res.status(200).json(new ApiResponse(200, lands));
+});
+
 /* ------------------------------------------------------- */
 /* GET ONE */
 /* ------------------------------------------------------- */

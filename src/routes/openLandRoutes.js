@@ -11,6 +11,7 @@ import {
   markAsSold,
   getOpenLandDropdown,
   getOpenLandForCustomer,
+  getAllOpenLandForPublic,
 } from "../controller/openLandController.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { upload } from "../middlewares/multer.js"; // 🔥 ADD THIS
@@ -32,6 +33,7 @@ router.post(
 );
 
 router.get("/getAllOpenLand", authenticate, getAllOpenLand);
+router.get("/getAllOpenLandForPublic", getAllOpenLandForPublic);
 router.get("/public/getOpenLandById/:id", authenticate, getOpenLandById);
 router.get("/getOpenLandById/:id", authenticate, getOpenLandById);
 router.delete("/deleteOpenLand/:id", authenticate, deleteOpenLandById);
