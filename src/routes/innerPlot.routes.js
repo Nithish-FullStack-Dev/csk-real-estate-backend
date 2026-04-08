@@ -29,7 +29,7 @@ const csvUpload = multer({ storage: multer.memoryStorage() });
 
 router.post("/saveInnerPlot", authenticate, uploadFields, createInnerPlot);
 router.get("/by-openplot/:_id", authenticate, getInnerPlotById);
-router.get("/getAllInnerPlot/:openPlotId", authenticate, getAllInnerPlot);
+router.get("/getAllInnerPlot/:openPlotId", getAllInnerPlot);
 router.put(
   "/updateInnerPlot/:_id",
   authenticate,

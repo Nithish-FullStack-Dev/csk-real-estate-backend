@@ -38,7 +38,7 @@ router.post(
 );
 
 router.get("/getAllBuildings", authenticate, getAllBuildings);
-router.get("/getBuildingById/:_id", authenticate, getBuildingById);
+router.get("/getBuildingById/:_id", getBuildingById);
 
 router.patch(
   "/updateBuilding/:_id",
