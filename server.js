@@ -68,6 +68,7 @@ import InnerPlot from "./src/routes/innerPlot.routes.js";
 import reportsDynamic from "./src/routes/report.routes.js";
 import auditRoutes from "./src/routes/audit.route.js";
 import CustomerPayment from "./src/routes/CustomerPayment.route.js";
+import ScheduleVisit from "./src/routes/ScheduleVisit.route.js";
 dotenv.config();
 
 // Create Express app and HTTP server
@@ -221,6 +222,7 @@ app.use("/api/innerPlot", InnerPlot);
 app.use("/api/audit", auditRoutes);
 app.use("/api/customer-payment", CustomerPayment);
 app.use("/api/notification/clear", CustomerPayment);
+app.use("/api/schedule-visit", ScheduleVisit);
 app.use(errorHandler);
 
 // Start the server
