@@ -9,6 +9,14 @@ import User from "../modals/user.js";
 import FloorUnit from "../modals/floorUnit.model.js";
 import PropertyUnit from "../modals/propertyUnit.model.js";
 import { createNotification } from "../utils/notificationHelper.js";
+import Project from "../modals/projects.js";
+import Lead from "../modals/leadModal.js";
+import Invoice from "../modals/invoice.js";
+import ScheduleVisit from "../modals/ScheduleVisit.model.js";
+import SiteInspection from "../modals/siteInspection.js";
+import UserSchedule from "../modals/userSchedule.js";
+import mongoose from "mongoose";
+import { AuditLog } from "../modals/auditLog.model.js";
 
 export const createBuilding = asyncHandler(async (req, res) => {
   const {
@@ -316,14 +324,89 @@ export const updateBuilding = asyncHandler(async (req, res) => {
 export const deleteBuilding = asyncHandler(async (req, res) => {
   const { _id } = req.params;
 
-  const building = await Building.findById(_id);
-  if (!building) throw new ApiError(404, "Building not found");
+  if (!mongoose.Types.ObjectId.isValid(_id)) {
+    throw new ApiError(400, "Invalid building ID");
+  }
 
-  await building.softDelete(req.user._id);
+  const session = await mongoose.startSession();
 
-  return res.json(
-    new ApiResponse(200, null, "Building moved to trash successfully"),
-  );
+  try {
+    await session.startTransaction();
+
+    // ✅ 1. Check building
+    const building = await Building.findById(_id).session(session);
+    if (!building) {
+      throw new ApiError(404, "Building not found");
+    }
+
+    // ✅ 2. Floor & Units
+    const floors = await FloorUnit.find({ buildingId: _id }, { _id: 1 })
+      .session(session)
+      .lean();
+
+    const floorIds = floors.map((f) => f._id);
+
+    if (floorIds.length > 0) {
+      await PropertyUnit.deleteMany({
+        floorId: { $in: floorIds },
+      }).session(session);
+    }
+
+    await FloorUnit.deleteMany({ buildingId: _id }).session(session);
+
+    // ✅ 3. Project Tasks
+    await Project.deleteMany({ projectId: _id }).session(session);
+
+    // ✅ 4. Leads
+    await Lead.deleteMany({ property: _id }).session(session);
+
+    // ✅ 5. Invoices
+    await Invoice.deleteMany({ project: _id }).session(session);
+
+    // ✅ 6. Schedule Visits
+    await ScheduleVisit.deleteMany({ building: _id }).session(session);
+
+    // ✅ 7. Site Inspections
+    await SiteInspection.deleteMany({ project: _id }).session(session);
+
+    // ✅ 8. User Schedules
+    await UserSchedule.deleteMany({ property: _id }).session(session);
+
+    // ✅ 9. Customers / Purchases
+    await Customer.deleteMany({ property: _id }).session(session);
+
+    // ✅ 10. Delete building
+    await Building.findByIdAndDelete(_id).session(session);
+
+    // ✅ 11. Audit Log (VERY IMPORTANT — inside session)
+    await AuditLog.create(
+      [
+        {
+          operationType: "delete",
+          database: "CSKestate",
+          collectionName: "buildings",
+          documentId: building._id,
+          fullDocument: building,
+          previousFields: building,
+          changeEventId: new mongoose.Types.ObjectId().toString(),
+          userId: req.user?._id || null,
+        },
+      ],
+      { session },
+    );
+
+    // ✅ 12. Commit transaction
+    await session.commitTransaction();
+
+    return res.json(
+      new ApiResponse(200, null, "Building and all related data deleted"),
+    );
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
 });
 
 export const getUpcomingBuilding = asyncHandler(async (req, res) => {

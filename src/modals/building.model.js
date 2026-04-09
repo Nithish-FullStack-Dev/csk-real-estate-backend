@@ -71,27 +71,27 @@ const buildingSchema = new Schema(
   { timestamps: true },
 );
 
-buildingSchema.methods.softDelete = async function (userId) {
-  this.isDeleted = true;
-  this.deletedAt = new Date();
-  this.deletedBy = userId;
-  return this.save();
-};
+// buildingSchema.methods.softDelete = async function (userId) {
+//   this.isDeleted = true;
+//   this.deletedAt = new Date();
+//   this.deletedBy = userId;
+//   return this.save();
+// };
 
-buildingSchema.methods.restore = async function (userId) {
-  this.isDeleted = false;
-  this.deletedAt = null;
-  this.deletedBy = null;
-  this.updatedBy = userId;
-  return this.save();
-};
+// buildingSchema.methods.restore = async function (userId) {
+//   this.isDeleted = false;
+//   this.deletedAt = null;
+//   this.deletedBy = null;
+//   this.updatedBy = userId;
+//   return this.save();
+// };
 
-buildingSchema.pre(/^find/, function (next) {
-  if (!this.getOptions()?.withDeleted) {
-    this.where({ isDeleted: false });
-  }
-  next();
-});
+// buildingSchema.pre(/^find/, function (next) {
+//   if (!this.getOptions()?.withDeleted) {
+//     this.where({ isDeleted: false });
+//   }
+//   next();
+// });
 
 export default mongoose.models.Building ||
   mongoose.model("Building", buildingSchema);
