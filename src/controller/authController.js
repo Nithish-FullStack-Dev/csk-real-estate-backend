@@ -65,7 +65,7 @@ export const verifyOtp = async (req, res) => {
     if (!otpRecord) {
       return res
         .status(400)
-        .json({ success: false, message: "Invalid or expired OTP." });
+        .json({ success: false, message: "Invalid OTP or expired OTP." });
     }
 
     // OTP is valid and not expired (thanks to `expires` in schema)
