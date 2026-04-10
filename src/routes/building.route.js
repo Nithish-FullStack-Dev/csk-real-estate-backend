@@ -4,6 +4,7 @@ import {
   deleteBuilding,
   deleteBuildingPermanently,
   getAllBuildings,
+  getAllBuildingsForPublic,
   getBuildingById,
   getCompletedBuilding,
   getOngoingBuilding,
@@ -38,6 +39,7 @@ router.post(
 );
 
 router.get("/getAllBuildings", authenticate, getAllBuildings);
+router.get("/getAllBuildingsForPublic", getAllBuildingsForPublic);
 router.get("/getBuildingById/:_id", getBuildingById);
 
 router.patch(

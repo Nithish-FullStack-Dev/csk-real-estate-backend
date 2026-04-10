@@ -165,6 +165,60 @@ export const getAllBuildings = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, buildings, "Buildings fetched successfully"));
 });
+export const getAllBuildingsForPublic = asyncHandler(async (req, res) => {
+  // const userId = req.user?._id;
+  // const role = req.user?.role;
+
+  let matchCondition = {
+    $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+  };
+
+  // if (role === "customer_purchased") {
+  //   const purchases = await Customer.find({
+  //     customerId: userId,
+  //     isDeleted: false,
+  //   }).select("property");
+
+  //   const buildingIds = purchases.map((p) => p.property);
+
+  //   matchCondition._id = { $in: buildingIds };
+  // }
+
+  const buildings = await Building.aggregate([
+    {
+      $match: matchCondition,
+    },
+    {
+      $project: {
+        _id: 1,
+        projectName: 1,
+        location: 1,
+        propertyType: 1,
+        totalUnits: 1,
+        availableUnits: 1,
+        soldUnits: 1,
+        constructionStatus: 1,
+        completionDate: 1,
+        thumbnailUrl: 1,
+        municipalPermission: 1,
+        reraApproved: 1,
+        reraNumber: 1,
+        brochureUrl: 1,
+        description: 1,
+        images: 1,
+        amenities: 1,
+      },
+    },
+  ]);
+
+  // if (!buildings.length) {
+  //   throw new ApiError(404, "No buildings found");
+  // }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, buildings, "Buildings fetched successfully"));
+});
 
 export const getBuildingById = asyncHandler(async (req, res) => {
   const { _id } = req.params;
