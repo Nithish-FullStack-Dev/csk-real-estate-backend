@@ -55,10 +55,26 @@ export const applyJob = asyncHandler(async (req, res) => {
 });
 
 export const getApplicationsForJob = asyncHandler(async (req, res) => {
-  const jobApplications = await JobApplication.find().populate(
-    "jobId",
-    "title department",
-  );
+  const { search, status } = req.query;
+
+  let query = {};
+
+  // 1. Filter by Status
+  if (status && status !== "all") {
+    query.status = status;
+  }
+
+  // 2. Search by Name or Email
+  if (search) {
+    query.$or = [
+      { name: { $regex: search, $options: "i" } },
+      { email: { $regex: search, $options: "i" } },
+    ];
+  }
+
+  const jobApplications = await JobApplication.find(query)
+    .populate("jobId", "title department")
+    .sort({ appliedAt: -1 }); // Newest applications first
 
   res
     .status(200)

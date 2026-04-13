@@ -105,6 +105,10 @@ const jobPostSchema = new Schema(
     },
     publishedAt: Date,
     expiresAt: Date,
+    applicationsCount: {
+      type: Number,
+      default: 0,
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
