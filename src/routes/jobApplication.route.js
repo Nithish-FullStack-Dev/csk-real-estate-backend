@@ -23,6 +23,6 @@ router.post(
   applyJob,
 );
 
-router.get("/getApplicationsForJob", authenticate, getApplicationsForJob);
+router.get("/getApplicationsForJob", getApplicationsForJob);
 
 export default router;

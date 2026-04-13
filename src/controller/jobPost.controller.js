@@ -50,6 +50,10 @@ export const createJobPost = asynchandler(async (req, res) => {
     }
   }
 
+  if (expiresAt && new Date(expiresAt) < new Date()) {
+    throw new ApiError(400, "Expiry date cannot be in the past");
+  }
+
   const job = await JobPost.create({
     title,
     overview,
@@ -58,17 +62,23 @@ export const createJobPost = asynchandler(async (req, res) => {
     department,
     jobType,
     workMode,
-    experience,
-    salaryRange,
+    experience: {
+      min: experience?.min || 0,
+      max: experience?.max || 0,
+    },
+    salaryRange: {
+      min: salaryRange?.min,
+      max: salaryRange?.max,
+    },
     responsibilities,
     requirements,
     benefits,
-    openings,
+    openings: openings || 1,
     applicationType,
     applyUrl,
     isFeatured: isFeatured || false,
     status: status || "draft",
-    expiresAt,
+    expiresAt: expiresAt ? new Date(expiresAt) : null,
     createdBy: req.user?._id,
   });
 
@@ -99,15 +109,15 @@ export const getJobPosts = asynchandler(async (req, res) => {
   const filter = {};
   const andConditions = [];
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  andConditions.push({
+    $or: [{ expiresAt: null }, { expiresAt: { $gte: today } }],
+  });
+
   if (req.query.public === "true") {
     filter.status = "published";
-
-    andConditions.push({
-      $or: [
-        { expiresAt: { $exists: false } },
-        { expiresAt: { $gte: new Date() } },
-      ],
-    });
   }
 
   if (search) {
