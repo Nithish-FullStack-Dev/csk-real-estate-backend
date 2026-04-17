@@ -8,6 +8,56 @@ import ApiError from "../utils/ApiError.js";
 import jwt from "jsonwebtoken";
 
 // --- Send OTP  ---
+export const secureSendOtp = async (req, res) => {
+  const { email } = req.body;
+
+  const allowedEmail = "cskrealtorsltd@gmail.com";
+
+  if (!email) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Email is required." });
+  }
+
+  if (email.toLowerCase() !== allowedEmail.toLowerCase()) {
+    return res.status(403).json({
+      success: false,
+      message: "OTP can only be sent to authorized email.",
+    });
+  }
+
+  try {
+    // Generate a 6-digit numeric OTP
+    const otp = otpGenerator.generate(6, {
+      upperCaseAlphabets: false,
+      lowerCaseAlphabets: false,
+      specialChars: false,
+    });
+
+    // Store OTP in the database (replace existing for the same email)
+    await Otp.findOneAndDelete({ email }); // Delete any existing OTPs for this email
+    const newOtp = new Otp({ email, otp });
+    await newOtp.save();
+
+    // Send OTP via email
+    const emailSubject = "Your OTP for Verification";
+    const emailText = `Your One-Time Password (OTP) is: ${otp}. This OTP is valid for 5 minutes. Do not share it with anyone.`;
+    const emailHtml = `<p>Your One-Time Password (OTP) is: <strong>${otp}</strong></p>
+                       <p>This OTP is valid for 5 minutes. Do not share it with anyone.</p>`;
+
+    await sendEmail(email, emailSubject, emailText, emailHtml);
+
+    res.status(200).json({ success: true, message: "OTP sent successfully!" });
+  } catch (error) {
+    console.error("OTP ERROR:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to send OTP. Please try again.",
+    });
+  }
+};
+
 export const sendOtp = async (req, res) => {
   const { email } = req.body;
 
