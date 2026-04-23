@@ -85,6 +85,12 @@ router.get(
 router.patch(
   "/contractor/:projectId/:taskId/task",
   authenticate,
+  upload.fields([
+    {
+      name: "photos",
+      maxCount: 9,
+    },
+  ]),
   updateTaskByIdForContractor,
 );
 

@@ -946,6 +946,15 @@ export const updateTaskByIdForContractor = async (req, res) => {
         .json({ success: false, message: "Invalid ID format" });
     }
 
+    let uploadedPhotos = [];
+
+    if (req.files?.photos && Array.isArray(req.files.photos)) {
+      uploadedPhotos = req.files.photos.map(
+        (file) =>
+          `${req.protocol}://${req.get("host")}/api/uploads/images/${file.filename}`,
+      );
+    }
+
     const project = await Project.findById(projectId);
 
     if (!project) {
@@ -974,8 +983,8 @@ export const updateTaskByIdForContractor = async (req, res) => {
         }
 
         // 🔥 2️⃣ ADD NEW PHOTOS
-        if (Array.isArray(newTask.photos) && newTask.photos.length > 0) {
-          task.contractorUploadedPhotos.push(...newTask.photos);
+        if (uploadedPhotos.length > 0) {
+          task.contractorUploadedPhotos.push(...uploadedPhotos);
         }
 
         // 🔥 3️⃣ Update other fields
@@ -989,8 +998,9 @@ export const updateTaskByIdForContractor = async (req, res) => {
             task.statusForContractor = newTask.status;
         }
 
-        if (typeof newTask.progressPercentage === "number")
-          task.progressPercentage = newTask.progressPercentage;
+        if (newTask.progressPercentage !== undefined) {
+          task.progressPercentage = Number(newTask.progressPercentage);
+        }
 
         if (newTask.constructionPhase)
           task.constructionPhase = newTask.constructionPhase;
@@ -1086,8 +1096,7 @@ export const updateTaskByIdForContractor = async (req, res) => {
    Notify based on actual change type
 ========================================================= */
 
-    const hasNewPhotos =
-      Array.isArray(newTask.photos) && newTask.photos.length > 0;
+    const hasNewPhotos = uploadedPhotos.length > 0;
 
     const hasEvidenceTitle = !!newTask.evidenceTitleByContractor;
 
