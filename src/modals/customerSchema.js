@@ -183,6 +183,7 @@ const purchaseSchema = new Schema(
       type: String,
       enum: ["Pending", "In Progress", "Completed"],
       index: true,
+      default: "Pending",
     },
 
     images: [
@@ -252,8 +253,9 @@ purchaseSchema.statics.recalculateBalance = async function (customerId) {
   const Customer = this;
 
   const customer = await Customer.findById(customerId);
-
   if (!customer) return;
+
+  const payable = customer.finalPrice || customer.totalAmount || 0;
 
   const payments = await CustomerPayment.aggregate([
     { $match: { customerId: customer._id } },
@@ -267,8 +269,19 @@ purchaseSchema.statics.recalculateBalance = async function (customerId) {
 
   const paid = payments[0]?.total || 0;
 
-  customer.balancePayment =
-    (customer.totalAmount || 0) - (customer.advanceReceived || 0) - paid;
+  const totalPaid = (customer.advanceReceived || 0) + paid;
+
+  customer.balancePayment = Math.max(payable - totalPaid, 0);
+
+  if (customer.balancePayment <= 0) customer.paymentStatus = "Completed";
+  else if (totalPaid > 0) customer.paymentStatus = "In Progress";
+  else customer.paymentStatus = "Pending";
+
+  const latest = await CustomerPayment.findOne({ customerId }).sort({
+    date: -1,
+  });
+
+  customer.lastPaymentDate = latest?.date || null;
 
   await customer.save();
 };
