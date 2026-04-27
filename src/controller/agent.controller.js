@@ -50,7 +50,7 @@ export const addAgentModel = asyncHandler(async (req, res) => {
   if (exists)
     throw new ApiError(
       409,
-      "Agent with same Aadhar, Account Number or PAN already exists"
+      "Agent with same Aadhar, Account Number or PAN already exists",
     );
 
   const agent = await AgentModel.create({
@@ -168,7 +168,7 @@ export const updateAgentModel = asyncHandler(async (req, res) => {
     commissionPaid,
     paymentDate,
     notes,
-    approvedBy,
+    // approvedBy,
   } = req.body;
 
   const exists = await AgentModel.findOne({
@@ -179,7 +179,7 @@ export const updateAgentModel = asyncHandler(async (req, res) => {
   if (exists)
     throw new ApiError(
       409,
-      "Agent with same Aadhar, Account Number or PAN already exists"
+      "Agent with same Aadhar, Account Number or PAN already exists",
     );
 
   const payload = {
@@ -198,7 +198,7 @@ export const updateAgentModel = asyncHandler(async (req, res) => {
     commissionPaid,
     paymentDate,
     notes,
-    approvedBy,
+    // approvedBy,
   };
 
   const updatedAgent = await AgentModel.findByIdAndUpdate(id, payload, {
@@ -237,7 +237,7 @@ export const getAllAgentsForDropDown = asyncHandler(async (req, res) => {
     {
       agentId: { $nin: assignedAgentIds },
     },
-    "agentId"
+    "agentId",
   ).populate("agentId", "_id name email phone");
   res
     .status(200)
