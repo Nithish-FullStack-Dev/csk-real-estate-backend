@@ -105,41 +105,38 @@ export const addDocument = async (req, res) => {
 
 export const getDocuments = async (req, res) => {
   try {
-    let query = {};
-
-    const user = req.user._id;
+    const userId = req.user._id;
     const role = req.user.role;
 
+    let query = {
+      isDeleted: false,
+    };
+
     if (role === "accountant") {
-      query.accountantId = user;
-    } else {
-      query.accountantId = null;
+      query.accountantId = userId;
     }
 
-    const taxDocs = await TaxDocument.findOne({
-      ...query,
-      isDeleted: false,
-    }).lean();
+    let taxDocs;
+
+    if (role === "admin" || role === "owner") {
+      taxDocs = await TaxDocument.find(query)
+        .populate("accountantId", "name email role")
+        .sort({ createdAt: -1 })
+        .lean();
+    } else {
+      taxDocs = await TaxDocument.findOne(query).lean();
+    }
 
     return res.status(200).json({
       success: true,
-      taxDocuments: taxDocs || {
-        gstDocuments: [],
-        tdsDocuments: [],
-        itrDocuments: [],
-        form16Documents: [],
-      },
+      taxDocuments: taxDocs || [],
     });
   } catch (error) {
     console.error("Error fetching tax documents:", error);
+
     return res.status(500).json({
       success: false,
-      taxDocuments: {
-        gstDocuments: [],
-        tdsDocuments: [],
-        itrDocuments: [],
-        form16Documents: [],
-      },
+      taxDocuments: [],
     });
   }
 };
