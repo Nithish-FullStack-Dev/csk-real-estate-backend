@@ -60,14 +60,20 @@ export const createSiteInspection = async (req, res) => {
 };
 
 export const getInspectionsByIncharge = async (req, res) => {
-  const id = req.user._id;
+  const userId = req.user._id;
+  const role = req.user.role;
+  let filter = {};
 
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ error: "Invalid site incharge ID" });
+  if (role === "site_incharge") {
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
+
+    filter.site_incharge = userId;
   }
 
   try {
-    const inspections = await SiteInspection.find({ site_incharge: id })
+    const inspections = await SiteInspection.find(filter)
       .populate("project", "projectName")
       .populate("floorUnit", "floorNumber")
       .populate("unit", "projectName plotNo")

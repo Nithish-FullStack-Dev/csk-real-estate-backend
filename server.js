@@ -71,6 +71,7 @@ import CustomerPayment from "./src/routes/CustomerPayment.route.js";
 import ScheduleVisit from "./src/routes/ScheduleVisit.route.js";
 import JobPost from "./src/routes/jobPost.route.js";
 import JobApplication from "./src/routes/jobApplication.route.js";
+import HeroCms from "./src/routes/heroCms.route.js";
 dotenv.config();
 
 // Create Express app and HTTP server
@@ -227,6 +228,7 @@ app.use("/api/notification/clear", CustomerPayment);
 app.use("/api/schedule-visit", ScheduleVisit);
 app.use("/api/job-posts", JobPost);
 app.use("/api/job-applications", JobApplication);
+app.use("/api/hero-cms", HeroCms);
 app.use(errorHandler);
 
 // Start the server
