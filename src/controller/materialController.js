@@ -125,3 +125,71 @@ export const updateMaterialStatus = async (req, res) => {
     res.status(500).json({ message: "Failed to update status" });
   }
 };
+
+export const updateMaterial = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const {
+      name,
+      type,
+      quantity,
+      unit,
+      supplier,
+      rate,
+      project,
+      deliveryDate,
+      poNumber,
+      invoiceNumber,
+      remarks,
+    } = req.body;
+
+    const existing = await Material.findOne({
+      _id: { $ne: id },
+      poNumber,
+      project,
+    });
+
+    if (existing) {
+      return res.status(409).json({
+        message: "PO Number already exists for this project",
+        field: "poNumber",
+      });
+    }
+
+    const updated = await Material.findByIdAndUpdate(
+      id,
+      {
+        name,
+        type,
+        quantity,
+        unit,
+        supplier,
+        rate,
+        project,
+        deliveryDate,
+        poNumber,
+        invoiceNumber,
+        remarks,
+        updatedBy: req.user._id,
+      },
+      { new: true, runValidators: true },
+    );
+
+    if (!updated) {
+      return res.status(404).json({
+        message: "Material not found",
+      });
+    }
+
+    res.status(200).json({
+      message: "Material updated",
+      material: updated,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Failed to update material",
+    });
+  }
+};
