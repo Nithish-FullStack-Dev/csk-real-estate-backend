@@ -43,7 +43,9 @@ export const createUser = async (req, res) => {
     await newUser.save();
 
     // 🔔 Notify Admin + Owner about new user creation
-    const admins = await User.find({ role: { $in: ["admin", "owner"] } }).select("_id");
+    const admins = await User.find({
+      role: { $in: ["admin", "owner"] },
+    }).select("_id");
     await createNotification({
       userId: admins.map((u) => u._id),
       title: "New User Created",
@@ -67,7 +69,7 @@ export const getAllUsers = async (req, res) => {
     const loggedInUserId = req.user._id;
 
     const users = await User.find({ _id: { $ne: loggedInUserId } }).select(
-      "_id name email role avatar status lastLogin phone"
+      "_id name email role avatar status lastLogin phone",
     );
 
     res.status(200).json({ users });
@@ -131,20 +133,20 @@ export const loginUser = async (req, res) => {
     user.lastLogin = Date.now();
     await user.save();
 
-   // res.cookie("token", token, {
+    // res.cookie("token", token, {
     //  httpOnly: true,
     //  secure: process.env.NODE_ENV === "production",
-   //   sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
-   //   path: "/",
-  //  });
+    //   sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+    //   path: "/",
+    //  });
 
-res.cookie("token", token, {
-  httpOnly: true,
-  secure: true,      // because you use HTTPS
-  sameSite: "lax",   // correct for same-origin apps
-  path: "/",
-});
-
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: true, // HTTPS only
+      sameSite: "lax", // best default
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
 
     const { password: _, currentToken: __, ...userData } = user.toObject();
 
@@ -197,7 +199,7 @@ export const resetPassword = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       id,
       { password: hashedPassword },
-      { new: true }
+      { new: true },
     );
 
     if (!user) {
@@ -222,7 +224,9 @@ export const deleteUser = async (req, res) => {
     }
 
     // 🔔 Notify Admin + Owner about user deletion
-    const admins = await User.find({ role: { $in: ["admin", "owner"] } }).select("_id");
+    const admins = await User.find({
+      role: { $in: ["admin", "owner"] },
+    }).select("_id");
     await createNotification({
       userId: admins.map((u) => u._id),
       title: "User Deleted",
@@ -246,7 +250,7 @@ export const deleteUser = async (req, res) => {
 export const getAllContractors = async (req, res) => {
   try {
     const contractors = await User.find({ role: "contractor" }).select(
-      "-password"
+      "-password",
     ); // exclude password
     res.status(200).json({ success: true, data: contractors });
   } catch (error) {
@@ -266,7 +270,7 @@ export const updateStatus = async (req, res) => {
   const issue = await User.findByIdAndUpdate(
     req.params.id,
     { status },
-    { new: true }
+    { new: true },
   );
 
   res.json(issue);
@@ -275,7 +279,7 @@ export const updateStatus = async (req, res) => {
 export const getSiteIncharges = async (req, res) => {
   try {
     const siteIncharges = await User.find({ role: "site_incharge" }).select(
-      "name email role"
+      "name email role",
     );
     res.status(200).json(siteIncharges);
   } catch (error) {
@@ -287,7 +291,7 @@ export const getSiteIncharges = async (req, res) => {
 export const getContractors = async (req, res) => {
   try {
     const contractors = await User.find({ role: "contractor" }).select(
-      "name email role"
+      "name email role",
     );
     res.status(200).json(contractors);
   } catch (error) {
