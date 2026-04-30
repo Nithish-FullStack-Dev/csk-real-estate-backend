@@ -4,13 +4,18 @@ import Invoice from "../modals/invoice.js";
 
 export const getAccountantPayments = async (req, res) => {
   try {
-    const accountantId = req.user._id;
+    const { _id: userId, role } = req.user;
+
+    const query = {
+      isDeleted: false,
+    };
+
+    if (role !== "owner") {
+      query.accountant = userId;
+    }
 
     // Fetch all payments created by this accountant
-    const payments = await Payment.find({
-      accountant: accountantId,
-      isDeleted: false,
-    })
+    const payments = await Payment.find(query)
       .populate({
         path: "invoice",
         match: { isDeleted: false },

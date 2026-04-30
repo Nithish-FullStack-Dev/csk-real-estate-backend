@@ -8,18 +8,8 @@ import { authenticate, authorizeRoles } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-router.get(
-  "/accountant",
-  authenticate,
-  authorizeRoles("accountant", "owner", "admin"),
-  getAccountantPayments,
-);
+router.get("/accountant", authenticate, getAccountantPayments);
 
-router.post(
-  "/",
-  authenticate,
-  authorizeRoles("accountant", "owner", "admin"),
-  createPayment,
-);
+router.post("/", authenticate, createPayment);
 
 export default router;

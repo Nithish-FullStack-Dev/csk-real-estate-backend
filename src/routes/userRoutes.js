@@ -47,17 +47,19 @@ router.post("/logout", authenticate, (req, res) => {
   }
   res.clearCookie("token", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+    secure: true, // HTTPS only
+    sameSite: "lax", // best default
     path: "/",
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
 
   if (secure_access) {
     res.clearCookie("secure_access", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+      secure: true, // HTTPS only
+      sameSite: "lax", // best default
       path: "/",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
   }
 
