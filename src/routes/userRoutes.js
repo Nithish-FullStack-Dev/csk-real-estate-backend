@@ -1,4 +1,5 @@
 import express from "express";
+import User from "../modals/user.js";
 import {
   createUser,
   getAllUsers,
@@ -18,7 +19,6 @@ import {
 } from "../controller/userController.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import csrf from "csurf";
-import { tokenBlacklist } from "../utils/tokenBlacklist.js";
 
 const router = express.Router();
 const csrfProtection = csrf({ cookie: true });
@@ -40,30 +40,33 @@ router.get("/getAllSales", getAllSalesPersons);
 router.get("/getAllAgents", getAllAgentPersons);
 router.get("/getAllcustomer_purchased", getAllCustomer_Purchased);
 
-router.post("/logout", authenticate, (req, res) => {
-  const { token, secure_access } = req.cookies;
-  if (token) {
-    tokenBlacklist.add(token); // Add this
-  }
-  res.clearCookie("token", {
-    httpOnly: true,
-    secure: true, // HTTPS only
-    sameSite: "lax", // best default
-    path: "/",
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-  });
+router.post("/logout", authenticate, async (req, res) => {
+  try {
+    const { token, secure_access } = req.cookies;
 
-  if (secure_access) {
-    res.clearCookie("secure_access", {
+    await User.findByIdAndUpdate(req.user._id, { currentToken: null });
+
+    res.clearCookie("token", {
       httpOnly: true,
       secure: true, // HTTPS only
       sameSite: "lax", // best default
       path: "/",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
-  }
 
-  res.status(200).json({ message: "Logged out successfully" });
+    if (secure_access) {
+      res.clearCookie("secure_access", {
+        httpOnly: true,
+        secure: true, // HTTPS only
+        sameSite: "lax", // best default
+        path: "/",
+      });
+    }
+
+    res.status(200).json({ message: "Logged out successfully" });
+  } catch (error) {
+    console.error("Logout error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
 });
 
 export default router;
