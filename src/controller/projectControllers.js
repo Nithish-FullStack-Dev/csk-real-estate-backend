@@ -602,27 +602,62 @@ export const getContractorsForSiteIncharge = async (req, res) => {
       {
         $lookup: {
           from: "users",
-          localField: "contractors",
-          foreignField: "_id",
+          let: { contractorIds: "$contractors" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $in: ["$_id", "$$contractorIds"] },
+              },
+            },
+            {
+              $project: {
+                name: 1,
+                email: 1,
+                phone: 1,
+                company: 1,
+                specialization: 1,
+                status: 1,
+                isDeleted: 1, // 🔥 IMPORTANT
+              },
+            },
+          ],
           as: "contractors",
         },
       },
 
       { $unwind: "$contractors" },
-
-      // Convert Map to array safely
       {
         $project: {
           projectName: "$projectId.projectName",
           floorNumber: "$floorUnit.floorNumber",
           unitType: "$unit.plotNo",
-          contractor: "$contractors",
+          contractor: "$contractors", // 🔥 IMPORTANT
           unitsArray: {
             $ifNull: [{ $objectToArray: "$units" }, []],
           },
         },
       },
 
+      {
+        $lookup: {
+          from: "contractors",
+          localField: "contractor._id", // ✅ NOW it exists
+          foreignField: "userId",
+          as: "contractorDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$contractorDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      {
+        $addFields: {
+          contractorModel: "$contractorDetails",
+        },
+      },
       { $unwind: { path: "$unitsArray", preserveNullAndEmptyArrays: true } },
 
       { $unwind: { path: "$unitsArray.v", preserveNullAndEmptyArrays: true } },
@@ -651,7 +686,8 @@ export const getContractorsForSiteIncharge = async (req, res) => {
           company: { $first: "$contractor.company" },
           specialization: { $first: "$contractor.specialization" },
           status: { $first: "$contractor.status" },
-
+          isDeleted: { $first: "$contractor.isDeleted" },
+          contractorIsDeleted: { $first: "$contractorModel.isDeleted" },
           totalTasks: {
             $sum: {
               $cond: [{ $eq: ["$isMyTask", 1] }, 1, 0],
@@ -2112,9 +2148,7 @@ export const projectDropDownDataForSiteIncharge = asyncHandler(
 );
 
 export const getAllContractors = asyncHandler(async (req, res) => {
-  const existingContractors = await Contractor.find({
-    isDeleted: false,
-  }).select("userId");
+  const existingContractors = await Contractor.find().select("userId");
 
   const existingContractorsId = existingContractors.map((c) => c.userId);
 
@@ -2159,15 +2193,19 @@ export const getAllContractorsForIssue = asyncHandler(async (req, res) => {
 
   // ✅ admin → all contractors
   else {
-    const users = await User.find({ role: "contractor" }).select(
-      "_id name email",
-    );
+    const users = await User.find({
+      role: "contractor",
+      isDeleted: false,
+    }).select("_id name email");
 
     return res.status(200).json(new ApiResponse(200, users, "All contractors"));
   }
 
+  contractorIds = [...new Set(contractorIds.map((id) => id.toString()))];
+
   const contractors = await User.find({
     _id: { $in: contractorIds },
+    isDeleted: false,
   }).select("_id name email");
 
   res

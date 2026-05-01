@@ -5,6 +5,7 @@ import {
   getAllContractorList,
   getAllContractorsById,
   getContractorsForDropDown,
+  restoreContractor,
   updateContractor,
 } from "../controller/contractor.controller.js";
 import { upload } from "../middlewares/multer.js";
@@ -42,5 +43,7 @@ router.put(
 );
 
 router.delete("/deleteContractor/:id", authenticate, deleteContractor);
+
+router.patch("/restore/:id", authenticate, restoreContractor);
 
 export default router;
