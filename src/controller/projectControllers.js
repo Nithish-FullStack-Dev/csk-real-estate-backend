@@ -174,11 +174,16 @@ export const createProject = async (req, res) => {
        Notify: Owner + Admin + Sales Manager
     ========================================================= */
 
-    const owners = await User.find({ role: "owner" }).select("_id");
-    const admins = await User.find({ role: "admin" }).select("_id");
-    const salesManagers = await User.find({ role: "sales_manager" }).select(
+    const owners = await User.find({ role: "owner", isDeleted: false }).select(
       "_id",
     );
+    const admins = await User.find({ role: "admin", isDeleted: false }).select(
+      "_id",
+    );
+    const salesManagers = await User.find({
+      role: "sales_manager",
+      isDeleted: false,
+    }).select("_id");
 
     const receivers = [
       ...owners.map((u) => u._id),
@@ -524,6 +529,7 @@ export const deleteProject = asyncHandler(async (req, res) => {
 
   const adminsOwners = await User.find({
     role: { $in: ["admin", "owner"] },
+    isDeleted: false,
   }).select("_id");
 
   const receivers = adminsOwners.map((u) => u._id);
@@ -1110,6 +1116,7 @@ export const updateTaskByIdForContractor = async (req, res) => {
     // Common receivers
     const ownersAdmins = await User.find({
       role: { $in: ["owner", "admin"] },
+      isDeleted: false,
     }).select("_id");
 
     const receivers = [
@@ -1145,7 +1152,10 @@ export const updateTaskByIdForContractor = async (req, res) => {
 
       const customerId = property?.customerInfo?.customerId;
 
-      const owners = await User.find({ role: "owner" }).select("_id");
+      const owners = await User.find({
+        role: "owner",
+        isDeleted: false,
+      }).select("_id");
 
       const customerReceivers = [
         customerId,
@@ -1795,6 +1805,7 @@ export const assignTaskToContractor = async (req, res) => {
 
     const ownersAdmins = await User.find({
       role: { $in: ["owner", "admin"] },
+      isDeleted: false,
     }).select("_id");
 
     const receivers = [
@@ -1991,6 +2002,7 @@ export const assignContractorToUnit = async (req, res) => {
 
     const ownerAdmins = await User.find({
       role: { $in: ["owner", "admin"] },
+      isDeleted: false,
     }).select("_id");
 
     const receivers = [
@@ -2109,6 +2121,7 @@ export const getAllContractors = asyncHandler(async (req, res) => {
   const contractors = await User.find({
     role: "contractor",
     _id: { $nin: existingContractorsId },
+    isDeleted: false,
   }).select("_id name email");
 
   const message =
@@ -2171,6 +2184,7 @@ export const getAllContractorsForIssue = asyncHandler(async (req, res) => {
 export const getAllAccountant = asyncHandler(async (req, res) => {
   const accountants = await User.find({
     role: "accountant",
+    isDeleted: false,
   }).select("_id name email");
 
   const message =

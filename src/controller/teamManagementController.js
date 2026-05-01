@@ -56,7 +56,7 @@ export const getAllAgentsByTeamLead = async (req, res) => {
 
     // ADMIN sees all
     if (role === "admin") {
-      const allAgents = await TeamManagement.find({ isDeleted: false })
+      const allAgents = await TeamManagement.find()
         .populate("agentId")
         .populate("teamLeadId");
 
@@ -237,6 +237,7 @@ export const getUnassignedAgents = async (req, res) => {
     const unassignedAgents = await User.find({
       role: "agent",
       _id: { $nin: excludeIds },
+      isDeleted: false,
     }).select("-password");
 
     res.status(200).json({

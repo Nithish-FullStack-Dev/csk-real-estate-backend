@@ -1,5 +1,4 @@
 import express from "express";
-import User from "../modals/user.js";
 import {
   createUser,
   getAllUsers,
@@ -16,6 +15,9 @@ import {
   getAllCustomer_Purchased,
   getLoggedInUser,
   getContractors,
+  getDeletedUsers,
+  restoreuser,
+  getAllExistingUsers,
 } from "../controller/userController.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import csrf from "csurf";
@@ -25,12 +27,13 @@ const csrfProtection = csrf({ cookie: true });
 
 router.post("/addUser", createUser);
 router.get("/getUsers", authenticate, getAllUsers);
+router.get("/getExistingUsers", authenticate, getAllExistingUsers);
 router.get("/getLoggedInUser", authenticate, getLoggedInUser);
 router.get("/getRole/:userId", getUserWithRole);
 router.post("/login", loginUser);
-router.post("/updateUser", updateUser);
-router.post("/resetPassword", resetPassword);
-router.delete("/deleteUser/:userId", deleteUser);
+router.post("/updateUser", authenticate, updateUser);
+router.post("/resetPassword", authenticate, resetPassword);
+router.delete("/deleteUser/:userId", authenticate, deleteUser);
 router.get("/contractors", getAllContractors);
 router.get("/getControctorsForDropDown", getContractors);
 router.patch("/:id/status", updateStatus);
@@ -39,12 +42,12 @@ router.get("/contractor", getAllContractors);
 router.get("/getAllSales", getAllSalesPersons);
 router.get("/getAllAgents", getAllAgentPersons);
 router.get("/getAllcustomer_purchased", getAllCustomer_Purchased);
+router.get("/deleted", authenticate, getDeletedUsers);
+router.patch("/restore/:id", authenticate, restoreuser);
 
 router.post("/logout", authenticate, async (req, res) => {
   try {
     const { token, secure_access } = req.cookies;
-
-    await User.findByIdAndUpdate(req.user._id, { currentToken: null });
 
     res.clearCookie("token", {
       httpOnly: true,

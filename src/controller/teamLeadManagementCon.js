@@ -236,6 +236,7 @@ export const getUnassignedTeamLead = async (req, res) => {
     const unassignedteamLead = await User.find({
       role: "team_lead",
       _id: { $nin: assignedteamLeadIds },
+      isDeleted: false,
     }).select("-password");
 
     res.status(200).json({

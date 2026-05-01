@@ -24,22 +24,22 @@ export const authenticate = async (req, res, next) => {
     }
 
     // Fetch user from DB
-    const user = await User.findById(decoded.id).populate("role");
+    const user = await User.findOne({
+      _id: decoded.id,
+      isDeleted: false,
+    }).populate("role");
 
     if (!user) {
-      return res.status(401).json({ message: "User no longer exists" });
-    }
+      res.clearCookie("token", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "lax",
+        path: "/",
+      });
 
-    // Check user is still active
-    // if (user.status !== "active") {
-    //   return res.status(403).json({ message: "Account is inactive or suspended" });
-    // }
-
-    // Validate token matches the current session (single-session enforcement)
-    if (!user.currentToken || user.currentToken !== token) {
-      return res
-        .status(401)
-        .json({ message: "Session invalidated, please login again" });
+      return res.status(401).json({
+        message: "Your account has been deactivated. Please contact admin.",
+      });
     }
 
     req.user = user;
