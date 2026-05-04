@@ -364,7 +364,7 @@ export const getAllLeads = async (req, res) => {
       .populate("unit", "plotNo propertyType")
       .populate("openPlot", "projectName plotNo memNo")
       .populate("openLand", "projectName location landType")
-      .populate("addedBy", "name email role");
+      .populate("addedBy", "name email role isDeleted");
 
     res.status(200).json({
       message: "Leads fetched successfully",

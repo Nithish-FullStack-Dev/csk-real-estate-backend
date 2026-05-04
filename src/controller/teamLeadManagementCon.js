@@ -103,6 +103,13 @@ export const getAllTeamLeadBySales = async (req, res) => {
       .populate("salesId")
       .populate("teamLeadId");
 
+    teamLeads.sort((a, b) => {
+      const aDeleted = a?.teamLeadId?.isDeleted ? 1 : 0;
+      const bDeleted = b?.teamLeadId?.isDeleted ? 1 : 0;
+
+      return aDeleted - bDeleted;
+    });
+
     res.status(200).json(teamLeads);
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch team leads", error });

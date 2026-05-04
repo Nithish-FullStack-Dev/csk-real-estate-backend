@@ -226,7 +226,7 @@ export const getAllSiteVisits = async (req, res) => {
       isDeleted: false,
     })
       .populate("vehicleId")
-      .populate("bookedBy", "name email role")
+      .populate("bookedBy", "name email role isDeleted")
       .populate({
         path: "clientId",
         model: "Lead",
@@ -269,8 +269,18 @@ export const getAllSiteVisits = async (req, res) => {
             select: "name email role avatar",
           },
         ],
-      })
-      .sort({ createdAt: -1 });
+      });
+
+    siteVisits.sort((a, b) => {
+      const aDeleted = a?.bookedBy?.isDeleted ? 1 : 0;
+      const bDeleted = b?.bookedBy?.isDeleted ? 1 : 0;
+
+      if (aDeleted !== bDeleted) {
+        return aDeleted - bDeleted;
+      }
+
+      return b.createdAt - a.createdAt;
+    });
 
     res.status(200).json(siteVisits);
   } catch (error) {
@@ -526,7 +536,7 @@ export const getSiteVisitOfAgents = async (req, res) => {
       .populate({
         path: "bookedBy",
         model: "User",
-        select: "name email role",
+        select: "name email role isDeleted",
       })
       .populate("vehicleId")
       .populate({
@@ -553,7 +563,7 @@ export const getSiteVisitOfAgents = async (req, res) => {
           {
             path: "addedBy",
             model: "User",
-            select: "name email role avatar",
+            select: "name email role avatar isDeleted",
           },
         ],
       });
@@ -718,7 +728,7 @@ export const getPendingSiteVisitsForAgent = asyncHandler(async (req, res) => {
     ...accessQuery,
     approvalStatus: "pending",
     isDeleted: false,
-  }).populate("bookedBy", "name email role");
+  }).populate("bookedBy", "name email role isDeleted");
 
   res
     .status(200)
@@ -738,7 +748,7 @@ export const getApprovedSiteVisitsForAgent = asyncHandler(async (req, res) => {
     ...accessQuery,
     approvalStatus: "approved",
     isDeleted: false,
-  });
+  }).populate("bookedBy", "name email role isDeleted");
 
   res
     .status(200)
@@ -758,7 +768,7 @@ export const getRejectedSiteVisitsForAgent = asyncHandler(async (req, res) => {
     ...accessQuery,
     approvalStatus: "rejected",
     isDeleted: false,
-  });
+  }).populate("bookedBy", "name email role isDeleted");
 
   res
     .status(200)

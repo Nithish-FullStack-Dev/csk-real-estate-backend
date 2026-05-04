@@ -81,7 +81,19 @@ export const getLaborTeamsForContractor = async (req, res) => {
         ],
         select: "projectId floorUnit unit",
       })
-      .sort({ createdAt: -1 });
+      .populate("contractor", "name isDeleted");
+
+    teams.sort((a, b) => {
+      const aDeleted = a?.contractor?.isDeleted ? 1 : 0;
+      const bDeleted = b?.contractor?.isDeleted ? 1 : 0;
+
+      if (aDeleted !== bDeleted) {
+        return aDeleted - bDeleted;
+      }
+
+      return b.createdAt - a.createdAt; // secondary sort
+    });
+
     res.status(200).json(teams);
   } catch (err) {
     console.error("Error fetching teams:", err);

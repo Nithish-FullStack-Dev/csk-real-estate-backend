@@ -131,6 +131,12 @@ export const getQualityIssuesByUserId = async (req, res) => {
       .populate("contractor", "_id name isDeleted")
       .sort({ reported_date: -1 });
 
+    issues.sort((a, b) => {
+      const aDeleted = a?.contractor?.isDeleted ? 1 : 0;
+      const bDeleted = b?.contractor?.isDeleted ? 1 : 0;
+      return aDeleted - bDeleted;
+    });
+
     // console.log("FILTER", filter);
     // console.log("ISSUES", issues.length);
 
