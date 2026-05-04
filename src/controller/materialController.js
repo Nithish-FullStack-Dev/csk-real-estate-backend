@@ -33,7 +33,7 @@ export const getAllMaterials = async (req, res) => {
         ],
         select: "projectId floorUnit unit",
       })
-      .populate("contractor", "_id name");
+      .populate("contractor", "_id name isDeleted");
     res.status(200).json(materials);
   } catch (error) {
     console.error("Error fetching materials:", error);

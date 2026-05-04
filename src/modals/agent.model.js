@@ -1,4 +1,4 @@
-import { Schema, model, Types } from "mongoose";
+import mongoose, { Schema, model, Types } from "mongoose";
 
 const AgentSchema = new Schema(
   {
@@ -63,8 +63,37 @@ const AgentSchema = new Schema(
       type: Types.ObjectId,
       ref: "User",
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
+);
+
+AgentSchema.index(
+  { panCard: 1 },
+  { unique: true, partialFilterExpression: { isDeleted: false } },
+);
+
+AgentSchema.index(
+  { aadharCard: 1 },
+  { unique: true, partialFilterExpression: { isDeleted: false } },
+);
+
+AgentSchema.index(
+  { accountNumber: 1 },
+  { unique: true, partialFilterExpression: { isDeleted: false } },
 );
 
 const AgentCommissionModel = model("AgentCommission", AgentSchema);

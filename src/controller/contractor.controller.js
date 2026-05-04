@@ -69,15 +69,31 @@ export const addContractor = asyncHandler(async (req, res) => {
     uploadedBillCopy = await uploadFile(billCopyLocalPath);
   }
 
-  const exists = await ContractorModel.findOne({
-    $or: [{ userId }, { gstNumber }, { panCardNumber }],
-  });
+  const conditions = [];
 
-  if (exists) {
-    throw new ApiError(
-      409,
-      "Contractor with same Name GST or PAN already exists",
-    );
+  if (gstNumber) conditions.push({ gstNumber });
+
+  if (panCardNumber) conditions.push({ panCardNumber });
+
+  if (userId) conditions.push({ userId });
+
+  if (conditions.length > 0) {
+    const exists = await ContractorModel.findOne({
+      $or: conditions,
+    });
+
+    if (exists) {
+      if (!exists.isDeleted) {
+        throw new ApiError(
+          409,
+          "Contractor with same Name GST or PAN already exists",
+        );
+      }
+      throw new ApiError(
+        409,
+        "Contractor exists but deleted. You can restore it",
+      );
+    }
   }
 
   const contractor = await ContractorModel.create({
@@ -170,36 +186,34 @@ export const getAllContractorsById = asyncHandler(async (req, res) => {
 });
 
 export const getAllContractorList = asyncHandler(async (req, res) => {
-  const contractors = await ContractorModel.find({ isDeleted: false })
-    .populate("userId", "name email phone")
-    .populate("siteIncharge", "name email phone")
-    .populate("accountsIncharge", "name email phone");
-  // .populate({
-  //   path: "projectsAssigned",
-  //   populate: [
-  //     {
-  //       path: "projectId",
-  //       model: "Building",
-  //       select: "projectName location",
-  //     },
-  //     {
-  //       path: "floorUnit",
-  //       model: "FloorUnit",
-  //       select: "floorNumber",
-  //     },
-  //     {
-  //       path: "unit",
-  //       model: "PropertyUnit",
-  //       select: "plotNo",
-  //     },
-  //   ],
-  // });
+  const contractors = await ContractorModel.find()
+    .populate({
+      path: "userId",
+      select: "name email phone isDeleted",
+    })
+    .populate("siteIncharge", "name email phone isDeleted")
+    .populate("accountsIncharge", "name email phone isDeleted");
+
+  const sorted = contractors.sort((a, b) => {
+    const aDeleted = a.userId?.isDeleted ? 1 : 0;
+    const bDeleted = b.userId?.isDeleted ? 1 : 0;
+
+    // 1️⃣ Deleted last
+    if (aDeleted !== bDeleted) return aDeleted - bDeleted;
+
+    // 2️⃣ Latest updated first
+    const aUpdated = new Date(a.updatedAt).getTime();
+    const bUpdated = new Date(b.updatedAt).getTime();
+
+    if (aUpdated !== bUpdated) return bUpdated - aUpdated;
+
+    // 3️⃣ fallback: createdAt
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
 
   res
     .status(200)
-    .json(
-      new ApiResponse(200, contractors, "contractors fetched successfully"),
-    );
+    .json(new ApiResponse(200, sorted, "contractors fetched successfully"));
 });
 
 export const updateContractor = asyncHandler(async (req, res) => {
@@ -249,14 +263,30 @@ export const updateContractor = asyncHandler(async (req, res) => {
     uploadedBillCopy = await uploadFile(billCopyLocalPath);
   }
 
-  if (gstNumber || panCardNumber) {
-    const exists = await ContractorModel.findOne({
-      _id: { $ne: id },
-      $or: [{ gstNumber }, { panCardNumber }],
-    });
+  let conditions = [];
 
-    if (exists) {
-      throw new ApiError(409, "Contractor with same GST or PAN already exists");
+  if (gstNumber) conditions.push({ gstNumber });
+  if (panCardNumber) conditions.push({ panCardNumber });
+
+  if (gstNumber || panCardNumber) {
+    if (conditions.length > 0) {
+      const exists = await ContractorModel.findOne({
+        _id: { $ne: id },
+        $or: conditions,
+      });
+
+      if (exists) {
+        if (!exists.isDeleted) {
+          throw new ApiError(
+            409,
+            "Contractor with same GST or PAN already exists",
+          );
+        }
+        throw new ApiError(
+          409,
+          "Contractor exists but deleted. You can restore it",
+        );
+      }
     }
   }
 
@@ -331,78 +361,22 @@ export const deleteContractor = asyncHandler(async (req, res) => {
   try {
     await session.startTransaction();
 
-    // ✅ 1. Get contractor
     const contractor = await ContractorModel.findById(id).session(session);
 
     if (!contractor) {
       throw new ApiError(404, "Contractor not found");
     }
 
-    // 🔥 IMPORTANT: extract USER ID
-    const contractorUserId = contractor.userId.toString();
-
-    /* =========================================
-       ✅ 2. REMOVE FROM contractors ARRAY (FIXED)
-    ========================================= */
-    await Project.updateMany(
-      { contractors: contractor.userId }, // 👈 MATCH USER ID
-      { $pull: { contractors: contractor.userId } },
-    ).session(session);
-
-    /* =========================================
-       ✅ 3. CLEAN assignedContractors + TASKS
-    ========================================= */
-    const projects = await Project.find({}).session(session);
-
-    for (const project of projects) {
-      let modified = false;
-
-      // 🔹 assignedContractors
-      if (project.assignedContractors instanceof Map) {
-        for (const [
-          unitKey,
-          contractorList,
-        ] of project.assignedContractors.entries()) {
-          const filtered = contractorList.filter(
-            (cId) => cId.toString() !== contractorUserId,
-          );
-
-          if (filtered.length !== contractorList.length) {
-            project.assignedContractors.set(unitKey, filtered);
-            modified = true;
-          }
-        }
-      }
-
-      // 🔹 tasks cleanup
-      if (project.units instanceof Map) {
-        for (const [unitKey, tasks] of project.units.entries()) {
-          const filteredTasks = tasks.filter(
-            (task) => task.contractor?.toString() !== contractorUserId,
-          );
-
-          if (filteredTasks.length !== tasks.length) {
-            project.units.set(unitKey, filteredTasks);
-            modified = true;
-          }
-        }
-      }
-
-      if (modified) {
-        project.markModified("units");
-        project.markModified("assignedContractors");
-        await project.save({ session });
-      }
+    if (contractor.isDeleted) {
+      throw new ApiError(400, "Contractor already deleted");
     }
 
-    /* =========================================
-       ✅ 4. DELETE CONTRACTOR
-    ========================================= */
-    await ContractorModel.findByIdAndDelete(id).session(session);
+    contractor.isDeleted = true;
+    contractor.deletedBy = userId || null;
+    contractor.isActive = false;
 
-    /* =========================================
-       ✅ 5. AUDIT LOG
-    ========================================= */
+    await contractor.save({ session });
+
     await AuditLog.create(
       [
         {
@@ -423,13 +397,7 @@ export const deleteContractor = asyncHandler(async (req, res) => {
 
     return res
       .status(200)
-      .json(
-        new ApiResponse(
-          200,
-          null,
-          "Contractor unassigned and deleted successfully",
-        ),
-      );
+      .json(new ApiResponse(200, null, "Contractor deleted successfully"));
   } catch (error) {
     await session.abortTransaction();
     throw error;
@@ -439,14 +407,45 @@ export const deleteContractor = asyncHandler(async (req, res) => {
 });
 
 export const getContractorsForDropDown = asyncHandler(async (req, res) => {
-  const contractors = await ContractorModel.find({}, "userId").populate(
+  const contractors = await ContractorModel.find(
+    { isDeleted: false },
     "userId",
-    "_id name email phone",
-  );
+  ).populate({
+    path: "userId",
+    select: "_id name email phone",
+    match: { isDeleted: false },
+  });
 
+  const filterContractors = contractors.filter((con) => con.userId);
   res
     .status(200)
     .json(
-      new ApiResponse(200, contractors, "contractors fetched successfully"),
+      new ApiResponse(
+        200,
+        filterContractors,
+        "contractors fetched successfully",
+      ),
     );
+});
+
+export const restoreContractor = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid contractor ID");
+  }
+
+  const contractor = await ContractorModel.findOneAndUpdate(
+    { _id: id, isDeleted: true },
+    {
+      isDeleted: false,
+      deletedBy: null,
+      isActive: true,
+    },
+    { new: true },
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, contractor, "Contractor restored successfully"));
 });

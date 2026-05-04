@@ -47,11 +47,17 @@ export const addAgentModel = asyncHandler(async (req, res) => {
     $or: [{ panCard }, { accountNumber }, { aadharCard }],
   });
 
-  if (exists)
-    throw new ApiError(
-      409,
-      "Agent with same Aadhar, Account Number or PAN already exists",
-    );
+  if (exists) {
+    if (!exists.isDeleted) {
+      throw new ApiError(
+        409,
+        "Agent with same Aadhar, Account Number or PAN already exists",
+      );
+    }
+    return res.status(409).json({
+      message: "agent was previously deleted. You can restore this agent.",
+    });
+  }
 
   const agent = await AgentModel.create({
     agentId,
@@ -79,7 +85,7 @@ export const addAgentModel = asyncHandler(async (req, res) => {
 
 export const getAllAgents = asyncHandler(async (req, res) => {
   const agents = await AgentModel.find()
-    .populate("agentId", "_id name phone")
+    .populate("agentId", "_id name phone isDeleted")
     .populate({
       path: "project",
       populate: [
@@ -114,7 +120,7 @@ export const getAgentById = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid contractor ID");
   }
 
-  const agent = await AgentModel.findOne(id)
+  const agent = await AgentModel.findById(id)
     .populate("agentId", "_id name phone")
     .populate({
       path: "project",
@@ -176,11 +182,17 @@ export const updateAgentModel = asyncHandler(async (req, res) => {
     _id: { $ne: id },
   });
 
-  if (exists)
-    throw new ApiError(
-      409,
-      "Agent with same Aadhar, Account Number or PAN already exists",
-    );
+  if (exists) {
+    if (!exists.isDeleted) {
+      throw new ApiError(
+        409,
+        "Agent with same Aadhar, Account Number or PAN already exists",
+      );
+    }
+    return res.status(409).json({
+      message: "agent was previously deleted. You can restore this agent.",
+    });
+  }
 
   const payload = {
     agentId,
@@ -222,7 +234,15 @@ export const deleteAgentModel = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid contractor ID");
   }
 
-  const deletedAgent = await AgentModel.findByIdAndDelete(id);
+  const deletedAgent = await AgentModel.findOneAndUpdate(
+    { _id: id, isDeleted: false },
+    {
+      isDeleted: true,
+      deletedAt: new Date(),
+      deletedBy: req.user._id,
+    },
+    { new: true },
+  );
 
   if (!deletedAgent) throw new ApiError(404, "Agent not found");
 
@@ -233,13 +253,46 @@ export const deleteAgentModel = asyncHandler(async (req, res) => {
 
 export const getAllAgentsForDropDown = asyncHandler(async (req, res) => {
   const assignedAgentIds = await TeamManagement.distinct("agentId");
-  const agents = await AgentModel.find(
+
+  const agentsDoc = await AgentModel.find(
     {
       agentId: { $nin: assignedAgentIds },
+      isDeleted: false,
     },
     "agentId",
-  ).populate("agentId", "_id name email phone");
+  ).populate({
+    path: "agentId",
+    select: "_id name email phone",
+    match: { isDeleted: false },
+  });
+
+  const agents = agentsDoc.filter((agent) => agent.agentId !== null);
+
   res
     .status(200)
     .json(new ApiResponse(200, agents, "agents fetched successfully"));
+});
+
+export const restoreAgent = asyncHandler(async (req, res) => {
+  const { _id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(_id)) {
+    throw new ApiError(400, "Invalid contractor ID");
+  }
+
+  const agent = await AgentModel.findOneAndUpdate(
+    { _id, isDeleted: true },
+    {
+      isDeleted: false,
+      deletedAt: null,
+      deletedBy: null,
+    },
+    { new: true },
+  );
+
+  if (!agent) throw new ApiError(404, "Agent not found");
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, agent, "Agent deleted successfully"));
 });

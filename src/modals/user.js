@@ -26,8 +26,18 @@ const userSchema = new mongoose.Schema(
     department: { type: String, default: "" },
     address: { type: String, default: "" },
     currentToken: { type: String, default: null },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.model("User", userSchema);

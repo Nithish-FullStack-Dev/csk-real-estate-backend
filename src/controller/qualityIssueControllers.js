@@ -128,7 +128,7 @@ export const getQualityIssuesByUserId = async (req, res) => {
           },
         ],
       })
-      .populate("contractor", "_id name")
+      .populate("contractor", "_id name isDeleted")
       .sort({ reported_date: -1 });
 
     // console.log("FILTER", filter);

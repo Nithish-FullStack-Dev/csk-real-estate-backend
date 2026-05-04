@@ -9,8 +9,6 @@ export const createUser = async (req, res) => {
   try {
     const { name, email, password, roleName, status, phone, avatar } = req.body;
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-
     if (!name || !email || !roleName) {
       return res.status(400).json({ message: "Missing required fields" });
     }
@@ -18,7 +16,12 @@ export const createUser = async (req, res) => {
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(409).json({ message: "User already exists" });
+      if (!existingUser.isDeleted) {
+        return res.status(409).json({ message: "User already exists" });
+      }
+      return res.status(409).json({
+        message: "User was previously deleted. You can restore this user.",
+      });
     }
 
     // Find role by name
@@ -26,6 +29,7 @@ export const createUser = async (req, res) => {
     if (!role) {
       return res.status(404).json({ message: "Role not found" });
     }
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = new User({
       name,
@@ -78,11 +82,27 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
+export const getAllExistingUsers = async (req, res) => {
+  try {
+    const loggedInUserId = req.user._id;
+
+    const users = await User.find({
+      _id: { $ne: loggedInUserId },
+      isDeleted: false,
+    }).select("_id name email role avatar status lastLogin phone");
+
+    res.status(200).json({ users });
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 export const getLoggedInUser = async (req, res) => {
   try {
     const user = req.user;
     if (!user) res.status(404).json({ message: "logged in user not found" });
-    const { currentToken, password, ...safeUser } = user.toObject();
+    const { password, ...safeUser } = user.toObject();
 
     return res.status(200).json(safeUser);
   } catch (error) {
@@ -117,7 +137,7 @@ export const loginUser = async (req, res) => {
         .json({ message: "Email and password are required" });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email, isDeleted: false });
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
@@ -132,8 +152,6 @@ export const loginUser = async (req, res) => {
       expiresIn: "7d",
     });
 
-    // Save new token
-    user.currentToken = token;
     user.lastLogin = Date.now();
     await user.save();
 
@@ -152,7 +170,7 @@ export const loginUser = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
-    const { password: _, currentToken: __, ...userData } = user.toObject();
+    const { password: _, ...userData } = user.toObject();
 
     res.status(200).json({
       message: "Login successful",
@@ -220,7 +238,23 @@ export const deleteUser = async (req, res) => {
   const { userId } = req.params;
 
   try {
-    const deletedUser = await User.findByIdAndDelete(userId);
+    if (!userId) {
+      return res.status(400).json({ message: "User id not found." });
+    }
+
+    if (req.user._id.toString() === userId) {
+      return res.status(400).json({ message: "You cannot delete yourself." });
+    }
+
+    const deletedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        isDeleted: true,
+        deletedBy: req.user?._id,
+        status: "inactive",
+      },
+      { new: true },
+    );
 
     if (!deletedUser) {
       return res.status(404).json({ message: "User not found." });
@@ -275,6 +309,10 @@ export const updateStatus = async (req, res) => {
     { status },
     { new: true },
   );
+
+  if (!issue) {
+    return res.status(404).json({ message: "User not found or deleted" });
+  }
 
   res.json(issue);
 };
@@ -334,5 +372,48 @@ export const getAllCustomer_Purchased = async (req, res) => {
   } catch (error) {
     console.error("Error fetching customer_purchased:", error);
     res.status(500).json({ message: "Failed to fetch customer_purchased" });
+  }
+};
+
+export const getDeletedUsers = async (req, res) => {
+  try {
+    const deletedUsers = await User.find({ isDeleted: true })
+      .select("_id name email role status deletedBy updatedAt")
+      .populate("deletedBy", "name email"); // optional
+
+    res.status(200).json({ users: deletedUsers });
+  } catch (error) {
+    console.error("Error fetching deleted users:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const restoreuser = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      res.status(400).json({ message: "id is required" });
+    }
+
+    const user = await User.findOneAndUpdate(
+      { _id: id, isDeleted: true },
+      { isDeleted: false, status: "active", deletedBy: null },
+      { new: true },
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found or already active",
+      });
+    }
+
+    return res.status(200).json({
+      message: "User restored successfully",
+      user,
+    });
+  } catch (error) {
+    console.error("Error fetching deleted users:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
