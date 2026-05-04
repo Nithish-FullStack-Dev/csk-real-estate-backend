@@ -359,11 +359,11 @@ export const getAllLeads = async (req, res) => {
     }
 
     const leads = await Lead.find({ ...query, isDeleted: false })
-      .populate("property", "projectName location propertyType")
-      .populate("floorUnit", "floorNumber unitType")
-      .populate("unit", "plotNo propertyType")
-      .populate("openPlot", "projectName plotNo memNo")
-      .populate("openLand", "projectName location landType")
+      .populate("property", "projectName location propertyType isDeleted")
+      .populate("floorUnit", "floorNumber unitType isDeleted")
+      .populate("unit", "plotNo propertyType isDeleted")
+      .populate("openPlot", "projectName plotNo memNo isDeleted")
+      .populate("openLand", "projectName location landType isDeleted")
       .populate("addedBy", "name email role isDeleted");
 
     res.status(200).json({

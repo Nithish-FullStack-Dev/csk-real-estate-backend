@@ -103,9 +103,7 @@ export const createOpenLand = asyncHandler(async (req, res) => {
 /* ------------------------------------------------------- */
 
 export const getAllOpenLand = asyncHandler(async (req, res) => {
-  let query = {
-    isDeleted: false,
-  };
+  let query = {};
 
   // restrict for purchased customer
   if (req.user?.role === "customer_purchased") {
@@ -184,7 +182,15 @@ export const deleteOpenLandById = asyncHandler(async (req, res) => {
     }
 
     // ✅ 2. HARD DELETE (same as InnerPlot)
-    await OpenLand.findByIdAndDelete(id).session(session);
+    await OpenLand.findByIdAndUpdate(
+      id,
+      {
+        isDeleted: true,
+        deletedBy: req.user._id,
+        deletedAt: new Date(),
+      },
+      { new: true },
+    ).session(session);
 
     // ✅ 3. Audit log (same structure)
     await AuditLog.create(
@@ -246,12 +252,17 @@ export const updateOpenLand = asyncHandler(async (req, res) => {
     if (req.files?.brochureUrl?.[0]) {
       brochureUrl = `${req.protocol}://${req.get("host")}/api/uploads/pdfs/${req.files.brochureUrl[0].filename}`;
     }
-    if (data.removedImages) {
-      const removed = Array.isArray(data.removedImages)
-        ? data.removedImages
-        : [data.removedImages];
+    if (data.existingImages) {
+      try {
+        const existingImages = JSON.parse(data.existingImages || "[]");
 
-      images = images.filter((img) => !removed.includes(img));
+        // Only keep images that frontend still has
+        images = existingLand.images.filter((img) =>
+          existingImages.includes(img),
+        );
+      } catch (e) {
+        console.error("Invalid existingImages format");
+      }
     }
 
     /* -------- ADD NEW IMAGES -------- */
@@ -265,6 +276,9 @@ export const updateOpenLand = asyncHandler(async (req, res) => {
       images = [...images, ...newImages];
     }
 
+    delete data.images; // 🔥 prevent override
+    delete data.thumbnailUrl;
+    delete data.brochureUrl;
     const updatedLand = await OpenLand.findOneAndUpdate(
       { _id: id, isDeleted: false },
       {
@@ -285,11 +299,11 @@ export const updateOpenLand = asyncHandler(async (req, res) => {
       .status(200)
       .json(new ApiResponse(200, populated, "Open land updated successfully"));
   } catch (error) {
-    if (err.code === 11000) {
+    if (error.code === 11000) {
       throw new ApiError(409, "Survey Number already exists for this location");
     }
 
-    throw err;
+    throw error;
   }
 });
 /* ------------------------------------------------------- */
@@ -478,4 +492,30 @@ export const getOpenLandForCustomer = asyncHandler(async (req, res) => {
     .select("customerId");
 
   res.status(200).json(new ApiResponse(200, land, "Customer for open land"));
+});
+
+export const restoreLand = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid land ID");
+  }
+
+  const land = await OpenLand.findOneAndUpdate(
+    { _id: id, isDeleted: true },
+    {
+      isDeleted: false,
+      deletedBy: null,
+      deletedAt: null,
+    },
+    { new: true },
+  );
+
+  if (!land) {
+    throw new ApiError(404, "Open land not found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, land, "Land has restored successfully"));
 });

@@ -12,6 +12,7 @@ import {
   getOpenLandDropdown,
   getOpenLandForCustomer,
   getAllOpenLandForPublic,
+  restoreLand,
 } from "../controller/openLandController.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { upload } from "../middlewares/multer.js"; // 🔥 ADD THIS
@@ -71,5 +72,7 @@ router.get(
   authenticate,
   getOpenLandForCustomer,
 );
+
+router.patch("/restore/:id", authenticate, restoreLand);
 
 export default router;

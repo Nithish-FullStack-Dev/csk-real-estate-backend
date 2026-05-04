@@ -286,9 +286,10 @@ export const deleteUser = async (req, res) => {
 
 export const getAllContractors = async (req, res) => {
   try {
-    const contractors = await User.find({ role: "contractor" }).select(
-      "-password",
-    ); // exclude password
+    const contractors = await User.find({
+      role: "contractor",
+      isDeleted: false,
+    }).select("-password"); // exclude password
     res.status(200).json({ success: true, data: contractors });
   } catch (error) {
     console.error("Error fetching contractors:", error);
