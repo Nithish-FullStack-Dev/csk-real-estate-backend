@@ -51,11 +51,17 @@ export const createOpenPlot = asyncHandler(async (req, res) => {
 
   const existingPlot = await OpenPlot.findOne({
     openPlotNo,
-    isDeleted: false,
   });
 
   if (existingPlot) {
-    throw new ApiError(409, "Open Plot already exists");
+    if (existingPlot.isDeleted) {
+      throw new ApiError(
+        409,
+        `Plot No ${plotNo} already exists but is deleted. You can restore it.`,
+      );
+    } else {
+      throw new ApiError(409, `Plot No ${plotNo} already exists`);
+    }
   }
 
   /* ---------- FILE CHECK ---------- */
@@ -203,7 +209,7 @@ export const updateOpenPlot = asyncHandler(async (req, res) => {
 /* ========================================================= */
 
 export const getAllOpenPlots = asyncHandler(async (req, res) => {
-  let query = { isDeleted: false };
+  let query = {};
 
   // If logged user is customer → restrict plots
   if (req.user?.role === "customer_purchased") {
@@ -217,9 +223,22 @@ export const getAllOpenPlots = asyncHandler(async (req, res) => {
     query._id = { $in: openPlotIds };
   }
 
-  const openPlots = await OpenPlot.find(query).sort({ createdAt: -1 });
+  const openPlots = await OpenPlot.find(query);
+
+  openPlots.sort((a, b) => {
+    const aDeleted = a?.isDeleted ? 1 : 0;
+    const bDeleted = b?.isDeleted ? 1 : 0;
+
+    if (aDeleted !== bDeleted) {
+      return aDeleted - bDeleted;
+    }
+
+    return b.createdAt - a.createdAt; // secondary sort
+  });
+
   res.status(200).json(new ApiResponse(200, openPlots));
 });
+
 export const getAllOpenPlotsForPublic = asyncHandler(async (req, res) => {
   let query = { isDeleted: false };
 
@@ -236,7 +255,7 @@ export const getOpenPlotById = asyncHandler(async (req, res) => {
 
   if (!_id) throw new ApiError(400, "Open Plot ID required");
 
-  const plot = await OpenPlot.findOne({ _id, isDeleted: false });
+  const plot = await OpenPlot.findOne({ _id });
   if (!plot) throw new ApiError(404, "Open Plot not found");
 
   res.status(200).json(new ApiResponse(200, plot));
@@ -259,7 +278,9 @@ export const deleteOpenPlot = asyncHandler(async (req, res) => {
     await session.startTransaction();
 
     // ✅ 1. Fetch open plot
-    const plot = await OpenPlot.findById(_id).lean().session(session);
+    const plot = await OpenPlot.findOne({ _id, isDeleted: false })
+      .lean()
+      .session(session);
 
     if (!plot) {
       await session.abortTransaction();
@@ -267,15 +288,24 @@ export const deleteOpenPlot = asyncHandler(async (req, res) => {
     }
 
     // ✅ 2. Fetch inner plots (for audit)
-    const innerPlots = await InnerPlot.find({ openPlotId: _id })
+    const innerPlots = await InnerPlot.find({
+      openPlotId: _id,
+      isDeleted: false,
+    })
       .lean()
       .session(session);
 
     // ✅ 3. Delete inner plots
-    await InnerPlot.deleteMany({ openPlotId: _id }).session(session);
+    await InnerPlot.updateMany(
+      { openPlotId: _id, isDeleted: false },
+      { isDeleted: true, deletedBy: req.user._id },
+    ).session(session);
 
     // ✅ 4. Delete open plot
-    await OpenPlot.findByIdAndDelete(_id).session(session);
+    await OpenPlot.findOneAndUpdate(
+      { _id, isDeleted: false },
+      { isDeleted: true, deletedBy: req.user._id, deletedAt: new Date() },
+    ).session(session);
 
     // ✅ 5. Audit log (parent + children snapshot)
     await AuditLog.create(
@@ -322,4 +352,28 @@ export const getOpenPlotDropdown = asyncHandler(async (req, res) => {
         "Open plot dropdown fetched successfully",
       ),
     );
+});
+
+export const restoredOpenPlot = asyncHandler(async (req, res) => {
+  const { _id } = req.params;
+
+  if (!_id) throw new ApiError(400, "Open Plot ID required");
+
+  await InnerPlot.updateMany(
+    { openPlotId: _id, isDeleted: true },
+    { isDeleted: false, deletedBy: null },
+  );
+
+  const open_plot = await OpenPlot.findOneAndUpdate(
+    { _id, isDeleted: true },
+    { isDeleted: false, deletedBy: null, deletedAt: null },
+  );
+
+  if (!open_plot) {
+    throw new ApiError(404, "Open Plot not found or already active");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, null, "Open Plot restored successfully"));
 });

@@ -58,7 +58,7 @@ export const getUserProjects = async (req, res) => {
       .populate("floorUnit", "_id floorNumber unitType")
       .populate("unit", "_id propertyType plotNo")
       .populate("contractors", "_id name email")
-      .populate("siteIncharge", "_id name email");
+      .populate("siteIncharge", "_id name email isDeleted");
 
     return res.status(200).json(projects);
   } catch (error) {

@@ -77,7 +77,14 @@ export const getInspectionsByIncharge = async (req, res) => {
       .populate("project", "projectName")
       .populate("floorUnit", "floorNumber")
       .populate("unit", "projectName plotNo")
+      .populate("site_incharge", "name isDeleted")
       .sort({ date: -1 });
+
+    inspections.sort((a, b) => {
+      const aDeleted = a?.site_incharge?.isDeleted ? 1 : 0;
+      const bDeleted = b?.site_incharge?.isDeleted ? 1 : 0;
+      return aDeleted - bDeleted;
+    });
 
     res.status(200).json({ inspections });
   } catch (error) {

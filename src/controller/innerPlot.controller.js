@@ -31,11 +31,17 @@ export const createInnerPlot = asyncHandler(async (req, res) => {
   const alreadyExists = await InnerPlot.findOne({
     openPlotId,
     plotNo,
-    isDeleted: false,
   });
 
   if (alreadyExists) {
-    throw new ApiError(409, `Plot No ${plotNo} already exists`);
+    if (alreadyExists.isDeleted) {
+      throw new ApiError(
+        409,
+        `Plot No ${plotNo} already exists but is deleted. You can restore it.`,
+      );
+    } else {
+      throw new ApiError(409, `Plot No ${plotNo} already exists`);
+    }
   }
 
   let thumbnailUrl = "";
@@ -81,7 +87,10 @@ export const createInnerPlot = asyncHandler(async (req, res) => {
 export const getInnerPlotById = asyncHandler(async (req, res) => {
   const { _id } = req.params;
 
-  const plot = await InnerPlot.findOne({ _id, isDeleted: false });
+  const plot = await InnerPlot.findOne({ _id }).populate(
+    "openPlotId",
+    "isDeleted",
+  );
 
   if (!plot) {
     return res
@@ -100,7 +109,7 @@ export const getAllInnerPlot = asyncHandler(async (req, res) => {
     throw new ApiError(400, "openPlotId is required");
   }
 
-  let query = { openPlotId, isDeleted: false };
+  let query = { openPlotId };
 
   // If logged in user is a customer → filter purchased plots
   if (req.user?.role === "customer_purchased") {
@@ -120,7 +129,18 @@ export const getAllInnerPlot = asyncHandler(async (req, res) => {
     query._id = { $in: innerPlotIds };
   }
 
-  const innerPlots = await InnerPlot.find(query).sort({ createdAt: -1 });
+  const innerPlots = await InnerPlot.find(query);
+
+  innerPlots.sort((a, b) => {
+    const aDeleted = a?.isDeleted ? 1 : 0;
+    const bDeleted = b?.isDeleted ? 1 : 0;
+
+    if (aDeleted !== bDeleted) {
+      return aDeleted - bDeleted;
+    }
+
+    return b.createdAt - a.createdAt; // secondary sort
+  });
 
   return res
     .status(200)
@@ -215,15 +235,30 @@ export const deleteInnerPlot = asyncHandler(async (req, res) => {
     await session.startTransaction();
 
     // ✅ 1. Fetch inner plot
-    const plot = await InnerPlot.findById(_id).lean().session(session);
+    const plot = await InnerPlot.findById(_id).session(session);
 
     if (!plot) {
       await session.abortTransaction();
       throw new ApiError(404, "Inner plot not found");
     }
 
+    if (plot.isDeleted) {
+      await session.abortTransaction();
+      throw new ApiError(400, "Inner plot already deleted");
+    }
+
     // ✅ 2. Delete inner plot
-    await InnerPlot.findByIdAndDelete(_id).session(session);
+    await InnerPlot.findByIdAndUpdate(
+      _id,
+      {
+        isDeleted: true,
+        deletedBy: req.user._id,
+      },
+      {
+        new: true,
+        session,
+      },
+    );
 
     // ✅ 3. Audit log
     await AuditLog.create(
@@ -290,4 +325,32 @@ export const getCustomerByInnerPlot = asyncHandler(async (req, res) => {
   res
     .status(200)
     .json(new ApiResponse(200, customers, "Customer for inner plot"));
+});
+
+export const restoreInnerPlot = asyncHandler(async (req, res) => {
+  const { _id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(_id)) {
+    throw new ApiError(400, "Invalid Inner Plot ID");
+  }
+
+  const plot = await InnerPlot.findById(_id);
+
+  if (!plot) {
+    throw new ApiError(404, "Inner plot not found");
+  }
+
+  if (!plot.isDeleted) {
+    throw new ApiError(400, "Inner plot is already active");
+  }
+
+  plot.isDeleted = false;
+  plot.deletedBy = null;
+  plot.updatedBy = req.user?._id || null;
+
+  await plot.save();
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, plot, "Inner plot restored successfully"));
 });

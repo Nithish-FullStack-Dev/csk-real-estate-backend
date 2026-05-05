@@ -310,7 +310,7 @@ export const getAllInvoices = async (req, res) => {
           {
             path: "user",
             model: "User",
-            select: "name email role",
+            select: "name email role isDeleted",
           },
           {
             path: "approvedByAccountant",
@@ -347,6 +347,17 @@ export const getAllInvoices = async (req, res) => {
         }
       }),
     );
+
+    invoices.sort((a, b) => {
+      const aDeleted = a.user?.isDeleted ? 1 : 0;
+      const bDeleted = b.user?.isDeleted ? 1 : 0;
+
+      if (aDeleted !== bDeleted) {
+        return aDeleted - bDeleted;
+      }
+
+      return new Date(b.issueDate) - new Date(a.issueDate);
+    });
 
     res.status(200).json(invoices);
   } catch (error) {

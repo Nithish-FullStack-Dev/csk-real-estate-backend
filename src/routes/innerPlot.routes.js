@@ -11,6 +11,7 @@ import {
   getInnerPlotById,
   getInnerPlotDropdown,
   getCustomerByInnerPlot,
+  restoreInnerPlot,
 } from "../controller/innerPlot.controller.js";
 
 import {
@@ -57,5 +58,7 @@ router.get(
   authenticate,
   getInnerPlotDropdown,
 );
+
+router.patch("/restoreInnerPlot/:_id", authenticate, restoreInnerPlot);
 
 export default router;
