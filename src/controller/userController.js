@@ -72,7 +72,7 @@ export const getAllUsers = async (req, res) => {
     const loggedInUserId = req.user._id;
 
     const users = await User.find({ _id: { $ne: loggedInUserId } }).select(
-      "_id name email role avatar status lastLogin phone",
+      "_id name email role avatar status lastLogin phone isDeleted",
     );
 
     res.status(200).json({ users });

@@ -8,6 +8,7 @@ import {
   getAllOpenPlots,
   getOpenPlotDropdown,
   getAllOpenPlotsForPublic,
+  restoredOpenPlot,
 } from "../controller/openPlotController.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
 
@@ -25,6 +26,7 @@ router.get("/getAllOpenPlot", authenticate, getAllOpenPlots);
 router.get("/getAllOpenPlotForPublic", getAllOpenPlotsForPublic);
 router.get("/getOpenplot/:_id", getOpenPlotById);
 router.delete("/deleteOpenplot/:_id", authenticate, deleteOpenPlot);
+router.patch("/restoreOpenplot/:_id", authenticate, restoredOpenPlot);
 
 router.get("/getOpenPlotDropdown", authenticate, getOpenPlotDropdown);
 

@@ -363,6 +363,7 @@ export const getAllLeads = async (req, res) => {
       .populate("floorUnit", "floorNumber unitType isDeleted")
       .populate("unit", "plotNo propertyType isDeleted")
       .populate("openPlot", "projectName plotNo memNo isDeleted")
+      .populate("innerPlot", "plotNo area isDeleted")
       .populate("openLand", "projectName location landType isDeleted")
       .populate("addedBy", "name email role isDeleted");
 
