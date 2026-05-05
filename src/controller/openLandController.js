@@ -31,25 +31,28 @@ export const createOpenLand = asyncHandler(async (req, res) => {
   try {
     const data = { ...req.body };
 
-    data.projectName = data.projectName?.trim();
-    data.location = data.location?.trim();
-    data.surveyNumber = data.surveyNumber?.trim();
+    data.projectName = data.projectName?.trim().toLowerCase();
+    data.location = data.location?.trim().toLowerCase();
+    data.surveyNumber = data.surveyNumber?.trim().toLowerCase();
 
     if (!data.projectName || !data.location || !data.surveyNumber) {
       throw new ApiError(400, "Required fields missing");
     }
 
     const existingLand = await OpenLand.findOne({
-      isDeleted: false,
       surveyNumber: data.surveyNumber,
       location: data.location,
     });
 
     if (existingLand) {
-      throw new ApiError(
-        409,
-        "Land already exists for this survey number in this location",
-      );
+      if (existingLand.isDeleted) {
+        throw new ApiError(
+          409,
+          `Land already exists but is deleted. You can restore it.`,
+        );
+      } else {
+        throw new ApiError(409, `Land already exists`);
+      }
     }
 
     /* -------- FILE HANDLING -------- */

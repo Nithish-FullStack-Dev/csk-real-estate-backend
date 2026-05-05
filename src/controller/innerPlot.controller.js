@@ -87,7 +87,10 @@ export const createInnerPlot = asyncHandler(async (req, res) => {
 export const getInnerPlotById = asyncHandler(async (req, res) => {
   const { _id } = req.params;
 
-  const plot = await InnerPlot.findOne({ _id });
+  const plot = await InnerPlot.findOne({ _id }).populate(
+    "openPlotId",
+    "isDeleted",
+  );
 
   if (!plot) {
     return res

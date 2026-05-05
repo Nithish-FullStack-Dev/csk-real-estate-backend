@@ -115,9 +115,7 @@ export const getAllBuildings = asyncHandler(async (req, res) => {
   const userId = req.user?._id;
   const role = req.user?.role;
 
-  let matchCondition = {
-    $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
-  };
+  let matchCondition = {};
 
   if (role === "customer_purchased") {
     const purchases = await Customer.find({
@@ -153,6 +151,7 @@ export const getAllBuildings = asyncHandler(async (req, res) => {
         description: 1,
         images: 1,
         amenities: 1,
+        isDeleted: 1,
       },
     },
   ]);
@@ -165,6 +164,7 @@ export const getAllBuildings = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, buildings, "Buildings fetched successfully"));
 });
+
 export const getAllBuildingsForPublic = asyncHandler(async (req, res) => {
   // const userId = req.user?._id;
   // const role = req.user?.role;
@@ -393,44 +393,50 @@ export const deleteBuilding = asyncHandler(async (req, res) => {
       throw new ApiError(404, "Building not found");
     }
 
-    // ✅ 2. Floor & Units
-    const floors = await FloorUnit.find({ buildingId: _id }, { _id: 1 })
-      .session(session)
-      .lean();
+    if (building.isDeleted) {
+      throw new ApiError(400, "Building already deleted");
+    }
+
+    await Building.findByIdAndUpdate(
+      _id,
+      {
+        isDeleted: true,
+        deletedAt: new Date(),
+        deletedBy: req.user?._id,
+        updatedBy: req.user?._id,
+      },
+      { session },
+    );
+
+    const floors = await FloorUnit.find({ buildingId: _id })
+      .select("_id")
+      .session(session);
 
     const floorIds = floors.map((f) => f._id);
 
+    // ✅ 4. Soft delete PropertyUnits
     if (floorIds.length > 0) {
-      await PropertyUnit.deleteMany({
-        floorId: { $in: floorIds },
-      }).session(session);
+      await PropertyUnit.updateMany(
+        { floorId: { $in: floorIds }, isDeleted: false },
+        {
+          isDeleted: true,
+          deletedBy: req.user?._id,
+          updatedBy: req.user?._id,
+        },
+        { session },
+      );
     }
 
-    await FloorUnit.deleteMany({ buildingId: _id }).session(session);
-
-    // ✅ 3. Project Tasks
-    await Project.deleteMany({ projectId: _id }).session(session);
-
-    // ✅ 4. Leads
-    await Lead.deleteMany({ property: _id }).session(session);
-
-    // ✅ 5. Invoices
-    await Invoice.deleteMany({ project: _id }).session(session);
-
-    // ✅ 6. Schedule Visits
-    await ScheduleVisit.deleteMany({ building: _id }).session(session);
-
-    // ✅ 7. Site Inspections
-    await SiteInspection.deleteMany({ project: _id }).session(session);
-
-    // ✅ 8. User Schedules
-    await UserSchedule.deleteMany({ property: _id }).session(session);
-
-    // ✅ 9. Customers / Purchases
-    await Customer.deleteMany({ property: _id }).session(session);
-
-    // ✅ 10. Delete building
-    await Building.findByIdAndDelete(_id).session(session);
+    // ✅ 5. Soft delete FloorUnits
+    await FloorUnit.updateMany(
+      { buildingId: _id, isDeleted: false },
+      {
+        isDeleted: true,
+        deletedBy: req.user?._id,
+        updatedBy: req.user?._id,
+      },
+      { session },
+    );
 
     // ✅ 11. Audit Log (VERY IMPORTANT — inside session)
     await AuditLog.create(
