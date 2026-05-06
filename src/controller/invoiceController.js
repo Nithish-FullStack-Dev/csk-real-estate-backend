@@ -295,17 +295,17 @@ export const getAllInvoices = async (req, res) => {
           {
             path: "project",
             model: "Building",
-            select: "_id projectName propertyType",
+            select: "_id projectName propertyType isDeleted",
           },
           {
             path: "floorUnit",
             model: "FloorUnit",
-            select: "_id floorNumber unitType",
+            select: "_id floorNumber unitType isDeleted",
           },
           {
             path: "unit",
             model: "PropertyUnit",
-            select: "_id plotNo propertyType",
+            select: "_id plotNo propertyType isDeleted",
           },
           {
             path: "user",
@@ -315,7 +315,7 @@ export const getAllInvoices = async (req, res) => {
           {
             path: "approvedByAccountant",
             model: "User",
-            select: "name email role",
+            select: "name email role isDeleted",
           },
           {
             path: "createdBy",
@@ -349,8 +349,21 @@ export const getAllInvoices = async (req, res) => {
     );
 
     invoices.sort((a, b) => {
-      const aDeleted = a.user?.isDeleted ? 1 : 0;
-      const bDeleted = b.user?.isDeleted ? 1 : 0;
+      const aDeleted =
+        a?.project?.isDeleted ||
+        a?.floorUnit?.isDeleted ||
+        a?.unit?.isDeleted ||
+        a?.user?.isDeleted
+          ? 1
+          : 0;
+
+      const bDeleted =
+        b?.project?.isDeleted ||
+        b?.floorUnit?.isDeleted ||
+        b?.unit?.isDeleted ||
+        b?.user?.isDeleted
+          ? 1
+          : 0;
 
       if (aDeleted !== bDeleted) {
         return aDeleted - bDeleted;

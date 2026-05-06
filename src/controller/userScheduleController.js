@@ -158,7 +158,7 @@ export const updateSchedule = asyncHandler(async (req, res) => {
   const updatedSchedule = await UserSchedule.findByIdAndUpdate(
     scheduleId,
     updateData,
-    { new: true }
+    { new: true },
   );
 
   if (!updatedSchedule) {
@@ -168,12 +168,14 @@ export const updateSchedule = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(
-      new ApiResponse(200, updatedSchedule, "Schedule updated successfully")
+      new ApiResponse(200, updatedSchedule, "Schedule updated successfully"),
     );
 });
 
 export const getBuildingNameForDropDown = asyncHandler(async (req, res) => {
-  const buildings = await Building.find().select("_id projectName");
+  const buildings = await Building.find({ isDeleted: false }).select(
+    "_id projectName",
+  );
   if (!buildings || buildings.length === 0) {
     throw new ApiError(404, "No buildings found");
   }
@@ -184,7 +186,7 @@ export const getBuildingNameForDropDown = asyncHandler(async (req, res) => {
 
 export const getUnitsNameForDropDown = asyncHandler(async (req, res) => {
   const units = await FloorUnit.find().select(
-    "_id buildingId floorNumber unitType"
+    "_id buildingId floorNumber unitType",
   );
 
   const message = units.length

@@ -18,22 +18,45 @@ export const getAllMaterials = async (req, res) => {
           {
             path: "projectId",
             model: "Building",
-            select: "_id projectName",
+            select: "_id projectName isDeleted",
           },
           {
             path: "floorUnit",
             model: "FloorUnit",
-            select: "_id floorNumber unitNumber",
+            select: "_id floorNumber unitNumber isDeleted",
           },
           {
             path: "unit",
             model: "PropertyUnit",
-            select: "_id plotNo",
+            select: "_id plotNo isDeleted",
           },
         ],
         select: "projectId floorUnit unit",
       })
       .populate("contractor", "_id name isDeleted");
+
+    materials.sort((a, b) => {
+      const aDeleted =
+        a?.project?.projectId?.isDeleted ||
+        a?.project?.floorUnit?.isDeleted ||
+        a?.project?.unit?.isDeleted ||
+        a?.contractor?.isDeleted;
+
+      const bDeleted =
+        b?.project?.projectId?.isDeleted ||
+        b?.project?.floorUnit?.isDeleted ||
+        b?.project?.unit?.isDeleted ||
+        b?.contractor?.isDeleted;
+
+      // active first
+      if (aDeleted !== bDeleted) {
+        return aDeleted ? 1 : -1;
+      }
+
+      // newest first
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+
     res.status(200).json(materials);
   } catch (error) {
     console.error("Error fetching materials:", error);

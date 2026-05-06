@@ -54,11 +54,28 @@ export const getUserProjects = async (req, res) => {
     }
 
     const projects = await Project.find(query)
-      .populate("projectId", "_id projectName location")
-      .populate("floorUnit", "_id floorNumber unitType")
-      .populate("unit", "_id propertyType plotNo")
-      .populate("contractors", "_id name email")
+      .populate("projectId", "_id projectName location isDeleted")
+      .populate("floorUnit", "_id floorNumber unitType isDeleted")
+      .populate("unit", "_id propertyType plotNo isDeleted")
+      .populate("contractors", "_id name email isDeleted")
       .populate("siteIncharge", "_id name email isDeleted");
+
+    projects.sort((a, b) => {
+      const aDeleted =
+        a?.projectId?.isDeleted ||
+        a?.floorUnit?.isDeleted ||
+        a?.unit?.isDeleted;
+
+      const bDeleted =
+        b?.projectId?.isDeleted ||
+        b?.floorUnit?.isDeleted ||
+        b?.unit?.isDeleted;
+
+      // active first, deleted last
+      if (aDeleted === bDeleted) return 0;
+
+      return aDeleted ? 1 : -1;
+    });
 
     return res.status(200).json(projects);
   } catch (error) {
@@ -261,11 +278,11 @@ export const getUserTasks = async (req, res) => {
           : {};
 
     const projects = await Project.find(query)
-      .populate("projectId", "_id projectName")
-      .populate("floorUnit", "_id floorNumber unitType")
-      .populate("unit", "_id propertyType plotNo")
-      .populate("contractors", "_id name")
-      .populate("siteIncharge", "_id name")
+      .populate("projectId", "_id projectName isDeleted")
+      .populate("floorUnit", "_id floorNumber unitType isDeleted")
+      .populate("unit", "_id propertyType plotNo isDeleted")
+      .populate("contractors", "_id name isDeleted")
+      .populate("siteIncharge", "_id name isDeleted")
       .lean();
 
     const taskList = [];
@@ -301,6 +318,10 @@ export const getUserTasks = async (req, res) => {
             contractorId: task.contractor,
             siteInchargeName,
             _id: task._id,
+
+            isBuildingDeleted: project?.projectId?.isDeleted || false,
+            isFloorDeleted: project?.floorUnit?.isDeleted || false,
+            isUnitDeleted: project?.unit?.isDeleted || false,
           };
 
           if (role === "site_incharge") {
@@ -360,8 +381,22 @@ export const getUserTasks = async (req, res) => {
     }
 
     taskList.sort((a, b) => {
+      const aDeleted =
+        a.isBuildingDeleted || a.isFloorDeleted || a.isUnitDeleted;
+
+      const bDeleted =
+        b.isBuildingDeleted || b.isFloorDeleted || b.isUnitDeleted;
+
+      // active first
+      if (aDeleted !== bDeleted) {
+        return aDeleted ? 1 : -1;
+      }
+
+      // then priority
       const aPriority = priorityOrder[a.priority?.toLowerCase()] || 0;
+
       const bPriority = priorityOrder[b.priority?.toLowerCase()] || 0;
+
       return bPriority - aPriority;
     });
 
@@ -2071,18 +2106,32 @@ export const assignContractorToUnit = async (req, res) => {
 export const projectDropDownData = asyncHandler(async (req, res) => {
   const projects = await Project.find({})
     .select("_id projectId floorUnit unit")
-    .populate("projectId", "_id projectName")
-    .populate("floorUnit", "_id floorNumber unitType")
-    .populate("unit", "_id plotNo propertyType");
+    .populate({
+      path: "projectId",
+      select: "_id projectName isDeleted",
+      match: { isDeleted: false },
+    })
+    .populate({
+      path: "floorUnit",
+      select: "_id floorNumber unitType isDeleted",
+      match: { isDeleted: false },
+    })
+    .populate({
+      path: "unit",
+      select: "_id plotNo propertyType isDeleted",
+      match: { isDeleted: false },
+    });
 
-  let message;
-  if (!projects || projects.length === 0) {
-    message = "No projects found";
-  } else {
-    message = "Projects fetched successfully";
-  }
+  const filteredProjects = projects.filter(
+    (project) => project.projectId && project.floorUnit && project.unit,
+  );
 
-  res.status(200).json(new ApiResponse(201, projects, message));
+  const message =
+    filteredProjects.length === 0
+      ? "No active projects found"
+      : "Projects fetched successfully";
+
+  res.status(200).json(new ApiResponse(201, filteredProjects, message));
 });
 
 export const projectDropDownDataForIssue = asyncHandler(async (req, res) => {
@@ -2105,19 +2154,32 @@ export const projectDropDownDataForIssue = asyncHandler(async (req, res) => {
 
   const projects = await Project.find(filter)
     .select("_id projectId floorUnit unit")
-    .populate("projectId", "_id projectName")
-    .populate("floorUnit", "_id floorNumber unitType")
-    .populate("unit", "_id plotNo propertyType");
+    .populate({
+      path: "projectId",
+      select: "_id projectName isDeleted",
+      match: { isDeleted: false },
+    })
+    .populate({
+      path: "floorUnit",
+      select: "_id floorNumber unitType isDeleted",
+      match: { isDeleted: false },
+    })
+    .populate({
+      path: "unit",
+      select: "_id plotNo propertyType isDeleted",
+      match: { isDeleted: false },
+    });
 
-  let message;
+  const filteredProjects = projects.filter(
+    (project) => project.projectId && project.floorUnit && project.unit,
+  );
 
-  if (!projects.length) {
-    message = "No projects found";
-  } else {
-    message = "Projects fetched successfully";
-  }
+  const message =
+    filteredProjects.length === 0
+      ? "No active projects found"
+      : "Projects fetched successfully";
 
-  res.status(200).json(new ApiResponse(200, projects, message));
+  res.status(200).json(new ApiResponse(200, filteredProjects, message));
 });
 
 export const projectDropDownDataForSiteIncharge = asyncHandler(
@@ -2132,18 +2194,36 @@ export const projectDropDownDataForSiteIncharge = asyncHandler(
       siteIncharge: siteInchargeId,
     })
       .select("_id projectId floorUnit unit")
-      .populate("projectId", "_id projectName")
-      .populate("floorUnit", "_id floorNumber unitType")
-      .populate("unit", "_id plotNo propertyType");
+      .populate({
+        path: "projectId",
+        select: "_id projectName isDeleted",
+        match: { isDeleted: false },
+      })
+      .populate({
+        path: "floorUnit",
+        select: "_id floorNumber unitType isDeleted",
+        match: {
+          isDeleted: false,
+        },
+      })
+      .populate({
+        path: "unit",
+        select: "_id plotNo propertyType isDeleted",
+        match: {
+          isDeleted: false,
+        },
+      });
 
-    let message;
-    if (!projects || projects.length === 0) {
-      message = "No projects found";
-    } else {
-      message = "Projects fetched successfully";
-    }
+    const filteredProjects = projects.filter(
+      (project) => project.projectId && project.floorUnit && project.unit,
+    );
 
-    res.status(200).json(new ApiResponse(200, projects, message));
+    const message =
+      filteredProjects.length === 0
+        ? "No active projects found"
+        : "Projects fetched successfully";
+
+    res.status(200).json(new ApiResponse(200, filteredProjects, message));
   },
 );
 

@@ -534,20 +534,6 @@ export const getTrashedBuildings = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, buildings));
 });
 
-export const restoreBuilding = asyncHandler(async (req, res) => {
-  const building = await Building.findOne(
-    { _id: req.params.id, isDeleted: true },
-    null,
-    { withDeleted: true },
-  );
-
-  if (!building) throw new ApiError(404, "Building not found in trash");
-
-  await building.restore(req.user._id);
-
-  res.json(new ApiResponse(200, null, "Building restored successfully"));
-});
-
 export const deleteBuildingPermanently = asyncHandler(async (req, res) => {
   const buildingId = req.params.id;
 
@@ -577,4 +563,81 @@ export const deleteBuildingPermanently = asyncHandler(async (req, res) => {
   });
 
   res.json(new ApiResponse(200, null, "Building permanently deleted"));
+});
+
+export const restoreBuilding = asyncHandler(async (req, res) => {
+  const { _id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(_id)) {
+    throw new ApiError(400, "Invalid building ID");
+  }
+
+  const session = await mongoose.startSession();
+
+  try {
+    await session.startTransaction();
+
+    // ✅ 1. Check building
+    const building = await Building.findById(_id).session(session);
+
+    if (!building) {
+      throw new ApiError(404, "Building not found");
+    }
+
+    if (!building.isDeleted) {
+      throw new ApiError(400, "Building already restored");
+    }
+
+    await Building.findByIdAndUpdate(
+      _id,
+      {
+        isDeleted: false,
+        deletedAt: null,
+        deletedBy: null,
+        updatedBy: req.user?._id,
+      },
+      { session },
+    );
+
+    const floors = await FloorUnit.find({ buildingId: _id })
+      .select("_id")
+      .session(session);
+
+    const floorIds = floors.map((f) => f._id);
+
+    // ✅ 4. Soft delete PropertyUnits
+    if (floorIds.length > 0) {
+      await PropertyUnit.updateMany(
+        { floorId: { $in: floorIds }, isDeleted: true },
+        {
+          isDeleted: false,
+          deletedBy: null,
+          updatedBy: req.user?._id,
+        },
+        { session },
+      );
+    }
+
+    // ✅ 5. Soft delete FloorUnits
+    await FloorUnit.updateMany(
+      { buildingId: _id, isDeleted: true },
+      {
+        isDeleted: false,
+        deletedBy: null,
+        updatedBy: req.user?._id,
+      },
+      { session },
+    );
+
+    await session.commitTransaction();
+
+    return res.json(
+      new ApiResponse(200, null, "Building and all related data restored"),
+    );
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
 });

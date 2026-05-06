@@ -74,16 +74,32 @@ export const getInspectionsByIncharge = async (req, res) => {
 
   try {
     const inspections = await SiteInspection.find(filter)
-      .populate("project", "projectName")
-      .populate("floorUnit", "floorNumber")
-      .populate("unit", "projectName plotNo")
+      .populate("project", "projectName isDeleted")
+      .populate("floorUnit", "floorNumber isDeleted")
+      .populate("unit", "projectName plotNo isDeleted")
       .populate("site_incharge", "name isDeleted")
       .sort({ date: -1 });
 
     inspections.sort((a, b) => {
-      const aDeleted = a?.site_incharge?.isDeleted ? 1 : 0;
-      const bDeleted = b?.site_incharge?.isDeleted ? 1 : 0;
-      return aDeleted - bDeleted;
+      const aDeleted =
+        a?.project?.isDeleted ||
+        a?.floorUnit?.isDeleted ||
+        a?.unit?.isDeleted ||
+        a?.site_incharge?.isDeleted;
+
+      const bDeleted =
+        b?.project?.isDeleted ||
+        b?.floorUnit?.isDeleted ||
+        b?.unit?.isDeleted ||
+        b?.site_incharge?.isDeleted;
+
+      // active first
+      if (aDeleted !== bDeleted) {
+        return aDeleted ? 1 : -1;
+      }
+
+      // newest first
+      return new Date(b.date) - new Date(a.date);
     });
 
     res.status(200).json({ inspections });

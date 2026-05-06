@@ -67,7 +67,6 @@ export const getAllFloorsByBuildingId = asyncHandler(async (req, res) => {
 
   let query = {
     buildingId: new mongoose.Types.ObjectId(buildingId),
-    isDeleted: false,
   };
 
   if (role === "customer_purchased") {
@@ -146,7 +145,10 @@ export const deleteFloorById = asyncHandler(async (req, res) => {
     await session.startTransaction();
 
     // ✅ 1. Check floor
-    const floor = await FloorUnit.findById(_id).session(session);
+    const floor = await FloorUnit.findOne({
+      _id,
+      isDeleted: false,
+    }).session(session);
 
     if (!floor) {
       throw new ApiError(404, "Floor not found");
@@ -154,37 +156,41 @@ export const deleteFloorById = asyncHandler(async (req, res) => {
 
     // ✅ 2. Get all units under this floor
     const units = await propertyUnitModel
-      .find({ floorId: _id })
+      .find({
+        floorId: _id,
+        isDeleted: false,
+      })
       .select("_id")
-      .lean()
       .session(session);
 
     const unitIds = units.map((u) => u._id);
 
     // ✅ 3. Delete all related data using UNIT (strong relation)
     if (unitIds.length > 0) {
-      await Project.deleteMany({ unit: { $in: unitIds } }).session(session);
-
-      await SiteInspection.deleteMany({ unit: { $in: unitIds } }).session(
-        session,
+      await propertyUnitModel.updateMany(
+        {
+          _id: { $in: unitIds },
+        },
+        {
+          $set: {
+            isDeleted: true,
+            deletedBy: req.user?._id || null,
+          },
+        },
+        { session },
       );
-
-      await UserSchedule.deleteMany({ unit: { $in: unitIds } }).session(
-        session,
-      );
-
-      await Customer.deleteMany({ unit: { $in: unitIds } }).session(session);
-
-      await Invoice.deleteMany({ unit: { $in: unitIds } }).session(session);
-
-      await Lead.deleteMany({ unit: { $in: unitIds } }).session(session);
     }
 
-    // ✅ 4. Delete units
-    await propertyUnitModel.deleteMany({ floorId: _id }).session(session);
-
-    // ✅ 5. Delete floor
-    await FloorUnit.findByIdAndDelete(_id).session(session);
+    await FloorUnit.findByIdAndUpdate(
+      _id,
+      {
+        $set: {
+          isDeleted: true,
+          deletedBy: req.user?._id || null,
+        },
+      },
+      { session },
+    );
 
     // ✅ 6. Audit log
     await AuditLog.create(
@@ -241,3 +247,68 @@ export const getAllFloorsByBuildingIdForDropDown = asyncHandler(
     return res.status(200).json(new ApiResponse(200, floors, message));
   },
 );
+
+export const restoreFloorById = asyncHandler(async (req, res) => {
+  const { _id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(_id)) {
+    throw new ApiError(400, "Invalid floor ID");
+  }
+
+  const session = await mongoose.startSession();
+
+  try {
+    await session.startTransaction();
+
+    // ✅ 1. Find deleted floor
+    const floor = await FloorUnit.findOne({
+      _id,
+      isDeleted: true,
+    }).session(session);
+
+    if (!floor) {
+      throw new ApiError(404, "Deleted floor not found");
+    }
+
+    // ✅ 2. Restore floor
+    await FloorUnit.findByIdAndUpdate(
+      _id,
+      {
+        $set: {
+          isDeleted: false,
+          deletedBy: null,
+        },
+      },
+      { session },
+    );
+
+    // ✅ 3. Restore all units under floor
+    await propertyUnitModel.updateMany(
+      {
+        floorId: _id,
+        isDeleted: true,
+      },
+      {
+        $set: {
+          isDeleted: false,
+          deletedBy: null,
+        },
+      },
+      { session },
+    );
+
+    // ✅ 5. Commit
+    await session.commitTransaction();
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, null, "Floor and units restored successfully"),
+      );
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
+});
