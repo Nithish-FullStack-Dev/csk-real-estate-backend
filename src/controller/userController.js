@@ -88,7 +88,6 @@ export const getAllExistingUsers = async (req, res) => {
 
     const users = await User.find({
       _id: { $ne: loggedInUserId },
-      isDeleted: false,
     }).select("_id name email role avatar status lastLogin phone");
 
     res.status(200).json({ users });
