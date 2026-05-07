@@ -8,6 +8,7 @@ import {
   getUnit,
   getUnitsByFloorIdAndBuildingId,
   getUnitsByFloorIdAndBuildingIdForDropDown,
+  restoreUnit,
   updateUnit,
 } from "../controller/propertyunit.controller.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
@@ -72,4 +73,6 @@ router.patch(
 );
 
 router.delete("/deleteUnit/:unitId", authenticate, deleteUnit);
+
+router.patch("/restoreUnit/:unitId", authenticate, restoreUnit);
 export default router;

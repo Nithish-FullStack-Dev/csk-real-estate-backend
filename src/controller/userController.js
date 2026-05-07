@@ -320,9 +320,10 @@ export const updateStatus = async (req, res) => {
 
 export const getSiteIncharges = async (req, res) => {
   try {
-    const siteIncharges = await User.find({ role: "site_incharge" }).select(
-      "name email role",
-    );
+    const siteIncharges = await User.find({
+      role: "site_incharge",
+      isDeleted: false,
+    }).select("name email role");
     res.status(200).json(siteIncharges);
   } catch (error) {
     console.error("Error fetching site incharges:", error);
@@ -332,9 +333,10 @@ export const getSiteIncharges = async (req, res) => {
 
 export const getContractors = async (req, res) => {
   try {
-    const contractors = await User.find({ role: "contractor" }).select(
-      "name email role",
-    );
+    const contractors = await User.find({
+      role: "contractor",
+      isDeleted: false,
+    }).select("name email role");
     res.status(200).json(contractors);
   } catch (error) {
     console.error("Error fetching site incharges:", error);
@@ -354,7 +356,9 @@ export const getAllSalesPersons = async (req, res) => {
 
 export const getAllAgentPersons = async (req, res) => {
   try {
-    const agent = await User.find({ role: "agent" }).select("name email role");
+    const agent = await User.find({ role: "agent", isDeleted: false }).select(
+      "name email role",
+    );
     res.status(200).json(agent);
   } catch (error) {
     console.error("Error fetching agent:", error);
@@ -368,6 +372,7 @@ export const getAllCustomer_Purchased = async (req, res) => {
     const customer_purchased = await User.find({
       role: "customer_purchased",
       _id: { $nin: assignedCustomers },
+      isDeleted: false,
     });
     res.status(200).json(customer_purchased);
   } catch (error) {

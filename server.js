@@ -81,7 +81,11 @@ app.set("trust proxy", 1);
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:8080", // frontend origin
+    origin: [
+      "https://www.cskrealtors.com",
+      "http://localhost:8080",
+      "https://www.app.cskrealtors.com",
+    ], // frontend origin
     credentials: true,
   },
 });
@@ -121,14 +125,16 @@ const allowedOrigins = [
   "http://localhost:8011",
   "http://69.62.80.127:8010",
   "http://69.62.80.127:8011",
-  "http://csk-realtors.bestofall.in/:8010",
+  "http://csk-realtors.bestofall.in:8010",
   "http://csk-realtors.bestofall.in",
-  "http://csk-realtors.bestofall.in/:8011",
+  "http://csk-realtors.bestofall.in:8011",
   "https://csk-realtors.bestofall.in",
   "http://localhost:8080",
   "http://localhost:8081",
   "https://csk-frontend-chi.vercel.app",
   "https://csk.bestofall.in",
+  "https://www.cskrealtors.com",
+  "https://www.app.cskrealtors.com",
 ]; // add more if needed
 
 app.use(

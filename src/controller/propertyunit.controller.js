@@ -123,7 +123,6 @@ export const getUnitsByFloorIdAndBuildingId = asyncHandler(async (req, res) => {
   let query = {
     buildingId: new mongoose.Types.ObjectId(buildingId),
     floorId: new mongoose.Types.ObjectId(floorId),
-    isDeleted: false,
   };
 
   // Restrict for customer
@@ -132,7 +131,6 @@ export const getUnitsByFloorIdAndBuildingId = asyncHandler(async (req, res) => {
       customerId: userId,
       property: buildingId,
       floorUnit: floorId,
-      isDeleted: false,
     }).select("unit");
 
     const unitIds = [...new Set(purchases.map((p) => p.unit.toString()))];
@@ -141,8 +139,8 @@ export const getUnitsByFloorIdAndBuildingId = asyncHandler(async (req, res) => {
   }
 
   const units = await PropertyUnitModel.find(query)
-    .populate("buildingId", "projectName location propertyType")
-    .populate("floorId", "floorNumber unitType totalSubUnits")
+    .populate("buildingId", "projectName location propertyType isDeleted")
+    .populate("floorId", "floorNumber unitType totalSubUnits isDeleted")
     .exec();
 
   const message = units.length
@@ -268,7 +266,10 @@ export const deleteUnit = asyncHandler(async (req, res) => {
     await session.startTransaction();
 
     // ✅ 1. Get unit
-    const unit = await PropertyUnitModel.findById(unitId)
+    const unit = await PropertyUnitModel.findOne({
+      _id: unitId,
+      isDeleted: false,
+    })
       .lean()
       .session(session);
 
@@ -277,20 +278,16 @@ export const deleteUnit = asyncHandler(async (req, res) => {
       throw new ApiError(404, "Unit not found");
     }
 
-    await Project.deleteOne({ unit: unitId }).session(session);
-
-    await SiteInspection.deleteMany({ unit: unitId }).session(session);
-
-    await UserSchedule.deleteMany({ unit: unitId }).session(session);
-
-    await Invoice.deleteMany({ unit: unitId }).session(session);
-
-    await Customer.deleteMany({ unit: unitId }).session(session);
-
-    await Lead.deleteMany({ unit: unitId }).session(session);
-
-    // ✅ 2. Delete unit
-    await PropertyUnitModel.findByIdAndDelete(unitId).session(session);
+    await PropertyUnitModel.findByIdAndUpdate(
+      unitId,
+      {
+        $set: {
+          isDeleted: true,
+          deletedBy: req.user?._id || null,
+        },
+      },
+      { session },
+    );
 
     // ✅ 3. Audit log
     await AuditLog.create(
@@ -331,10 +328,9 @@ export const getUnit = asyncHandler(async (req, res) => {
 
   const unit = await PropertyUnitModel.findOne({
     _id: unitId,
-    isDeleted: false,
   })
-    .populate("buildingId", "projectName location propertyType")
-    .populate("floorId", "floorNumber unitType totalSubUnits")
+    .populate("buildingId", "projectName location propertyType isDeleted")
+    .populate("floorId", "floorNumber unitType totalSubUnits isDeleted")
     .populate("customerId", "user.name user.email")
     .populate("contractor", "name")
     .populate("siteIncharge", "name")
@@ -441,4 +437,52 @@ export const getPurchasedCustomerUnits = asyncHandler(async (req, res) => {
   res
     .status(200)
     .json(new ApiResponse(200, customers, "Customers retrieved successfully"));
+});
+
+export const restoreUnit = asyncHandler(async (req, res) => {
+  const { unitId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(unitId)) {
+    throw new ApiError(400, "Invalid unit ID");
+  }
+
+  const session = await mongoose.startSession();
+
+  try {
+    await session.startTransaction();
+
+    // ✅ 1. Find deleted unit
+    const unit = await PropertyUnitModel.findOne({
+      _id: unitId,
+      isDeleted: true,
+    }).session(session);
+
+    if (!unit) {
+      throw new ApiError(404, "Deleted unit not found");
+    }
+
+    // ✅ 2. Restore unit
+    await PropertyUnitModel.findByIdAndUpdate(
+      unitId,
+      {
+        $set: {
+          isDeleted: false,
+          deletedBy: null,
+        },
+      },
+      { session },
+    );
+
+    // ✅ 3. Commit transaction
+    await session.commitTransaction();
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, null, "Unit restored successfully"));
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
 });

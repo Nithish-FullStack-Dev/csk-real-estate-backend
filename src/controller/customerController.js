@@ -7,6 +7,8 @@ import InnerPlot from "../modals/InnerPlot.js";
 import PropertyUnit from "../modals/propertyUnit.model.js";
 import OpenLand from "../modals/openLand.js";
 import CustomerPayment from "../modals/CustomerPayment.js";
+import { AuditLog } from "../modals/auditLog.model.js";
+import mongoose from "mongoose";
 
 export const createCustomer = asyncHandler(async (req, res) => {
   const {
@@ -148,17 +150,44 @@ export const createCustomer = asyncHandler(async (req, res) => {
 
 //! GET ALL CUSTOMERS
 export const getAllCustomers = asyncHandler(async (req, res) => {
-  const purchases = await Customer.find({ isDeleted: false })
-    .populate("customerId", "_id name email phone avatar")
-    .populate("purchasedFrom", "_id name email role")
-    .populate("property", "_id projectName location propertyType")
-    .populate("floorUnit", "_id floorNumber unitType")
-    .populate("unit", "_id plotNo propertyType")
-    .populate("openPlot", "_id projectName openPlotNo")
-    .populate("innerPlot", "_id plotNumber")
-    .populate("openLand", "_id projectName surveyNumber landType")
-    .populate("contractorId", "_id name email phone")
-    .populate("siteInchargeId", "_id name email phone");
+  const purchases = await Customer.find()
+    .populate("customerId", "_id name email phone avatar isDeleted")
+    .populate("purchasedFrom", "_id name email role isDeleted")
+    .populate("property", "_id projectName location propertyType isDeleted")
+    .populate("floorUnit", "_id floorNumber unitType isDeleted")
+    .populate("unit", "_id plotNo propertyType isDeleted")
+    .populate("openPlot", "_id projectName openPlotNo isDeleted")
+    .populate("innerPlot", "_id plotNo isDeleted")
+    .populate("openLand", "_id projectName surveyNumber landType isDeleted")
+    .populate("contractorId", "_id name email phone isDeleted")
+    .populate("siteInchargeId", "_id name email phone isDeleted");
+
+  purchases.sort((a, b) => {
+    const aDeleted =
+      a?.isDeleted ||
+      a?.property?.isDeleted ||
+      a?.floorUnit?.isDeleted ||
+      a?.unit?.isDeleted ||
+      a?.openPlot?.isDeleted ||
+      a?.innerPlot?.isDeleted ||
+      a?.openLand?.isDeleted;
+
+    const bDeleted =
+      b?.isDeleted ||
+      b?.property?.isDeleted ||
+      b?.floorUnit?.isDeleted ||
+      b?.unit?.isDeleted ||
+      b?.openPlot?.isDeleted ||
+      b?.innerPlot?.isDeleted ||
+      b?.openLand?.isDeleted;
+
+    // active first
+    if (aDeleted !== bDeleted) {
+      return aDeleted ? 1 : -1;
+    }
+
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
 
   res
     .status(200)
@@ -269,26 +298,68 @@ export const updateCustomer = asyncHandler(async (req, res) => {
 export const deleteCustomer = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  if (!id) {
-    throw new ApiError(400, "Customer ID is required");
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid customer ID");
   }
 
-  const deleted = await Customer.findByIdAndUpdate(
-    id,
-    {
-      isDeleted: true,
-      deletedBy: req.user?._id,
-    },
-    { new: true },
-  );
+  const session = await mongoose.startSession();
 
-  if (!deleted) {
-    throw new ApiError(404, "Customer not found");
+  try {
+    await session.startTransaction();
+
+    // ✅ Find active customer
+    const customer = await Customer.findOne({
+      _id: id,
+      isDeleted: false,
+    }).session(session);
+
+    if (!customer) {
+      throw new ApiError(404, "Customer not found or already deleted");
+    }
+
+    // ✅ Keep old snapshot for audit
+    const oldCustomer = customer.toObject();
+
+    // ✅ Soft delete customer
+    customer.isDeleted = true;
+    customer.deletedBy = req.user?._id || null;
+    customer.updatedBy = req.user?._id || null;
+
+    await customer.save({ session });
+
+    // ✅ Manual Audit Log
+    await AuditLog.create(
+      [
+        {
+          operationType: "delete",
+          database: "CSKestate",
+          collectionName: "customers",
+          documentId: customer._id,
+
+          fullDocument: customer,
+
+          previousFields: oldCustomer,
+
+          changeEventId: new mongoose.Types.ObjectId().toString(),
+
+          userId: req.user?._id || null,
+        },
+      ],
+      { session },
+    );
+
+    // ✅ Commit transaction
+    await session.commitTransaction();
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, customer, "Customer deleted successfully"));
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
   }
-
-  res
-    .status(200)
-    .json(new ApiResponse(200, null, "Customer deleted successfully"));
 });
 
 //! Get Customer by User Id
@@ -451,4 +522,31 @@ export const getMyPurchase = asyncHandler(async (req, res) => {
       },
     }),
   );
+});
+
+export const restoreCustomer = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid customer ID");
+  }
+
+  const customer = await Customer.findOne({
+    _id: id,
+    isDeleted: true,
+  });
+
+  if (!customer) {
+    throw new ApiError(404, "Deleted customer not found");
+  }
+
+  customer.isDeleted = false;
+  customer.deletedBy = null;
+  customer.updatedBy = req.user?._id || null;
+
+  await customer.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, customer, "Customer restored successfully"));
 });

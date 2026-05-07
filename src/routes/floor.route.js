@@ -4,6 +4,7 @@ import {
   deleteFloorById,
   getAllFloorsByBuildingId,
   getAllFloorsByBuildingIdForDropDown,
+  restoreFloorById,
   updateFloorById,
 } from "../controller/floor.controller.js";
 import { upload } from "../middlewares/multer.js";
@@ -30,5 +31,6 @@ router.patch(
   updateFloorById,
 );
 router.delete("/deleteFloorById/:_id", authenticate, deleteFloorById);
+router.patch("/restoreFloor/:_id", authenticate, restoreFloorById);
 
 export default router;

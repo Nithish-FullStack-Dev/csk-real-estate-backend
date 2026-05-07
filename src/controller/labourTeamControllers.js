@@ -66,17 +66,17 @@ export const getLaborTeamsForContractor = async (req, res) => {
           {
             path: "projectId",
             model: "Building",
-            select: "_id projectName",
+            select: "_id projectName isDeleted",
           },
           {
             path: "floorUnit",
             model: "FloorUnit",
-            select: "_id floorNumber unitType",
+            select: "_id floorNumber unitType isDeleted",
           },
           {
             path: "unit",
             model: "PropertyUnit",
-            select: "_id plotNo propertyType",
+            select: "_id plotNo propertyType isDeleted",
           },
         ],
         select: "projectId floorUnit unit",
@@ -84,14 +84,25 @@ export const getLaborTeamsForContractor = async (req, res) => {
       .populate("contractor", "name isDeleted");
 
     teams.sort((a, b) => {
-      const aDeleted = a?.contractor?.isDeleted ? 1 : 0;
-      const bDeleted = b?.contractor?.isDeleted ? 1 : 0;
+      const aDeleted =
+        a?.project?.projectId?.isDeleted ||
+        a?.project?.floorUnit?.isDeleted ||
+        a?.project?.unit?.isDeleted ||
+        a?.contractor?.isDeleted;
 
+      const bDeleted =
+        b?.project?.projectId?.isDeleted ||
+        b?.project?.floorUnit?.isDeleted ||
+        b?.project?.unit?.isDeleted ||
+        b?.contractor?.isDeleted;
+
+      // active first
       if (aDeleted !== bDeleted) {
-        return aDeleted - bDeleted;
+        return aDeleted ? 1 : -1;
       }
 
-      return b.createdAt - a.createdAt; // secondary sort
+      // newest first
+      return new Date(b.createdAt) - new Date(a.createdAt);
     });
 
     res.status(200).json(teams);
