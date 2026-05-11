@@ -295,7 +295,13 @@ export const getUserTasks = async (req, res) => {
       const siteInchargeName = project.siteIncharge?.name || "N/A";
 
       const contractorMap = Object.fromEntries(
-        (project.contractors || []).map((c) => [c._id.toString(), c.name]),
+        (project.contractors || []).map((c) => [
+          c._id.toString(),
+          {
+            name: c.name,
+            isDeleted: c.isDeleted || false,
+          },
+        ]),
       );
 
       const unitsMap = project.units || {};
@@ -322,6 +328,12 @@ export const getUserTasks = async (req, res) => {
             isBuildingDeleted: project?.projectId?.isDeleted || false,
             isFloorDeleted: project?.floorUnit?.isDeleted || false,
             isUnitDeleted: project?.unit?.isDeleted || false,
+            isSiteInchargeDeleted: project?.siteIncharge?.isDeleted || false,
+            contractorName:
+              contractorMap[taskContractorId]?.name || "Unknown Contractor",
+
+            isContractorDeleted:
+              contractorMap[taskContractorId]?.isDeleted || false,
           };
 
           if (role === "site_incharge") {
@@ -332,7 +344,7 @@ export const getUserTasks = async (req, res) => {
               taskList.push({
                 ...commonTaskData,
                 contractorName:
-                  contractorMap[taskContractorId] || "Unknown Contractor",
+                  contractorMap[taskContractorId]?.name || "Unknown Contractor",
                 status: task.statusForSiteIncharge || "pending verification",
                 submittedByContractorOn: task.submittedByContractorOn || null,
                 submittedBySiteInchargeOn:
@@ -367,7 +379,7 @@ export const getUserTasks = async (req, res) => {
               status: task.statusForContractor || "in_progress",
               progress: task.progressPercentage,
               contractorName:
-                contractorMap[taskContractorId] || "Unknown Contractor",
+                contractorMap[taskContractorId]?.name || "Unknown Contractor",
 
               verificationDecision: task.verificationDecision || "",
               qualityAssessment: task.qualityAssessment || "",

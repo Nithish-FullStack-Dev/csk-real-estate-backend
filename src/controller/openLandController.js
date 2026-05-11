@@ -122,7 +122,10 @@ export const getAllOpenLand = asyncHandler(async (req, res) => {
   }
 
   const lands = await populateOpenLand(
-    OpenLand.find(query).sort({ createdAt: -1 }),
+    OpenLand.find(query).sort({
+      isDeleted: 1,
+      createdAt: -1,
+    }),
   ).exec();
 
   res.status(200).json(new ApiResponse(200, lands));

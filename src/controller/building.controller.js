@@ -133,6 +133,12 @@ export const getAllBuildings = asyncHandler(async (req, res) => {
       $match: matchCondition,
     },
     {
+      $sort: {
+        isDeleted: 1,
+        createdAt: -1,
+      },
+    },
+    {
       $project: {
         _id: 1,
         projectName: 1,

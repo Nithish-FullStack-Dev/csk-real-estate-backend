@@ -155,7 +155,8 @@ export const updateInnerPlot = asyncHandler(async (req, res) => {
   if (!existing) throw new ApiError(404, "Inner plot not found");
 
   let thumbnailUrl = existing.thumbnailUrl;
-  let images = existing.images || [];
+
+  let existingImages = [];
 
   /* ---------- FILE HANDLING ---------- */
 
@@ -166,18 +167,22 @@ export const updateInnerPlot = asyncHandler(async (req, res) => {
       .replace(process.cwd(), "")
       .replace(/\\/g, "/");
   }
+
+  if (req.body.existingImages) {
+    existingImages = Array.isArray(req.body.existingImages)
+      ? req.body.existingImages
+      : [req.body.existingImages];
+  }
+
+  let newImages = [];
+
   if (req.files?.images) {
-    const newImages = req.files.images.map((file) =>
+    newImages = req.files.images.map((file) =>
       file.path.replace(process.cwd(), "").replace(/\\/g, "/"),
     );
-    images = [...images, ...newImages];
   }
-  if (req.files?.images) {
-    const newImages = req.files.images.map((file) =>
-      file.path.replace(process.cwd(), "").replace(/\\/g, "/"),
-    );
-    images = [...images, ...newImages];
-  }
+
+  const images = [...existingImages, ...newImages];
 
   /* ---------- BODY FIX ---------- */
 

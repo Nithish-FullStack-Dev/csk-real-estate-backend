@@ -84,7 +84,7 @@ const io = new Server(server, {
     origin: [
       "https://www.cskrealtors.com",
       "http://localhost:8080",
-      "https://www.app.cskrealtors.com",
+      "https://app.cskrealtors.com",
     ], // frontend origin
     credentials: true,
   },
@@ -134,7 +134,7 @@ const allowedOrigins = [
   "https://csk-frontend-chi.vercel.app",
   "https://csk.bestofall.in",
   "https://www.cskrealtors.com",
-  "https://www.app.cskrealtors.com",
+  "https://app.cskrealtors.com",
 ]; // add more if needed
 
 app.use(

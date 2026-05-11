@@ -109,13 +109,6 @@ export const getJobPosts = asynchandler(async (req, res) => {
   const filter = {};
   const andConditions = [];
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  andConditions.push({
-    $or: [{ expiresAt: null }, { expiresAt: { $gte: today } }],
-  });
-
   if (req.query.public === "true") {
     filter.status = "published";
   }
@@ -200,6 +193,54 @@ export const getJobPosts = asynchandler(async (req, res) => {
   });
 });
 
+export const getPublishedCareers = asynchandler(async (req, res) => {
+  const today = new Date();
+
+  const jobs = await JobPost.find({
+    status: "published",
+    isDeleted: false,
+    $or: [
+      {
+        expiresAt: null,
+      },
+      {
+        expiresAt: {
+          $gte: today,
+        },
+      },
+    ],
+  })
+    .sort({
+      isFeatured: -1,
+      publishedAt: -1,
+      createdAt: -1,
+    })
+    .select([
+      "title",
+      "department",
+      "location",
+      "jobType",
+      "workMode",
+      "overview",
+      "description",
+      "responsibilities",
+      "requirements",
+      "benefits",
+      "experience",
+      "salaryRange",
+      "openings",
+      "expiresAt",
+      "publishedAt",
+      "isFeatured",
+    ]);
+
+  return res.status(200).json({
+    success: true,
+    count: jobs.length,
+    data: jobs,
+  });
+});
+
 export const updateJobPost = asynchandler(async (req, res) => {
   const { id } = req.params;
 
@@ -254,6 +295,18 @@ export const updateJobPost = asynchandler(async (req, res) => {
     }
   }
 
+  if (expiresAt) {
+    const expiryDate = new Date(expiresAt);
+    const today = new Date();
+
+    today.setHours(0, 0, 0, 0);
+    expiryDate.setHours(0, 0, 0, 0);
+
+    if (expiryDate < today) {
+      throw new ApiError(400, "Expiry date cannot be in the past");
+    }
+  }
+
   if (title !== undefined) existingJob.title = title;
   if (overview !== undefined) existingJob.overview = overview;
   if (description !== undefined) existingJob.description = description;
@@ -303,7 +356,9 @@ export const updateJobPost = asynchandler(async (req, res) => {
     }
   }
 
-  if (expiresAt !== undefined) existingJob.expiresAt = expiresAt;
+  if (expiresAt !== undefined) {
+    existingJob.expiresAt = expiresAt ? new Date(expiresAt) : null;
+  }
 
   existingJob.updatedBy = req.user?._id;
 
@@ -330,4 +385,42 @@ export const deleteJobPost = asynchandler(async (req, res) => {
   return res
     .status(200)
     .json(new ApiResponse(200, null, "Job post deleted successfully"));
+});
+
+export const updateJobPostStatus = asynchandler(async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid job post ID");
+  }
+
+  const allowedStatuses = ["draft", "published", "closed"];
+
+  if (!allowedStatuses.includes(status)) {
+    throw new ApiError(400, "Invalid status");
+  }
+
+  const job = await JobPost.findOne({
+    _id: id,
+    isDeleted: false,
+  });
+
+  if (!job) {
+    throw new ApiError(404, "Job post not found");
+  }
+
+  job.status = status;
+
+  if (status === "published" && !job.publishedAt) {
+    job.publishedAt = new Date();
+  }
+
+  job.updatedBy = req.user?._id;
+
+  await job.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, job, "Job status updated successfully"));
 });

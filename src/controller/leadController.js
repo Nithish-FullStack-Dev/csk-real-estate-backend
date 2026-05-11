@@ -358,7 +358,7 @@ export const getAllLeads = async (req, res) => {
       query = { addedBy: _id };
     }
 
-    const leads = await Lead.find({ ...query, isDeleted: false })
+    const leads = await Lead.find(query)
       .populate("property", "projectName location propertyType isDeleted")
       .populate("floorUnit", "floorNumber unitType isDeleted")
       .populate("unit", "plotNo propertyType isDeleted")

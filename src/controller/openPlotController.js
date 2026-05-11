@@ -223,17 +223,9 @@ export const getAllOpenPlots = asyncHandler(async (req, res) => {
     query._id = { $in: openPlotIds };
   }
 
-  const openPlots = await OpenPlot.find(query);
-
-  openPlots.sort((a, b) => {
-    const aDeleted = a?.isDeleted ? 1 : 0;
-    const bDeleted = b?.isDeleted ? 1 : 0;
-
-    if (aDeleted !== bDeleted) {
-      return aDeleted - bDeleted;
-    }
-
-    return b.createdAt - a.createdAt; // secondary sort
+  const openPlots = await OpenPlot.find(query).sort({
+    isDeleted: 1,
+    createdAt: -1,
   });
 
   res.status(200).json(new ApiResponse(200, openPlots));
