@@ -478,6 +478,7 @@ export const deleteBuilding = asyncHandler(async (req, res) => {
 export const getUpcomingBuilding = asyncHandler(async (req, res) => {
   const upcomingProperties = await Building.find({
     constructionStatus: "Planned",
+    isDeleted: false,
   });
 
   if (!upcomingProperties) {
@@ -497,6 +498,7 @@ export const getUpcomingBuilding = asyncHandler(async (req, res) => {
 export const getOngoingBuilding = asyncHandler(async (req, res) => {
   const upcomingProperties = await Building.find({
     constructionStatus: "Under Construction",
+    isDeleted: false,
   });
 
   if (!upcomingProperties) {
@@ -516,6 +518,7 @@ export const getOngoingBuilding = asyncHandler(async (req, res) => {
 export const getCompletedBuilding = asyncHandler(async (req, res) => {
   const upcomingProperties = await Building.find({
     constructionStatus: "Completed",
+    isDeleted: false,
   });
 
   if (!upcomingProperties) {
