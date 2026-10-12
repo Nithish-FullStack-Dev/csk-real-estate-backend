@@ -346,6 +346,10 @@ export const getUserTasks = async (req, res) => {
                 contractorName:
                   contractorMap[taskContractorId]?.name || "Unknown Contractor",
                 status: task.statusForSiteIncharge || "pending verification",
+                contractorStatus: task.statusForContractor || "in_progress",
+
+                siteInchargeStatus:
+                  task.statusForSiteIncharge || "pending verification",
                 submittedByContractorOn: task.submittedByContractorOn || null,
                 submittedBySiteInchargeOn:
                   task.submittedBySiteInchargeOn || null,
@@ -365,6 +369,10 @@ export const getUserTasks = async (req, res) => {
             taskList.push({
               ...commonTaskData,
               status: task.statusForContractor || "in_progress",
+              contractorStatus: task.statusForContractor || "in_progress",
+
+              siteInchargeStatus:
+                task.statusForSiteIncharge || "pending verification",
               progress: task.progressPercentage,
 
               verificationDecision: task.verificationDecision || "",
@@ -377,6 +385,10 @@ export const getUserTasks = async (req, res) => {
             taskList.push({
               ...commonTaskData,
               status: task.statusForContractor || "in_progress",
+              contractorStatus: task.statusForContractor || "in_progress",
+
+              siteInchargeStatus:
+                task.statusForSiteIncharge || "pending verification",
               progress: task.progressPercentage,
               contractorName:
                 contractorMap[taskContractorId]?.name || "Unknown Contractor",
